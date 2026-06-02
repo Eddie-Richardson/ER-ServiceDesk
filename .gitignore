@@ -1,0 +1,207 @@
+# -------------------------------------------------------------------
+# Python bytecode and build artifacts
+# -------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+*.zip
+*.tar.gz
+*.tgz
+
+# -------------------------------------------------------------------
+# Virtual environments
+# -------------------------------------------------------------------
+venv/
+.venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# -------------------------------------------------------------------
+# IDE and editor files
+# -------------------------------------------------------------------
+# JetBrains IDEs (PyCharm, IntelliJ, etc.)
+.idea/
+*.iml
+*.ipr
+*.iws
+shelf/
+
+# VSCode
+.vscode/
+
+# Mac specific
+.DS_Store
+.DS_Store?
+._*
+
+# Other editor temp files
+*.swp
+*.bak
+
+# -------------------------------------------------------------------
+# Packaging and distribution
+# -------------------------------------------------------------------
+.Python
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.manifest
+*.spec
+
+# -------------------------------------------------------------------
+# Installer logs
+# -------------------------------------------------------------------
+pip-log.txt
+pip-delete-this-directory.txt
+
+# -------------------------------------------------------------------
+# Testing and coverage
+# -------------------------------------------------------------------
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# -------------------------------------------------------------------
+# Jupyter notebooks
+# -------------------------------------------------------------------
+.ipynb_checkpoints
+
+# -------------------------------------------------------------------
+# Secrets and environment files
+# -------------------------------------------------------------------
+config.ini
+.env
+.env.local
+.env.dev
+.env.prod
+.flaskenv
+
+# -------------------------------------------------------------------
+# Static analysis / linters
+# -------------------------------------------------------------------
+.flycheck_*.el
+.mypy_cache/
+
+# -------------------------------------------------------------------
+# Build tools
+# -------------------------------------------------------------------
+target/
+
+# -------------------------------------------------------------------
+# OS generated files
+# -------------------------------------------------------------------
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# -------------------------------------------------------------------
+# Data files
+# -------------------------------------------------------------------
+*.db
+*.sqlite
+*.sqlite3
+
+# -------------------------------------------------------------------
+# Model artifacts
+# -------------------------------------------------------------------
+*.pkl
+*.joblib
+*.h5
+*.ckpt
+*.onnx
+ml/models/**
+
+# -------------------------------------------------------------------
+# Generated reports / plots / data
+# -------------------------------------------------------------------
+data/outputs/**
+*.csv
+*.png
+*.jpg
+*.pdf
+
+# -------------------------------------------------------------------
+# Logs
+# -------------------------------------------------------------------
+*.log
+logs/
+
+# -------------------------------------------------------------------
+# Docker
+# -------------------------------------------------------------------
+docker-data/
+postgres-data/
+*.pid
+
+# -------------------------------------------------------------------
+# Migrations
+# -------------------------------------------------------------------
+alembic/versions/
+
+# -------------------------------------------------------------------
+# Frontend (Node, React, Vite, Next.js, Svelte, Vue)
+# -------------------------------------------------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build output
+dist/
+build/
+out/
+.next/
+.nuxt/
+.svelte-kit/
+.vite/
+
+# Frontend caches
+.cache/
+.parcel-cache/
+.next/cache/
+vite.config.ts.timestamp*
+vite.config.js.timestamp*
+
+# Tooling
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
+
+# Local dev server artifacts
+*.local
+*.local.json
+
+# Storybook
+storybook-static/
+.out/

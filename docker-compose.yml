@@ -1,19 +1,35 @@
 # ER-ServiceDesk/docker-compose.yml
 # Docker Compose setup for API, Postgres, Redis, and RQ worker
+#
+# This configuration defines the full local development stack for the
+# ER‑ServiceDesk application. It includes:
+#   - FastAPI application container
+#   - PostgreSQL database
+#   - Redis instance for background jobs
+#   - RQ worker for async task processing
+#
+# Developers can run the entire stack with:
+#     docker-compose up --build
 
 version: "3.9"
 
 services:
+  # -------------------------------------------------------------------------
+  # FastAPI Application
+  # -------------------------------------------------------------------------
   api:
     build: .
     container_name: er_api
     ports:
-      - "8000:8000"
-    env_file: .env
+      - "8000:8000"        # Expose API on localhost:8000
+    env_file: .env         # Load environment variables
     depends_on:
-      - db
-      - redis
+      - db                 # Ensure database starts first
+      - redis              # Ensure Redis is available
 
+  # -------------------------------------------------------------------------
+  # PostgreSQL Database
+  # -------------------------------------------------------------------------
   db:
     image: postgres:15
     container_name: er_postgres
@@ -22,20 +38,29 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: erservicedesk
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data  # Persist database files
 
+  # -------------------------------------------------------------------------
+  # Redis (for RQ queues)
+  # -------------------------------------------------------------------------
   redis:
     image: redis:7
     container_name: er_redis
 
+  # -------------------------------------------------------------------------
+  # RQ Worker
+  # -------------------------------------------------------------------------
   worker:
     build: .
     container_name: er_worker
-    command: ["python", "app/workers/worker.py"]
+    command: ["python", "app/workers/worker.py"]  # Worker entrypoint
     env_file: .env
     depends_on:
       - redis
       - api
 
+# ---------------------------------------------------------------------------
+# Named Volumes
+# ---------------------------------------------------------------------------
 volumes:
   postgres-data:

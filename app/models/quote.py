@@ -8,7 +8,7 @@
 
 from sqlalchemy import Column, Integer, Float, ForeignKey, DateTime, Text
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, UTC
 
 from app.db.base import Base
 
@@ -30,8 +30,20 @@ class Quote(Base):
     # Optional description or breakdown of the quote
     details = Column(Text, nullable=True)
 
-    # Timestamp when the quote was created
-    created_at = Column(DateTime, default=datetime.utcnow)
+    # Timestamp of when the log entry was created
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        nullable=False
+    )
+
+    # Timestamp of when the log entry was last updated
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False
+    )
 
     # Relationship back to the Ticket model
     ticket = relationship("Ticket")

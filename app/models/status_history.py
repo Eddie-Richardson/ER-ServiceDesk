@@ -8,7 +8,7 @@
 
 from sqlalchemy import Column, Integer, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, UTC
 
 from app.db.base import Base
 
@@ -27,7 +27,12 @@ class StatusHistory(Base):
     changed_by = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     # Timestamp of the status change
-    changed_at = Column(DateTime, default=datetime.utcnow)
+    changed_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False
+    )
 
     # Relationships
     ticket = relationship("Ticket", back_populates="status_history")

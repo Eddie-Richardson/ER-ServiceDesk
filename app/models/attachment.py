@@ -8,7 +8,7 @@
 
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, UTC
 
 from app.db.base import Base
 
@@ -31,7 +31,11 @@ class Attachment(Base):
     file_name = Column(String, nullable=False)
 
     # Timestamp when the file was uploaded
-    uploaded_at = Column(DateTime, default=datetime.utcnow)
+    uploaded_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        nullable=False
+    )
 
     # Relationship back to the Ticket model
     ticket = relationship("Ticket")

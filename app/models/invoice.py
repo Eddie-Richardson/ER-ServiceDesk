@@ -8,7 +8,7 @@
 
 from sqlalchemy import Column, Integer, Float, ForeignKey, DateTime, Text, Boolean
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, UTC
 
 from app.db.base import Base
 
@@ -33,8 +33,20 @@ class Invoice(Base):
     # Whether the invoice has been fully paid
     is_paid = Column(Boolean, default=False)
 
-    # Timestamp when the invoice was created
-    created_at = Column(DateTime, default=datetime.utcnow)
+    # Timestamp of when the log entry was created
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        nullable=False
+    )
+
+    # Timestamp of when the log entry was last updated
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False
+    )
 
     # Relationships
     ticket = relationship("Ticket")

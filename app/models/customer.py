@@ -13,7 +13,7 @@
 
 from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, UTC
 
 from app.db.base import Base
 
@@ -29,12 +29,24 @@ class Customer(Base):
     last_name = Column(String, nullable=False)
 
     # Contact information
-    email = Column(String, unique=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=False)
     phone = Column(String, nullable=True)
     address = Column(String, nullable=True)
 
-    # Timestamp for when the customer record was created
-    created_at = Column(DateTime, default=datetime.utcnow)
+    # Timestamp of when the log entry was created
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        nullable=False
+    )
+
+    # Timestamp of when the log entry was last updated
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False
+    )
 
     # Relationships
     devices = relationship("Device", back_populates="customer")

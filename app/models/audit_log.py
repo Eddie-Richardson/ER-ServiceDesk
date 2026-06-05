@@ -7,7 +7,7 @@
 # essential for security reviews, compliance, and debugging.
 
 from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey
-from datetime import datetime
+from datetime import datetime, UTC
 
 from app.db.base import Base
 
@@ -30,4 +30,16 @@ class AuditLog(Base):
     details = Column(Text, nullable=True)
 
     # Timestamp of when the log entry was created
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        nullable=False
+    )
+
+    # Timestamp of when the log entry was last updated
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False
+    )

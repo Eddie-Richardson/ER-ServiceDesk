@@ -8,7 +8,7 @@
 
 from sqlalchemy import Column, Integer, Float, ForeignKey, DateTime, String
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, UTC
 
 from app.db.base import Base
 
@@ -33,8 +33,20 @@ class Payment(Base):
     # Optional external transaction reference (e.g., Stripe/PayPal ID)
     transaction_id = Column(String, nullable=True)
 
-    # Timestamp when the payment was recorded
-    created_at = Column(DateTime, default=datetime.utcnow)
+    # Timestamp of when the log entry was created
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        nullable=False
+    )
+
+    # Timestamp of when the log entry was last updated
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False
+    )
 
     # Relationship back to the Invoice model
     invoice = relationship("Invoice", back_populates="payments")

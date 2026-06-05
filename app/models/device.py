@@ -7,7 +7,7 @@
 
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, UTC
 
 from app.db.base import Base
 
@@ -34,8 +34,20 @@ class Device(Base):
     # Optional serial number for asset tracking
     serial_number = Column(String, nullable=True)
 
-    # Timestamp when the device record was created
-    created_at = Column(DateTime, default=datetime.utcnow)
+    # Timestamp of when the log entry was created
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        nullable=False
+    )
+
+    # Timestamp of when the log entry was last updated
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False
+    )
 
     # Relationships
     customer = relationship("Customer", back_populates="devices")

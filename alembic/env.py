@@ -1,4 +1,4 @@
-# ER-ServiceDesk/alembic/env.py
+# ER-ServiceDesk/alembic_backup/env.py
 # Alembic migration environment configuration
 #
 # This module configures and runs Alembic migrations for the ER‑ServiceDesk project.
@@ -21,10 +21,10 @@ from app.db.base import Base
 # Alembic configuration setup
 # ---------------------------------------------------------------------------
 
-# Alembic Config object (reads alembic.ini and holds migration settings)
+# Alembic Config object (reads alembic_backup.ini and holds migration settings)
 config = context.config
 
-# Configure Python logging using alembic.ini logging settings
+# Configure Python logging using alembic_backup.ini logging settings
 fileConfig(config.config_file_name)
 
 # Inject the actual database URL into Alembic's configuration

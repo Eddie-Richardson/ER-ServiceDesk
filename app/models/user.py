@@ -28,8 +28,9 @@ class User(Base):
     email = Column(String, unique=True, nullable=False, index=True)
     hashed_password = Column(String, nullable=False)
 
-    # Optional profile information
-    full_name = Column(String, nullable=True)
+    # Profile information
+    first_name = Column(String, nullable=False)
+    last_name = Column(String, nullable=False)
 
     # Account status flags
     is_active = Column(Boolean, default=True)
@@ -54,3 +55,8 @@ class User(Base):
     roles = relationship("UserRole", back_populates="user")
     notes = relationship("Note", back_populates="user")
     tickets_assigned = relationship("Ticket", back_populates="assigned_to_user")
+
+    # Computed properties
+    @property
+    def full_name(self):
+        return f"{self.first_name} {self.last_name}"

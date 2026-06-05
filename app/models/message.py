@@ -22,8 +22,8 @@ class Message(Base):
     id = Column(Integer, primary_key=True, index=True)
 
     # Optional links to ticket and customer
-    ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=True)
-    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
+    ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=False)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
 
     # Message direction: "inbound" (from customer) or "outbound" (from agent/system)
     direction = Column(String, nullable=False)

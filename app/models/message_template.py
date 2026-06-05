@@ -22,8 +22,8 @@ class MessageTemplate(Base):
     # Unique template name (e.g., "ticket_created", "password_reset")
     name = Column(String, unique=True, nullable=False)
 
-    # Optional subject line for email-based templates
-    subject = Column(String, nullable=True)
+    # Subject line for email-based templates
+    subject = Column(String, nullable=False)
 
     # Template body (supports full text, placeholders, etc.)
     body = Column(Text, nullable=False)

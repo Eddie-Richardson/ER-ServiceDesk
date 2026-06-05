@@ -24,13 +24,12 @@ class StatusHistory(Base):
     # Foreign keys
     ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=False)
     status_id = Column(Integer, ForeignKey("ticket_statuses.id"), nullable=False)
-    changed_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    changed_by = Column(Integer, ForeignKey("users.id"), nullable=False)
 
     # Timestamp of the status change
     changed_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
         nullable=False
     )
 

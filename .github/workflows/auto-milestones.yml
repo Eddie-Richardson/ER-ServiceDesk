@@ -1,0 +1,66 @@
+name: Auto-Assign Milestones
+
+on:
+  issues:
+    types: [opened, labeled]
+
+jobs:
+  assign:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assign milestone based on labels
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const labels = context.payload.issue.labels.map(l => l.name);
+
+            function has(...names) {
+              return names.some(n => labels.includes(n));
+            }
+
+            let milestone = null;
+
+            // Developer Experience (highest priority)
+            if (has("devex")) {
+              milestone = "Developer Experience";
+            }
+
+            // Testing & QA
+            else if (has("testing")) {
+              milestone = "Testing & QA";
+            }
+
+            // Frontend
+            else if (has("frontend", "ui", "logic")) {
+              milestone = "Frontend";
+            }
+
+            // Backend
+            else if (has("backend", "api", "database", "worker")) {
+              milestone = "Backend";
+            }
+
+            // Infrastructure & DevOps
+            else if (has("devops", "infrastructure", "ci/cd", "security", "logging", "errors")) {
+              milestone = "Infrastructure & DevOps";
+            }
+
+            if (!milestone) return;
+
+            const milestones = await github.rest.issues.listMilestones({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+
+            const target = milestones.data.find(m => m.title === milestone);
+            if (!target) return;
+
+            // Only assign if the issue has no milestone yet
+            if (!context.payload.issue.milestone) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.issue.number,
+                milestone: target.number
+              });
+            }

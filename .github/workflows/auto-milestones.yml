@@ -2,7 +2,7 @@ name: Auto-Assign Milestones
 
 on:
   issues:
-    types: [opened, labeled]
+    types: [opened, edited, labeled, unlabeled]
 
 jobs:
   assign:

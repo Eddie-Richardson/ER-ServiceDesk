@@ -17,6 +17,8 @@ class AuditLogBase(BaseModel):
     user_id: int | None = None
     action: str
     details: str | None = None
+    entity_type: str
+    entity_id: int
 
 
 # ---------------------------------------------------------------------------
@@ -33,6 +35,8 @@ class AuditLogUpdate(BaseModel):
     user_id: int | None = None
     action: str | None = None
     details: str | None = None
+    entity_type: str | None = None
+    entity_id: int | None = None
     updated_at: datetime | None = None
 
 

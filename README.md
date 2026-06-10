@@ -18,13 +18,58 @@ ER-ServiceDesk/
 │   │   ├── session.py
 │   │   ├── base.py
 │   │   ├── init_db.py
+│   │   ├── seed.py
 │   │   └── __init__.py
 │   │
 │   ├── models/
-│   │   └── __init__.py
+│   │   ├── __init__.py
+│   │   ├── attachment.py
+│   │   ├── audit_log.py
+│   │   ├── background_job.py
+│   │   ├── customer.py
+│   │   ├── device.py
+│   │   ├── invoice.py
+│   │   ├── message.py
+│   │   ├── message_template.py
+│   │   ├── note.py
+│   │   ├── payment.py
+│   │   ├── permission.py
+│   │   ├── quote.py
+│   │   ├── role.py
+│   │   ├── role_permission.py
+│   │   ├── status_history.py
+│   │   ├── system_setting.py
+│   │   ├── ticket.py
+│   │   ├── ticket_category.py
+│   │   ├── ticket_status.py
+│   │   ├── ticket_type.py
+│   │   ├── user.py
+│   │   └── user_role.py
 │   │
 │   ├── schemas/
-│   │   └── __init__.py
+│   │   ├── __init__.py
+│   │   ├── attachment.py
+│   │   ├── audit_log.py
+│   │   ├── background_job.py
+│   │   ├── customer.py
+│   │   ├── device.py
+│   │   ├── invoice.py
+│   │   ├── message.py
+│   │   ├── message_template.py
+│   │   ├── note.py
+│   │   ├── payment.py
+│   │   ├── permission.py
+│   │   ├── quote.py
+│   │   ├── role.py
+│   │   ├── role_permission.py
+│   │   ├── status_history.py
+│   │   ├── system_setting.py
+│   │   ├── ticket.py
+│   │   ├── ticket_category.py
+│   │   ├── ticket_status.py
+│   │   ├── ticket_type.py
+│   │   ├── user.py
+│   │   └── user_role.py
 │   │
 │   ├── services/
 │   │   └── __init__.py

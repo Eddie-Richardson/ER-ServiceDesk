@@ -22,6 +22,7 @@ class TicketBase(BaseModel):
     assigned_to: int | None = None
     title: str
     description: str | None = None
+    priority: str
 
 # ---------------------------------------------------------------------------
 # Create Schema (client → server)
@@ -41,6 +42,7 @@ class TicketUpdate(BaseModel):
     assigned_to: int | None = None
     title: str | None = None
     description: str | None = None
+    priority: str | None = None
     updated_at: datetime | None = None
 
 # ---------------------------------------------------------------------------

@@ -29,6 +29,12 @@ class AuditLog(Base):
     # Additional details or context about the action
     details = Column(Text, nullable=True)
 
+    # Type of entity this log entry refers to (e.g., "ticket", "user", "device")
+    entity_type = Column(String, nullable=False, index=True)
+
+    # ID of the specific entity instance affected by the action
+    entity_id = Column(Integer, nullable=False, index=True)
+
     # Timestamp of when the log entry was created
     created_at = Column(
         DateTime(timezone=True),

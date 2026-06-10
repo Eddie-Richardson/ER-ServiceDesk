@@ -31,3 +31,6 @@ class Role(Base):
 
     # Relationship to UserRole association entries
     users = relationship("UserRole", back_populates="role")
+
+    # Relationship to RolePermission association entries
+    role_permissions = relationship("RolePermission", back_populates="role")

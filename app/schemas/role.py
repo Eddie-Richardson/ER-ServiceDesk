@@ -5,9 +5,13 @@
 # These schemas define the fields required for creating, updating,
 # and returning role records within the ER‑ServiceDesk RBAC system.
 # Roles represent authorization groupings and are linked to users
-# through the UserRole association table.
+# through the UserRole association table. Roles are also linked to
+# permissions through the RolePermission association table.
 
 from pydantic import BaseModel
+from typing import List
+
+from app.schemas.role_permission import RolePermission
 
 # ---------------------------------------------------------------------------
 # Base Schema (shared fields)
@@ -34,6 +38,7 @@ class RoleUpdate(BaseModel):
 # ---------------------------------------------------------------------------
 class Role(RoleBase):
     id: int
+    role_permissions: List[RolePermission] = []
 
     class Config:
         orm_mode = True

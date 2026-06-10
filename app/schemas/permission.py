@@ -3,11 +3,14 @@
 # structure data exchanged between the client and server.
 #
 # These schemas define the fields required for creating, updating,
-# and returning permission records within the ER‑ServiceDesk system.
-# Permissions represent individual access capabilities used by the
-# RBAC authorization layer and are typically assigned to roles.
+# and returning permission records within the ER‑ServiceDesk RBAC system.
+# Permissions represent individual capabilities and are linked to roles
+# through the RolePermission association table.
 
 from pydantic import BaseModel
+from typing import List
+
+from app.schemas.role_permission import RolePermission
 
 # ---------------------------------------------------------------------------
 # Base Schema (shared fields)
@@ -34,7 +37,7 @@ class PermissionUpdate(BaseModel):
 # ---------------------------------------------------------------------------
 class Permission(PermissionBase):
     id: int
+    role_permissions: List[RolePermission] = []
 
     class Config:
         orm_mode = True
-

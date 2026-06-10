@@ -12,6 +12,7 @@
 # ---------------------------------------------------------------------------
 
 from sqlalchemy import Column, Integer, String
+from sqlalchemy.orm import relationship
 
 from app.db.base import Base
 
@@ -27,3 +28,6 @@ class Permission(Base):
 
     # Optional human-readable description of what the permission allows
     description = Column(String, nullable=True)
+
+    # Relationship to RolePermission association entries
+    role_permissions = relationship("RolePermission", back_populates="permission")

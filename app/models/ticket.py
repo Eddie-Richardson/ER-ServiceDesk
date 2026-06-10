@@ -34,6 +34,9 @@ class Ticket(Base):
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
 
+    # Ticket priority
+    priority = Column(String, nullable=False, index=True)
+
     # Timestamp of when the log entry was created
     created_at = Column(
         DateTime(timezone=True),

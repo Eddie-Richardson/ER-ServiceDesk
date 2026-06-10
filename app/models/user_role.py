@@ -31,7 +31,7 @@ class UserRole(Base):
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=False)
 
     # Relationship back to the User model
-    user = relationship("User", back_populates="roles")
+    user = relationship("User")
 
     # Relationship back to the Role model
-    role = relationship("Role", back_populates="users")
+    role = relationship("Role")

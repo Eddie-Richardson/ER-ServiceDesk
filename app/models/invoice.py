@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/models/invoice.py
+# ER-ServiceDesk/app/models/invoices.py
 # ORM model for representing invoices generated from support tickets
 #
 # The Invoice model stores billing information tied to support tickets

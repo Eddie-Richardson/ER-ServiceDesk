@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/schemas/user_role.py
+# ER-ServiceDesk/app/schemas/user_roles.py
 # Pydantic schemas for UserRole entities used to validate and
 # structure data exchanged between the client and server.
 #

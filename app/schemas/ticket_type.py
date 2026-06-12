@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/schemas/ticket_type.py
+# ER-ServiceDesk/app/schemas/ticket_types.py
 # Pydantic schemas for TicketType entities used to validate and
 # structure data exchanged between the client and server.
 #

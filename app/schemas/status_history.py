@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/schemas/status_history.py
+# ER-ServiceDesk/app/schemas/status_histories.py
 # Pydantic schemas for StatusHistory entities used to validate and
 # structure data exchanged between the client and server.
 #

@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/models/message_template.py
+# ER-ServiceDesk/app/models/message_templates.py
 # ORM model for reusable message templates
 #
 # The MessageTemplate model stores predefined email or notification

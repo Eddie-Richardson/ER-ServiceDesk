@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/schemas/system_setting.py
+# ER-ServiceDesk/app/schemas/system_settings.py
 # Pydantic schemas for SystemSetting entities used to validate and
 # structure data exchanged between the client and server.
 #

@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/models/system_setting.py
+# ER-ServiceDesk/app/models/system_settings.py
 # ORM model for storing system-wide configuration settings
 #
 # This model represents key/value configuration entries used by the

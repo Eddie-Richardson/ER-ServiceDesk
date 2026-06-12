@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/models/ticket_category.py
+# ER-ServiceDesk/app/models/ticket_categories.py
 # ORM model representing the high‑level grouping of support tickets.
 #
 # The TicketCategory model defines broad organizational buckets such as

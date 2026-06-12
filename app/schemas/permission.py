@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/schemas/permission.py
+# ER-ServiceDesk/app/schemas/permissions.py
 # Pydantic schemas for Permission entities used to validate and
 # structure data exchanged between the client and server.
 #

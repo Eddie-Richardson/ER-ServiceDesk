@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/schemas/device.py
+# ER-ServiceDesk/app/schemas/devices.py
 # Pydantic schemas for Device entities used to validate and
 # structure data exchanged between the client and server.
 #

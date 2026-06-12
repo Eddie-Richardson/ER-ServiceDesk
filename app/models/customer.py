@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/models/customer.py
+# ER-ServiceDesk/app/models/customers.py
 # Customer model for storing client information
 #
 # Represents a customer within the ER‑ServiceDesk system. Customers may own

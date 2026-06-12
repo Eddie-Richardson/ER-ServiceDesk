@@ -12,6 +12,17 @@ from datetime import datetime
 from pydantic import BaseModel
 
 # ---------------------------------------------------------------------------
+# Login Schema (authentication input)
+# ---------------------------------------------------------------------------
+class UserLogin(BaseModel):
+    """
+    Schema for user login requests.
+    Contains the fields required for email‑based authentication.
+    """
+    email: str
+    password: str
+
+# ---------------------------------------------------------------------------
 # Base Schema (shared fields)
 # ---------------------------------------------------------------------------
 class UserBase(BaseModel):
@@ -26,16 +37,24 @@ class UserBase(BaseModel):
 # Create Schema (client → server)
 # ---------------------------------------------------------------------------
 class UserCreate(UserBase):
+    """
+    Schema for creating a new User record.
+    Inherits all required fields from UserBase.
+    """
     pass
 
 # ---------------------------------------------------------------------------
 # Update Schema (partial updates allowed)
 # ---------------------------------------------------------------------------
 class UserUpdate(BaseModel):
+    """
+    Schema for updating an existing User record.
+    All fields are optional to support partial updates.
+    """
     email: str | None = None
     hashed_password: str | None = None
     first_name: str | None = None
-    last_name: str  | None = None
+    last_name: str | None = None
     is_active: bool | None = None
     is_superuser: bool | None = None
     updated_at: datetime | None = None
@@ -44,6 +63,10 @@ class UserUpdate(BaseModel):
 # Response Schema (server → client)
 # ---------------------------------------------------------------------------
 class User(UserBase):
+    """
+    Schema returned to clients when reading User records.
+    Includes ID and timestamp metadata.
+    """
     id: int
     created_at: datetime
     updated_at: datetime

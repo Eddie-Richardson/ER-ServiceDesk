@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/models/ticket_status.py
+# ER-ServiceDesk/app/models/ticket_statuses.py
 # ORM model representing the various statuses a support ticket can have.
 #
 # The TicketStatus model defines the possible states a ticket may be in,

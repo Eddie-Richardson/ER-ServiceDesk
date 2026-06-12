@@ -5,6 +5,7 @@
 # throughout the ER‑ServiceDesk application. It provides the core database
 # connection infrastructure, allowing the rest of the system to create
 # sessions for executing queries and transactions.
+# The engine is configured from environment variables via the settings object.
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -16,6 +17,7 @@ from app.core.config import settings
 # The engine manages the connection to the database. It is created using the
 # DATABASE_URL loaded from environment variables. `future=True` enables the
 # SQLAlchemy 2.0‑style engine behavior.
+
 engine = create_engine(
     settings.DATABASE_URL,
     future=True
@@ -29,8 +31,26 @@ engine = create_engine(
 # - autocommit=False ensures explicit transaction control
 # - autoflush=False prevents automatic flushes before queries
 # - bind=engine attaches the session to the configured database engine
+
 SessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
     bind=engine
 )
+
+# ---------------------------------------------------------------------------
+# Dependency: get_db
+# ---------------------------------------------------------------------------
+# Provides a database session for FastAPI dependency injection.
+# Ensures the session is closed after the request is processed.
+
+def get_db():
+    """
+    Yields a database session for request handling.
+    Ensures the session is properly closed after use.
+    """
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

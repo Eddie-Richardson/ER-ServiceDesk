@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/models/note.py
+# ER-ServiceDesk/app/models/notes.py
 # ORM model for internal and customer-visible notes on support tickets
 #
 # The Note model stores annotations linked to support tickets. Notes may be

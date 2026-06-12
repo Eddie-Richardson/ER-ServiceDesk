@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/models/user_role.py
+# ER-ServiceDesk/app/models/user_roles.py
 # UserRole association model linking users to roles
 #
 # Represents the many‑to‑many relationship between users and roles within the

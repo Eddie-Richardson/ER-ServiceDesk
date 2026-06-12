@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/models/permission.py
+# ER-ServiceDesk/app/models/permissions.py
 # Permission model for defining system access capabilities
 #
 # Represents a permission within the ER‑ServiceDesk authorization system.

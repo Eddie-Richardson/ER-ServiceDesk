@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/schemas/ticket_status.py
+# ER-ServiceDesk/app/schemas/ticket_statuses.py
 # Pydantic schemas for TicketStatus entities used to validate and
 # structure data exchanged between the client and server.
 #

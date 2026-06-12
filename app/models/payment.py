@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/models/payment.py
+# ER-ServiceDesk/app/models/payments.py
 # ORM model for recording invoice payments
 #
 # The Payment model represents financial transactions applied to invoices

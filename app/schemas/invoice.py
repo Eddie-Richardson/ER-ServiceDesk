@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/schemas/invoice.py
+# ER-ServiceDesk/app/schemas/invoices.py
 # Pydantic schemas for Invoice entities used to validate and
 # structure data exchanged between the client and server.
 #

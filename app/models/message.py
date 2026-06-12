@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/models/message.py
+# ER-ServiceDesk/app/models/message_service.py
 # ORM model for storing inbound and outbound ticket messages
 #
 # The Message model represents communication exchanged between customers

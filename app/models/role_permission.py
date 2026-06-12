@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/app/models/role_permission.py
+# ER-ServiceDesk/app/app/models/role_permissions.py
 # Role ↔ Permission join table
 #
 # This model represents the many-to-many relationship between roles

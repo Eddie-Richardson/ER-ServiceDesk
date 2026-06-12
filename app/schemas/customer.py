@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/schemas/customer.py
+# ER-ServiceDesk/app/schemas/customers.py
 # Pydantic schemas for Customer entities used to validate and
 # structure data exchanged between the client and server.
 #

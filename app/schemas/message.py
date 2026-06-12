@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/schemas/message.py
+# ER-ServiceDesk/app/schemas/message_service.py
 # Pydantic schemas for Message entities used to validate and
 # structure data exchanged between the client and server.
 #

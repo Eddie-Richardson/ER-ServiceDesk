@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/models/ticket_type.py
+# ER-ServiceDesk/app/models/ticket_types.py
 # ORM model representing the different categories or classifications of support tickets.
 #
 # The TicketType model defines how tickets are grouped, such as "Bug Report",

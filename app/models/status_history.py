@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/models/status_history.py
+# ER-ServiceDesk/app/models/status_histories.py
 # ORM model for tracking changes to a ticket's status over time
 #
 # The StatusHistory model records every status transition a ticket goes

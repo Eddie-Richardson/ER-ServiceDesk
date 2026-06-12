@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/schemas/quote.py
+# ER-ServiceDesk/app/schemas/quotes.py
 # Pydantic schemas for Quote entities used to validate and
 # structure data exchanged between the client and server.
 #

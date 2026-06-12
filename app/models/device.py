@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/models/device.py
+# ER-ServiceDesk/app/models/devices.py
 # ORM model representing customer‑owned devices associated with support tickets.
 #
 # The Device model stores hardware information such as type, brand, model,

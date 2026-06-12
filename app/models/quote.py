@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/models/quote.py
+# ER-ServiceDesk/app/models/quotes.py
 # ORM model for representing service quotes generated from support tickets
 #
 # The Quote model stores estimated pricing information tied to support

@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/schemas/payment.py
+# ER-ServiceDesk/app/schemas/payments.py
 # Pydantic schemas for Payment entities used to validate and
 # structure data exchanged between the client and server.
 #

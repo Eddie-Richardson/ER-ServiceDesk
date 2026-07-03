@@ -1,37 +1,57 @@
 # ER-ServiceDesk/app/crud/payment.py
 # CRUD operations for the Payment model.
-#
-# Provides database access for creating, reading, updating, and deleting Payment records.
-# Used by the service layer to perform data operations.
-# Contains no business logic; only direct database interaction.
+"""
+Database access layer for a payment applied against an invoice.
 
-# ---------------------------------------------------------------------------
-# CRUD Operations
-# ---------------------------------------------------------------------------
+Talks directly to the database via SQLAlchemy. Contains no business logic --
+callers (the service layer) are responsible for that. Kept intentionally
+"dumb" so it stays simple to test and reuse.
+"""
 
 from sqlalchemy.orm import Session
 from app.models.payment import Payment
 from app.schemas.payment import PaymentCreate, PaymentUpdate
 
 class PaymentCRUD:
-    # Retrieves a single Payment by ID.
+    """Direct database access for Payment records."""
+
     def get(self, db: Session, id: int) -> Payment | None:
         """
-        Returns a single Payment instance matching the given ID.
+        Fetch a single Payment by primary key.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to fetch.
+
+        Returns:
+            The matching Payment instance, or None if no record exists.
         """
         return db.query(Payment).filter(Payment.id == id).first()
 
-    # Retrieves multiple Payment records.
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
         """
-        Returns a list of Payment records with pagination support.
+        Fetch multiple Payment records with simple offset pagination.
+
+        Args:
+            db: Active database session.
+            skip: Number of records to skip.
+            limit: Maximum number of records to return.
+
+        Returns:
+            A list of Payment instances.
         """
         return db.query(Payment).offset(skip).limit(limit).all()
 
-    # Creates a new Payment record.
     def create(self, db: Session, obj_in: PaymentCreate) -> Payment:
         """
-        Creates a new Payment using the provided input schema.
+        Insert a new Payment record.
+
+        Args:
+            db: Active database session.
+            obj_in: Validated input data for the new record.
+
+        Returns:
+            The newly created, refreshed Payment instance.
         """
         obj = Payment(**obj_in.dict())
         db.add(obj)
@@ -39,10 +59,17 @@ class PaymentCRUD:
         db.refresh(obj)
         return obj
 
-    # Updates an existing Payment record.
     def update(self, db: Session, db_obj: Payment, obj_in: PaymentUpdate) -> Payment:
         """
-        Updates the given Payment instance with new values.
+        Apply a partial update to an existing Payment record.
+
+        Args:
+            db: Active database session.
+            db_obj: The existing Payment instance to update.
+            obj_in: Fields to change; unset fields are left untouched.
+
+        Returns:
+            The updated, refreshed Payment instance.
         """
         for field, value in obj_in.dict(exclude_unset=True).items():
             setattr(db_obj, field, value)
@@ -50,10 +77,13 @@ class PaymentCRUD:
         db.refresh(db_obj)
         return db_obj
 
-    # Deletes a Payment record by ID.
     def delete(self, db: Session, id: int) -> None:
         """
-        Deletes the Payment instance matching the given ID.
+        Delete a Payment record by primary key, if it exists.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to delete.
         """
         obj = db.query(Payment).filter(Payment.id == id).first()
         if obj:

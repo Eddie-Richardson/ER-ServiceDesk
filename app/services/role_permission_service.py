@@ -1,52 +1,82 @@
 # ER-ServiceDesk/app/services/role_permission_service.py
 # Service layer for RolePermission.
-#
-# Provides business logic for RolePermission operations.
-# Coordinates CRUD operations and applies system rules.
-# Contains no API routing; used by route handlers.
+"""
+Business logic for the many-to-many link between roles and permissions.
 
-# ---------------------------------------------------------------------------
-# Service Logic
-# ---------------------------------------------------------------------------
+Coordinates CRUD operations and is where entity-specific rules should live
+as they're added. Route handlers call into this layer rather than the CRUD
+layer directly, so business rules stay in one place.
+"""
 
 from sqlalchemy.orm import Session
 from app.crud.role_permission import crud_role_permission
 from app.schemas.role_permission import RolePermissionCreate, RolePermissionUpdate
 
 class RolePermissionService:
-    # Retrieves a single RolePermission by ID.
+    """Business logic for RolePermission operations."""
+
     def get(self, db: Session, id: int):
         """
-        Returns a single RolePermission instance.
+        Fetch a single RolePermission by ID.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to fetch.
+
+        Returns:
+            The matching RolePermission instance, or None if not found.
         """
         return crud_role_permission.get(db, id)
 
-    # Retrieves multiple RolePermission records.
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
         """
-        Returns a list of RolePermission records.
+        Fetch a page of RolePermission records.
+
+        Args:
+            db: Active database session.
+            skip: Number of records to skip.
+            limit: Maximum number of records to return.
+
+        Returns:
+            A list of RolePermission instances.
         """
         return crud_role_permission.get_multi(db, skip, limit)
 
-    # Creates a new RolePermission.
     def create(self, db: Session, obj_in: RolePermissionCreate):
         """
-        Creates a new RolePermission using validated input data.
+        Create a new RolePermission using validated input data.
+
+        Args:
+            db: Active database session.
+            obj_in: Validated input data for the new record.
+
+        Returns:
+            The newly created RolePermission instance.
         """
         return crud_role_permission.create(db, obj_in)
 
-    # Updates an existing RolePermission.
     def update(self, db: Session, id: int, obj_in: RolePermissionUpdate):
         """
-        Updates an existing RolePermission using validated input data.
+        Update an existing RolePermission using validated input data.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to update.
+            obj_in: Fields to change; unset fields are left untouched.
+
+        Returns:
+            The updated RolePermission instance.
         """
         db_obj = crud_role_permission.get(db, id)
         return crud_role_permission.update(db, db_obj, obj_in)
 
-    # Deletes a RolePermission by ID.
     def delete(self, db: Session, id: int):
         """
-        Deletes a RolePermission instance.
+        Delete a RolePermission by ID.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to delete.
         """
         return crud_role_permission.delete(db, id)
 

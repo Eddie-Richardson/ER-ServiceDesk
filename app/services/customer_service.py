@@ -1,52 +1,82 @@
 # ER-ServiceDesk/app/services/customer_service.py
 # Service layer for Customer.
-#
-# Provides business logic for Customer operations.
-# Coordinates CRUD operations and applies system rules.
-# Contains no API routing; used by route handlers.
+"""
+Business logic for a client of the repair shop.
 
-# ---------------------------------------------------------------------------
-# Service Logic
-# ---------------------------------------------------------------------------
+Coordinates CRUD operations and is where entity-specific rules should live
+as they're added. Route handlers call into this layer rather than the CRUD
+layer directly, so business rules stay in one place.
+"""
 
 from sqlalchemy.orm import Session
 from app.crud.customer import crud_customer
 from app.schemas.customer import CustomerCreate, CustomerUpdate
 
 class CustomerService:
-    # Retrieves a single Customer by ID.
+    """Business logic for Customer operations."""
+
     def get(self, db: Session, id: int):
         """
-        Returns a single Customer instance.
+        Fetch a single Customer by ID.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to fetch.
+
+        Returns:
+            The matching Customer instance, or None if not found.
         """
         return crud_customer.get(db, id)
 
-    # Retrieves multiple Customer records.
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
         """
-        Returns a list of Customer records.
+        Fetch a page of Customer records.
+
+        Args:
+            db: Active database session.
+            skip: Number of records to skip.
+            limit: Maximum number of records to return.
+
+        Returns:
+            A list of Customer instances.
         """
         return crud_customer.get_multi(db, skip, limit)
 
-    # Creates a new Customer.
     def create(self, db: Session, obj_in: CustomerCreate):
         """
-        Creates a new Customer using validated input data.
+        Create a new Customer using validated input data.
+
+        Args:
+            db: Active database session.
+            obj_in: Validated input data for the new record.
+
+        Returns:
+            The newly created Customer instance.
         """
         return crud_customer.create(db, obj_in)
 
-    # Updates an existing Customer.
     def update(self, db: Session, id: int, obj_in: CustomerUpdate):
         """
-        Updates an existing Customer using validated input data.
+        Update an existing Customer using validated input data.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to update.
+            obj_in: Fields to change; unset fields are left untouched.
+
+        Returns:
+            The updated Customer instance.
         """
         db_obj = crud_customer.get(db, id)
         return crud_customer.update(db, db_obj, obj_in)
 
-    # Deletes a Customer by ID.
     def delete(self, db: Session, id: int):
         """
-        Deletes a Customer instance.
+        Delete a Customer by ID.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to delete.
         """
         return crud_customer.delete(db, id)
 

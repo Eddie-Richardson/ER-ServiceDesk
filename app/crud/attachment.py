@@ -1,7 +1,7 @@
-# ER-ServiceDesk/app/crud/role.py
-# CRUD operations for the Role model.
+# ER-ServiceDesk/app/crud/attachment.py
+# CRUD operations for the Attachment model.
 """
-Database access layer for an authorization grouping assigned to users.
+Database access layer for a file uploaded and linked to a support ticket.
 
 Talks directly to the database via SQLAlchemy. Contains no business logic --
 callers (the service layer) are responsible for that. Kept intentionally
@@ -9,28 +9,28 @@ callers (the service layer) are responsible for that. Kept intentionally
 """
 
 from sqlalchemy.orm import Session
-from app.models.role import Role
-from app.schemas.role import RoleCreate, RoleUpdate
+from app.models.attachment import Attachment
+from app.schemas.attachment import AttachmentCreate, AttachmentUpdate
 
-class RoleCRUD:
-    """Direct database access for Role records."""
+class AttachmentCRUD:
+    """Direct database access for Attachment records."""
 
-    def get(self, db: Session, id: int) -> Role | None:
+    def get(self, db: Session, id: int) -> Attachment | None:
         """
-        Fetch a single Role by primary key.
+        Fetch a single Attachment by primary key.
 
         Args:
             db: Active database session.
             id: Primary key of the record to fetch.
 
         Returns:
-            The matching Role instance, or None if no record exists.
+            The matching Attachment instance, or None if no record exists.
         """
-        return db.query(Role).filter(Role.id == id).first()
+        return db.query(Attachment).filter(Attachment.id == id).first()
 
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
         """
-        Fetch multiple Role records with simple offset pagination.
+        Fetch multiple Attachment records with simple offset pagination.
 
         Args:
             db: Active database session.
@@ -38,38 +38,38 @@ class RoleCRUD:
             limit: Maximum number of records to return.
 
         Returns:
-            A list of Role instances.
+            A list of Attachment instances.
         """
-        return db.query(Role).offset(skip).limit(limit).all()
+        return db.query(Attachment).offset(skip).limit(limit).all()
 
-    def create(self, db: Session, obj_in: RoleCreate) -> Role:
+    def create(self, db: Session, obj_in: AttachmentCreate) -> Attachment:
         """
-        Insert a new Role record.
+        Insert a new Attachment record.
 
         Args:
             db: Active database session.
             obj_in: Validated input data for the new record.
 
         Returns:
-            The newly created, refreshed Role instance.
+            The newly created, refreshed Attachment instance.
         """
-        obj = Role(**obj_in.dict())
+        obj = Attachment(**obj_in.dict())
         db.add(obj)
         db.commit()
         db.refresh(obj)
         return obj
 
-    def update(self, db: Session, db_obj: Role, obj_in: RoleUpdate) -> Role:
+    def update(self, db: Session, db_obj: Attachment, obj_in: AttachmentUpdate) -> Attachment:
         """
-        Apply a partial update to an existing Role record.
+        Apply a partial update to an existing Attachment record.
 
         Args:
             db: Active database session.
-            db_obj: The existing Role instance to update.
+            db_obj: The existing Attachment instance to update.
             obj_in: Fields to change; unset fields are left untouched.
 
         Returns:
-            The updated, refreshed Role instance.
+            The updated, refreshed Attachment instance.
         """
         for field, value in obj_in.dict(exclude_unset=True).items():
             setattr(db_obj, field, value)
@@ -79,15 +79,15 @@ class RoleCRUD:
 
     def delete(self, db: Session, id: int) -> None:
         """
-        Delete a Role record by primary key, if it exists.
+        Delete a Attachment record by primary key, if it exists.
 
         Args:
             db: Active database session.
             id: Primary key of the record to delete.
         """
-        obj = db.query(Role).filter(Role.id == id).first()
+        obj = db.query(Attachment).filter(Attachment.id == id).first()
         if obj:
             db.delete(obj)
             db.commit()
 
-crud_role = RoleCRUD()
+crud_attachment = AttachmentCRUD()

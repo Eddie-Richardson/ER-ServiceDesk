@@ -1,51 +1,33 @@
 # ER-ServiceDesk/app/models/audit_log.py
-# ORM model for recording user actions and system events
-#
-# The AuditLog model stores a historical record of actions performed within
-# the ER‑ServiceDesk application. This includes user‑initiated actions,
-# automated system events, and administrative operations. Audit logs are
-# essential for security reviews, compliance, and debugging.
+# ORM model for a record of a user action or system event, for security review and compliance
+"""
+ORM model for a record of a user action or system event, for security review and compliance.
+"""
 
 from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey
 from datetime import datetime, UTC
-
 from app.db.base import Base
 
-# ---------------------------------------------------------------------------
-# AuditLog Model
-# ---------------------------------------------------------------------------
 class AuditLog(Base):
+    """
+    Represents a single logged action taken by a user or the system, tied to the entity it affected.
+
+    Attributes:
+        id: Primary key.
+        user_id: The user who performed the action, if any.
+        action: Short label for the action (e.g. 'login', 'update_ticket').
+        details: Additional free-text context about the action.
+        entity_type: The kind of entity affected (e.g. 'ticket', 'user').
+        entity_id: The ID of the specific entity instance affected.
+        created_at: Timestamp the record was created.
+        updated_at: Timestamp the record was last updated.
+    """
     __tablename__ = "audit_logs"
-
-    # Primary key
     id = Column(Integer, primary_key=True, index=True)
-
-    # Optional reference to the user who performed the action
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-
-    # Short description of the action (e.g., "login", "update_ticket")
     action = Column(String, nullable=False)
-
-    # Additional details or context about the action
     details = Column(Text, nullable=True)
-
-    # Type of entity this log entry refers to (e.g., "ticket", "user", "device")
     entity_type = Column(String, nullable=False, index=True)
-
-    # ID of the specific entity instance affected by the action
     entity_id = Column(Integer, nullable=False, index=True)
-
-    # Timestamp of when the log entry was created
-    created_at = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        nullable=False
-    )
-
-    # Timestamp of when the log entry was last updated
-    updated_at = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
-        nullable=False
-    )
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)

@@ -1,52 +1,82 @@
 # ER-ServiceDesk/app/services/device_service.py
 # Service layer for Device.
-#
-# Provides business logic for Device operations.
-# Coordinates CRUD operations and applies system rules.
-# Contains no API routing; used by route handlers.
+"""
+Business logic for a customer-owned device brought in for service.
 
-# ---------------------------------------------------------------------------
-# Service Logic
-# ---------------------------------------------------------------------------
+Coordinates CRUD operations and is where entity-specific rules should live
+as they're added. Route handlers call into this layer rather than the CRUD
+layer directly, so business rules stay in one place.
+"""
 
 from sqlalchemy.orm import Session
 from app.crud.device import crud_device
 from app.schemas.device import DeviceCreate, DeviceUpdate
 
 class DeviceService:
-    # Retrieves a single Device by ID.
+    """Business logic for Device operations."""
+
     def get(self, db: Session, id: int):
         """
-        Returns a single Device instance.
+        Fetch a single Device by ID.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to fetch.
+
+        Returns:
+            The matching Device instance, or None if not found.
         """
         return crud_device.get(db, id)
 
-    # Retrieves multiple Device records.
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
         """
-        Returns a list of Device records.
+        Fetch a page of Device records.
+
+        Args:
+            db: Active database session.
+            skip: Number of records to skip.
+            limit: Maximum number of records to return.
+
+        Returns:
+            A list of Device instances.
         """
         return crud_device.get_multi(db, skip, limit)
 
-    # Creates a new Device.
     def create(self, db: Session, obj_in: DeviceCreate):
         """
-        Creates a new Device using validated input data.
+        Create a new Device using validated input data.
+
+        Args:
+            db: Active database session.
+            obj_in: Validated input data for the new record.
+
+        Returns:
+            The newly created Device instance.
         """
         return crud_device.create(db, obj_in)
 
-    # Updates an existing Device.
     def update(self, db: Session, id: int, obj_in: DeviceUpdate):
         """
-        Updates an existing Device using validated input data.
+        Update an existing Device using validated input data.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to update.
+            obj_in: Fields to change; unset fields are left untouched.
+
+        Returns:
+            The updated Device instance.
         """
         db_obj = crud_device.get(db, id)
         return crud_device.update(db, db_obj, obj_in)
 
-    # Deletes a Device by ID.
     def delete(self, db: Session, id: int):
         """
-        Deletes a Device instance.
+        Delete a Device by ID.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to delete.
         """
         return crud_device.delete(db, id)
 

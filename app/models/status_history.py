@@ -1,39 +1,31 @@
-# ER-ServiceDesk/app/models/status_histories.py
-# ORM model for tracking changes to a ticket's status over time
-#
-# The StatusHistory model records every status transition a ticket goes
-# through in the ER‑ServiceDesk system. Each entry captures the new status,
-# who changed it, and when the change occurred. This provides a complete
-# audit trail for ticket lifecycle analysis and compliance.
+# ER-ServiceDesk/app/models/status_history.py
+# ORM model for an audit trail entry for a ticket status transition
+"""
+ORM model for an audit trail entry for a ticket status transition.
+"""
 
 from sqlalchemy import Column, Integer, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from datetime import datetime, UTC
-
 from app.db.base import Base
 
-# ---------------------------------------------------------------------------
-# StatusHistory Model
-# ---------------------------------------------------------------------------
 class StatusHistory(Base):
+    """
+    Represents a single status change on a ticket: what it changed to, who changed it, and when.
+
+    Attributes:
+        id: Primary key.
+        ticket_id: The ticket whose status changed.
+        status_id: The new status.
+        changed_by: The user who made the change.
+        changed_at: Timestamp of the status change.
+    """
     __tablename__ = "status_history"
-
-    # Primary key
     id = Column(Integer, primary_key=True, index=True)
-
-    # Foreign keys
     ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=False)
     status_id = Column(Integer, ForeignKey("ticket_statuses.id"), nullable=False)
     changed_by = Column(Integer, ForeignKey("users.id"), nullable=False)
-
-    # Timestamp of the status change
-    changed_at = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        nullable=False
-    )
-
-    # Relationships
+    changed_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
     ticket = relationship("Ticket", back_populates="status_history")
     status = relationship("TicketStatus", back_populates="history")
     user = relationship("User")

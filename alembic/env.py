@@ -1,9 +1,10 @@
-# ER-ServiceDesk/alembic_backup/env.py
+# ER-ServiceDesk/alembic/env.py
 # Alembic migration environment configuration.
-#
-# This file initializes Alembic for the ER‑ServiceDesk project. It loads the
-# database settings, configures logging, imports the SQLAlchemy models so their
-# metadata is available, and runs migrations in either offline or online mode.
+"""
+Initializes Alembic for this project: loads DB settings, imports every
+model (via app.models) so its metadata is registered, and runs migrations
+in either offline or online mode.
+"""
 
 from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
@@ -13,16 +14,15 @@ from app.core.config import settings
 from app.db.base import Base
 import app.models
 
-# Alembic configuration
 config = context.config
 fileConfig(config.config_file_name)
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
-# SQLAlchemy metadata used for autogeneration
 target_metadata = Base.metadata
 
 
 def run_migrations_offline():
+    """Run migrations without a live DB connection, emitting SQL as text."""
     context.configure(
         url=settings.DATABASE_URL,
         target_metadata=target_metadata,
@@ -33,12 +33,12 @@ def run_migrations_offline():
 
 
 def run_migrations_online():
+    """Run migrations against a live DB connection."""
     connectable = engine_from_config(
         config.get_section(config.config_ini_section),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
-
     with connectable.connect() as connection:
         context.configure(
             connection=connection,

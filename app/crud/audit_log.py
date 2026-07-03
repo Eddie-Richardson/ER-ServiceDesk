@@ -1,37 +1,57 @@
 # ER-ServiceDesk/app/crud/audit_log.py
 # CRUD operations for the AuditLog model.
-#
-# Provides database access for creating, reading, updating, and deleting AuditLog records.
-# Used by the service layer to perform data operations.
-# Contains no business logic; only direct database interaction.
+"""
+Database access layer for a record of a user action or system event, for security review and compliance.
 
-# ---------------------------------------------------------------------------
-# CRUD Operations
-# ---------------------------------------------------------------------------
+Talks directly to the database via SQLAlchemy. Contains no business logic --
+callers (the service layer) are responsible for that. Kept intentionally
+"dumb" so it stays simple to test and reuse.
+"""
 
 from sqlalchemy.orm import Session
 from app.models.audit_log import AuditLog
 from app.schemas.audit_log import AuditLogCreate, AuditLogUpdate
 
 class AuditLogCRUD:
-    # Retrieves a single AuditLog by ID.
+    """Direct database access for AuditLog records."""
+
     def get(self, db: Session, id: int) -> AuditLog | None:
         """
-        Returns a single AuditLog instance matching the given ID.
+        Fetch a single AuditLog by primary key.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to fetch.
+
+        Returns:
+            The matching AuditLog instance, or None if no record exists.
         """
         return db.query(AuditLog).filter(AuditLog.id == id).first()
 
-    # Retrieves multiple AuditLog records.
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
         """
-        Returns a list of AuditLog records with pagination support.
+        Fetch multiple AuditLog records with simple offset pagination.
+
+        Args:
+            db: Active database session.
+            skip: Number of records to skip.
+            limit: Maximum number of records to return.
+
+        Returns:
+            A list of AuditLog instances.
         """
         return db.query(AuditLog).offset(skip).limit(limit).all()
 
-    # Creates a new AuditLog record.
     def create(self, db: Session, obj_in: AuditLogCreate) -> AuditLog:
         """
-        Creates a new AuditLog using the provided input schema.
+        Insert a new AuditLog record.
+
+        Args:
+            db: Active database session.
+            obj_in: Validated input data for the new record.
+
+        Returns:
+            The newly created, refreshed AuditLog instance.
         """
         obj = AuditLog(**obj_in.dict())
         db.add(obj)
@@ -39,10 +59,17 @@ class AuditLogCRUD:
         db.refresh(obj)
         return obj
 
-    # Updates an existing AuditLog record.
     def update(self, db: Session, db_obj: AuditLog, obj_in: AuditLogUpdate) -> AuditLog:
         """
-        Updates the given AuditLog instance with new values.
+        Apply a partial update to an existing AuditLog record.
+
+        Args:
+            db: Active database session.
+            db_obj: The existing AuditLog instance to update.
+            obj_in: Fields to change; unset fields are left untouched.
+
+        Returns:
+            The updated, refreshed AuditLog instance.
         """
         for field, value in obj_in.dict(exclude_unset=True).items():
             setattr(db_obj, field, value)
@@ -50,10 +77,13 @@ class AuditLogCRUD:
         db.refresh(db_obj)
         return db_obj
 
-    # Deletes an AuditLog record by ID.
     def delete(self, db: Session, id: int) -> None:
         """
-        Deletes the AuditLog instance matching the given ID.
+        Delete a AuditLog record by primary key, if it exists.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to delete.
         """
         obj = db.query(AuditLog).filter(AuditLog.id == id).first()
         if obj:

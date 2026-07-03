@@ -1,13 +1,11 @@
-# ER-ServiceDesk/app/routes/ticket_categories.py
+# ER-ServiceDesk/app/routes/ticket_categorys.py
 # API routes for TicketCategory operations.
-#
-# Exposes REST endpoints for interacting with TicketCategory records.
-# Uses the service layer to perform business logic.
-# Defines request/response schemas and HTTP method handlers.
+"""
+REST endpoints for a high-level grouping used to organize tickets.
 
-# ---------------------------------------------------------------------------
-# Route Handlers
-# ---------------------------------------------------------------------------
+Thin HTTP layer: validates the request via the schema layer and delegates
+all real work to the service layer.
+"""
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -18,36 +16,68 @@ from app.schemas.ticket_category import TicketCategory, TicketCategoryCreate, Ti
 router = APIRouter(prefix="/ticket_categories", tags=["ticket_categories"])
 
 @router.get("/", response_model=list[TicketCategory])
-def list_ticket_categories(db: Session = Depends(get_db)):
+def list_ticket_categorys(db: Session = Depends(get_db)):
     """
-    Returns a list of TicketCategory records.
+    List a high-level grouping used to organize tickets, paginated.
+
+    Args:
+        db: Injected database session.
+
+    Returns:
+        A list of TicketCategory records.
     """
     return ticket_category_service.get_multi(db)
 
 @router.get("/{id}", response_model=TicketCategory)
 def get_ticket_category(id: int, db: Session = Depends(get_db)):
     """
-    Returns a single TicketCategory record by ID.
+    Fetch a single TicketCategory record by ID.
+
+    Args:
+        id: Primary key of the record to fetch.
+        db: Injected database session.
+
+    Returns:
+        The matching TicketCategory record.
     """
     return ticket_category_service.get(db, id)
 
 @router.post("/", response_model=TicketCategory)
 def create_ticket_category(obj_in: TicketCategoryCreate, db: Session = Depends(get_db)):
     """
-    Creates a new TicketCategory record.
+    Create a new TicketCategory record.
+
+    Args:
+        obj_in: Validated request body for the new record.
+        db: Injected database session.
+
+    Returns:
+        The newly created TicketCategory record.
     """
     return ticket_category_service.create(db, obj_in)
 
 @router.put("/{id}", response_model=TicketCategory)
 def update_ticket_category(id: int, obj_in: TicketCategoryUpdate, db: Session = Depends(get_db)):
     """
-    Updates an existing TicketCategory record.
+    Update an existing TicketCategory record.
+
+    Args:
+        id: Primary key of the record to update.
+        obj_in: Fields to change; unset fields are left untouched.
+        db: Injected database session.
+
+    Returns:
+        The updated TicketCategory record.
     """
     return ticket_category_service.update(db, id, obj_in)
 
 @router.delete("/{id}")
 def delete_ticket_category(id: int, db: Session = Depends(get_db)):
     """
-    Deletes a TicketCategory record by ID.
+    Delete a TicketCategory record by ID.
+
+    Args:
+        id: Primary key of the record to delete.
+        db: Injected database session.
     """
     return ticket_category_service.delete(db, id)

@@ -1,33 +1,24 @@
-# ER-ServiceDesk/app/models/permissions.py
-# Permission model for defining system access capabilities
-#
-# Represents a permission within the ER‑ServiceDesk authorization system.
-# Permissions define specific capabilities or actions that users or roles
-# may be granted. This model is used by the RBAC (Role-Based Access Control)
-# system to determine what operations are allowed within the application.
-# Permissions are typically assigned to roles, which are then assigned to users.
-
-# ---------------------------------------------------------------------------
-# Permission Model
-# ---------------------------------------------------------------------------
+# ER-ServiceDesk/app/models/permission.py
+# ORM model for a single grantable capability in the RBAC system
+"""
+ORM model for a single grantable capability in the RBAC system.
+"""
 
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
-
 from app.db.base import Base
 
-
 class Permission(Base):
+    """
+    Represents one capability (e.g. 'ticket.create') that can be assigned to roles.
+
+    Attributes:
+        id: Primary key.
+        name: Unique permission identifier (e.g. 'view_reports').
+        description: Optional human-readable explanation of what this permission allows.
+    """
     __tablename__ = "permissions"
-
-    # Unique identifier for the permission
     id = Column(Integer, primary_key=True, index=True)
-
-    # Name of the permission (e.g., "create_ticket", "view_reports")
     name = Column(String, unique=True, nullable=False)
-
-    # Optional human-readable description of what the permission allows
     description = Column(String, nullable=True)
-
-    # Relationship to RolePermission association entries
     role_permissions = relationship("RolePermission", back_populates="permission")

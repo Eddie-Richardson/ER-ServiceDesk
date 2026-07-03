@@ -1,39 +1,27 @@
-# ER-ServiceDesk/app/schemas/ticket_categories.py
-# Pydantic schemas for TicketCategory entities used to validate and
-# structure data exchanged between the client and server.
-#
-# These schemas define the fields required for creating, updating,
-# and returning ticket category records within the ER‑ServiceDesk system.
-# Categories represent high‑level groupings used to organize and route
-# support tickets across teams and workflows.
+# ER-ServiceDesk/app/schemas/ticket_category.py
+# Pydantic schemas for TicketCategory entities used to validate and structure a high-level grouping used to organize tickets
+"""
+Pydantic schemas for TicketCategory entities used to validate and structure a high-level grouping used to organize tickets.
+"""
 
 from pydantic import BaseModel
 
-# ---------------------------------------------------------------------------
-# Base Schema (shared fields)
-# ---------------------------------------------------------------------------
 class TicketCategoryBase(BaseModel):
+    """Shared fields for TicketCategory across create/read/update."""
     name: str
     description: str | None = None
 
-# ---------------------------------------------------------------------------
-# Create Schema (client → server)
-# ---------------------------------------------------------------------------
 class TicketCategoryCreate(TicketCategoryBase):
+    """Schema for creating a new TicketCategory record (client -> server)."""
     pass
 
-# ---------------------------------------------------------------------------
-# Update Schema (partial updates allowed)
-# ---------------------------------------------------------------------------
 class TicketCategoryUpdate(BaseModel):
+    """Schema for partially updating an existing TicketCategory record. All fields optional."""
     name: str | None = None
     description: str | None = None
 
-# ---------------------------------------------------------------------------
-# Response Schema (server → client)
-# ---------------------------------------------------------------------------
 class TicketCategory(TicketCategoryBase):
+    """Schema returned to the client for a TicketCategory record (server -> client)."""
     id: int
-
     class Config:
         orm_mode = True

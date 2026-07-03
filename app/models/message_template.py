@@ -1,29 +1,24 @@
-# ER-ServiceDesk/app/models/message_templates.py
-# ORM model for reusable message templates
-#
-# The MessageTemplate model stores predefined email or notification
-# templates used throughout the ER‑ServiceDesk system. These templates
-# allow administrators to manage standardized communication formats
-# without modifying application code.
+# ER-ServiceDesk/app/models/message_template.py
+# ORM model for a reusable template for outbound emails/notifications
+"""
+ORM model for a reusable template for outbound emails/notifications.
+"""
 
 from sqlalchemy import Column, Integer, String, Text
-
 from app.db.base import Base
 
-# ---------------------------------------------------------------------------
-# MessageTemplate Model
-# ---------------------------------------------------------------------------
 class MessageTemplate(Base):
+    """
+    Represents a predefined subject/body pair used for standardized customer communication.
+
+    Attributes:
+        id: Primary key.
+        name: Unique template identifier (e.g. 'ticket_created').
+        subject: Email subject line for this template.
+        body: Template body, may contain placeholders.
+    """
     __tablename__ = "message_templates"
-
-    # Primary key
     id = Column(Integer, primary_key=True, index=True)
-
-    # Unique template name (e.g., "ticket_created", "password_reset")
     name = Column(String, unique=True, nullable=False)
-
-    # Subject line for email-based templates
     subject = Column(String, nullable=False)
-
-    # Template body (supports full text, placeholders, etc.)
     body = Column(Text, nullable=False)

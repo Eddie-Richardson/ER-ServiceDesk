@@ -1,52 +1,82 @@
 # ER-ServiceDesk/app/services/background_job_service.py
 # Service layer for BackgroundJob.
-#
-# Provides business logic for BackgroundJob operations.
-# Coordinates CRUD operations and applies system rules.
-# Contains no API routing; used by route handlers.
+"""
+Business logic for an asynchronous job tracked for the RQ worker system.
 
-# ---------------------------------------------------------------------------
-# Service Logic
-# ---------------------------------------------------------------------------
+Coordinates CRUD operations and is where entity-specific rules should live
+as they're added. Route handlers call into this layer rather than the CRUD
+layer directly, so business rules stay in one place.
+"""
 
 from sqlalchemy.orm import Session
 from app.crud.background_job import crud_background_job
 from app.schemas.background_job import BackgroundJobCreate, BackgroundJobUpdate
 
 class BackgroundJobService:
-    # Retrieves a single BackgroundJob by ID.
+    """Business logic for BackgroundJob operations."""
+
     def get(self, db: Session, id: int):
         """
-        Returns a single BackgroundJob instance.
+        Fetch a single BackgroundJob by ID.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to fetch.
+
+        Returns:
+            The matching BackgroundJob instance, or None if not found.
         """
         return crud_background_job.get(db, id)
 
-    # Retrieves multiple BackgroundJob records.
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
         """
-        Returns a list of BackgroundJob records.
+        Fetch a page of BackgroundJob records.
+
+        Args:
+            db: Active database session.
+            skip: Number of records to skip.
+            limit: Maximum number of records to return.
+
+        Returns:
+            A list of BackgroundJob instances.
         """
         return crud_background_job.get_multi(db, skip, limit)
 
-    # Creates a new BackgroundJob.
     def create(self, db: Session, obj_in: BackgroundJobCreate):
         """
-        Creates a new BackgroundJob using validated input data.
+        Create a new BackgroundJob using validated input data.
+
+        Args:
+            db: Active database session.
+            obj_in: Validated input data for the new record.
+
+        Returns:
+            The newly created BackgroundJob instance.
         """
         return crud_background_job.create(db, obj_in)
 
-    # Updates an existing BackgroundJob.
     def update(self, db: Session, id: int, obj_in: BackgroundJobUpdate):
         """
-        Updates an existing BackgroundJob using validated input data.
+        Update an existing BackgroundJob using validated input data.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to update.
+            obj_in: Fields to change; unset fields are left untouched.
+
+        Returns:
+            The updated BackgroundJob instance.
         """
         db_obj = crud_background_job.get(db, id)
         return crud_background_job.update(db, db_obj, obj_in)
 
-    # Deletes a BackgroundJob by ID.
     def delete(self, db: Session, id: int):
         """
-        Deletes a BackgroundJob instance.
+        Delete a BackgroundJob by ID.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to delete.
         """
         return crud_background_job.delete(db, id)
 

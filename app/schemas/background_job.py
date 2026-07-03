@@ -1,48 +1,33 @@
 # ER-ServiceDesk/app/schemas/background_job.py
-# Pydantic schemas for BackgroundJob entities used to validate and
-# structure data exchanged between the client and server.
-#
-# These schemas define the fields required for creating, updating,
-# and returning background job records within the ER‑ServiceDesk system.
+# Pydantic schemas for BackgroundJob entities used to validate and structure an asynchronous job tracked for the RQ worker system
+"""
+Pydantic schemas for BackgroundJob entities used to validate and structure an asynchronous job tracked for the RQ worker system.
+"""
 
 from datetime import datetime
 from pydantic import BaseModel
 
-
-# ---------------------------------------------------------------------------
-# Base Schema (shared fields)
-# ---------------------------------------------------------------------------
 class BackgroundJobBase(BaseModel):
+    """Shared fields for BackgroundJob across create/read/update."""
     job_type: str
     status: str
     payload: str | None = None
 
-
-# ---------------------------------------------------------------------------
-# Create Schema (client → server)
-# ---------------------------------------------------------------------------
 class BackgroundJobCreate(BackgroundJobBase):
+    """Schema for creating a new BackgroundJob record (client -> server)."""
     pass
 
-
-# ---------------------------------------------------------------------------
-# Update Schema (partial updates allowed)
-# ---------------------------------------------------------------------------
 class BackgroundJobUpdate(BaseModel):
-    id: int | None = None
+    """Schema for partially updating an existing BackgroundJob record. All fields optional."""
     job_type: str | None = None
     status: str | None = None
     payload: str | None = None
     updated_at: datetime | None = None
 
-
-# ---------------------------------------------------------------------------
-# Response Schema (server → client)
-# ---------------------------------------------------------------------------
 class BackgroundJob(BackgroundJobBase):
+    """Schema returned to the client for a BackgroundJob record (server -> client)."""
     id: int
     created_at: datetime
     updated_at: datetime
-
     class Config:
         orm_mode = True

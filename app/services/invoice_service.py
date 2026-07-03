@@ -1,52 +1,82 @@
 # ER-ServiceDesk/app/services/invoice_service.py
 # Service layer for Invoice.
-#
-# Provides business logic for Invoice operations.
-# Coordinates CRUD operations and applies system rules.
-# Contains no API routing; used by route handlers.
+"""
+Business logic for a bill generated for work performed on a ticket.
 
-# ---------------------------------------------------------------------------
-# Service Logic
-# ---------------------------------------------------------------------------
+Coordinates CRUD operations and is where entity-specific rules should live
+as they're added. Route handlers call into this layer rather than the CRUD
+layer directly, so business rules stay in one place.
+"""
 
 from sqlalchemy.orm import Session
 from app.crud.invoice import crud_invoice
 from app.schemas.invoice import InvoiceCreate, InvoiceUpdate
 
 class InvoiceService:
-    # Retrieves a single Invoice by ID.
+    """Business logic for Invoice operations."""
+
     def get(self, db: Session, id: int):
         """
-        Returns a single Invoice instance.
+        Fetch a single Invoice by ID.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to fetch.
+
+        Returns:
+            The matching Invoice instance, or None if not found.
         """
         return crud_invoice.get(db, id)
 
-    # Retrieves multiple Invoice records.
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
         """
-        Returns a list of Invoice records.
+        Fetch a page of Invoice records.
+
+        Args:
+            db: Active database session.
+            skip: Number of records to skip.
+            limit: Maximum number of records to return.
+
+        Returns:
+            A list of Invoice instances.
         """
         return crud_invoice.get_multi(db, skip, limit)
 
-    # Creates a new Invoice.
     def create(self, db: Session, obj_in: InvoiceCreate):
         """
-        Creates a new Invoice using validated input data.
+        Create a new Invoice using validated input data.
+
+        Args:
+            db: Active database session.
+            obj_in: Validated input data for the new record.
+
+        Returns:
+            The newly created Invoice instance.
         """
         return crud_invoice.create(db, obj_in)
 
-    # Updates an existing Invoice.
     def update(self, db: Session, id: int, obj_in: InvoiceUpdate):
         """
-        Updates an existing Invoice using validated input data.
+        Update an existing Invoice using validated input data.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to update.
+            obj_in: Fields to change; unset fields are left untouched.
+
+        Returns:
+            The updated Invoice instance.
         """
         db_obj = crud_invoice.get(db, id)
         return crud_invoice.update(db, db_obj, obj_in)
 
-    # Deletes an Invoice by ID.
     def delete(self, db: Session, id: int):
         """
-        Deletes an Invoice instance.
+        Delete a Invoice by ID.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to delete.
         """
         return crud_invoice.delete(db, id)
 

@@ -1,13 +1,11 @@
 # ER-ServiceDesk/app/routes/user_roles.py
 # API routes for UserRole operations.
-#
-# Exposes REST endpoints for interacting with UserRole records.
-# Uses the service layer to perform business logic.
-# Defines request/response schemas and HTTP method handlers.
+"""
+REST endpoints for the many-to-many link between users and roles.
 
-# ---------------------------------------------------------------------------
-# Route Handlers
-# ---------------------------------------------------------------------------
+Thin HTTP layer: validates the request via the schema layer and delegates
+all real work to the service layer.
+"""
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -20,34 +18,66 @@ router = APIRouter(prefix="/user_roles", tags=["user_roles"])
 @router.get("/", response_model=list[UserRole])
 def list_user_roles(db: Session = Depends(get_db)):
     """
-    Returns a list of UserRole records.
+    List the many-to-many link between users and roles, paginated.
+
+    Args:
+        db: Injected database session.
+
+    Returns:
+        A list of UserRole records.
     """
     return user_role_service.get_multi(db)
 
 @router.get("/{id}", response_model=UserRole)
 def get_user_role(id: int, db: Session = Depends(get_db)):
     """
-    Returns a single UserRole record by ID.
+    Fetch a single UserRole record by ID.
+
+    Args:
+        id: Primary key of the record to fetch.
+        db: Injected database session.
+
+    Returns:
+        The matching UserRole record.
     """
     return user_role_service.get(db, id)
 
 @router.post("/", response_model=UserRole)
 def create_user_role(obj_in: UserRoleCreate, db: Session = Depends(get_db)):
     """
-    Creates a new UserRole record.
+    Create a new UserRole record.
+
+    Args:
+        obj_in: Validated request body for the new record.
+        db: Injected database session.
+
+    Returns:
+        The newly created UserRole record.
     """
     return user_role_service.create(db, obj_in)
 
 @router.put("/{id}", response_model=UserRole)
 def update_user_role(id: int, obj_in: UserRoleUpdate, db: Session = Depends(get_db)):
     """
-    Updates an existing UserRole record.
+    Update an existing UserRole record.
+
+    Args:
+        id: Primary key of the record to update.
+        obj_in: Fields to change; unset fields are left untouched.
+        db: Injected database session.
+
+    Returns:
+        The updated UserRole record.
     """
     return user_role_service.update(db, id, obj_in)
 
 @router.delete("/{id}")
 def delete_user_role(id: int, db: Session = Depends(get_db)):
     """
-    Deletes a UserRole record by ID.
+    Delete a UserRole record by ID.
+
+    Args:
+        id: Primary key of the record to delete.
+        db: Injected database session.
     """
     return user_role_service.delete(db, id)

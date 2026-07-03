@@ -1,37 +1,57 @@
 # ER-ServiceDesk/app/crud/role_permission.py
 # CRUD operations for the RolePermission model.
-#
-# Provides database access for creating, reading, updating, and deleting RolePermission records.
-# Used by the service layer to perform data operations.
-# Contains no business logic; only direct database interaction.
+"""
+Database access layer for the many-to-many link between roles and permissions.
 
-# ---------------------------------------------------------------------------
-# CRUD Operations
-# ---------------------------------------------------------------------------
+Talks directly to the database via SQLAlchemy. Contains no business logic --
+callers (the service layer) are responsible for that. Kept intentionally
+"dumb" so it stays simple to test and reuse.
+"""
 
 from sqlalchemy.orm import Session
 from app.models.role_permission import RolePermission
 from app.schemas.role_permission import RolePermissionCreate, RolePermissionUpdate
 
 class RolePermissionCRUD:
-    # Retrieves a single RolePermission by ID.
+    """Direct database access for RolePermission records."""
+
     def get(self, db: Session, id: int) -> RolePermission | None:
         """
-        Returns a single RolePermission instance matching the given ID.
+        Fetch a single RolePermission by primary key.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to fetch.
+
+        Returns:
+            The matching RolePermission instance, or None if no record exists.
         """
         return db.query(RolePermission).filter(RolePermission.id == id).first()
 
-    # Retrieves multiple RolePermission records.
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
         """
-        Returns a list of RolePermission records with pagination support.
+        Fetch multiple RolePermission records with simple offset pagination.
+
+        Args:
+            db: Active database session.
+            skip: Number of records to skip.
+            limit: Maximum number of records to return.
+
+        Returns:
+            A list of RolePermission instances.
         """
         return db.query(RolePermission).offset(skip).limit(limit).all()
 
-    # Creates a new RolePermission record.
     def create(self, db: Session, obj_in: RolePermissionCreate) -> RolePermission:
         """
-        Creates a new RolePermission using the provided input schema.
+        Insert a new RolePermission record.
+
+        Args:
+            db: Active database session.
+            obj_in: Validated input data for the new record.
+
+        Returns:
+            The newly created, refreshed RolePermission instance.
         """
         obj = RolePermission(**obj_in.dict())
         db.add(obj)
@@ -39,10 +59,17 @@ class RolePermissionCRUD:
         db.refresh(obj)
         return obj
 
-    # Updates an existing RolePermission record.
     def update(self, db: Session, db_obj: RolePermission, obj_in: RolePermissionUpdate) -> RolePermission:
         """
-        Updates the given RolePermission instance with new values.
+        Apply a partial update to an existing RolePermission record.
+
+        Args:
+            db: Active database session.
+            db_obj: The existing RolePermission instance to update.
+            obj_in: Fields to change; unset fields are left untouched.
+
+        Returns:
+            The updated, refreshed RolePermission instance.
         """
         for field, value in obj_in.dict(exclude_unset=True).items():
             setattr(db_obj, field, value)
@@ -50,10 +77,13 @@ class RolePermissionCRUD:
         db.refresh(db_obj)
         return db_obj
 
-    # Deletes a RolePermission record by ID.
     def delete(self, db: Session, id: int) -> None:
         """
-        Deletes the RolePermission instance matching the given ID.
+        Delete a RolePermission record by primary key, if it exists.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to delete.
         """
         obj = db.query(RolePermission).filter(RolePermission.id == id).first()
         if obj:

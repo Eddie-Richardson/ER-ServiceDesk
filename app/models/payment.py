@@ -1,52 +1,33 @@
-# ER-ServiceDesk/app/models/payments.py
-# ORM model for recording invoice payments
-#
-# The Payment model represents financial transactions applied to invoices
-# within the ER‑ServiceDesk system. Each payment stores the amount, method,
-# optional transaction reference, and timestamp. Payments are linked to
-# invoices through a foreign key and support back-populated relationships.
+# ER-ServiceDesk/app/models/payment.py
+# ORM model for a payment applied against an invoice
+"""
+ORM model for a payment applied against an invoice.
+"""
 
 from sqlalchemy import Column, Integer, Float, ForeignKey, DateTime, String
 from sqlalchemy.orm import relationship
 from datetime import datetime, UTC
-
 from app.db.base import Base
 
-# ---------------------------------------------------------------------------
-# Payment Model
-# ---------------------------------------------------------------------------
 class Payment(Base):
+    """
+    Represents a single financial transaction applied to an invoice.
+
+    Attributes:
+        id: Primary key.
+        invoice_id: The invoice this payment applies to.
+        amount: Payment amount.
+        method: Payment method (e.g. 'credit_card', 'cash').
+        transaction_id: Optional external processor reference (e.g. Stripe ID).
+        created_at: Timestamp the record was created.
+        updated_at: Timestamp the record was last updated.
+    """
     __tablename__ = "payments"
-
-    # Primary key
     id = Column(Integer, primary_key=True, index=True)
-
-    # Foreign key linking the payment to an invoice
     invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=False)
-
-    # Payment amount
     amount = Column(Float, nullable=False)
-
-    # Payment method (e.g., "credit_card", "cash", "bank_transfer")
     method = Column(String, nullable=False)
-
-    # Optional external transaction reference (e.g., Stripe/PayPal ID)
     transaction_id = Column(String, nullable=True)
-
-    # Timestamp of when the log entry was created
-    created_at = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        nullable=False
-    )
-
-    # Timestamp of when the log entry was last updated
-    updated_at = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
-        nullable=False
-    )
-
-    # Relationship back to the Invoice model
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)
     invoice = relationship("Invoice", back_populates="payments")

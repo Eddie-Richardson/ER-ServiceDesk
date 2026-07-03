@@ -1,37 +1,57 @@
 # ER-ServiceDesk/app/crud/ticket_status.py
 # CRUD operations for the TicketStatus model.
-#
-# Provides database access for creating, reading, updating, and deleting TicketStatus records.
-# Used by the service layer to perform data operations.
-# Contains no business logic; only direct database interaction.
+"""
+Database access layer for a workflow state a ticket can occupy.
 
-# ---------------------------------------------------------------------------
-# CRUD Operations
-# ---------------------------------------------------------------------------
+Talks directly to the database via SQLAlchemy. Contains no business logic --
+callers (the service layer) are responsible for that. Kept intentionally
+"dumb" so it stays simple to test and reuse.
+"""
 
 from sqlalchemy.orm import Session
 from app.models.ticket_status import TicketStatus
 from app.schemas.ticket_status import TicketStatusCreate, TicketStatusUpdate
 
 class TicketStatusCRUD:
-    # Retrieves a single TicketStatus by ID.
+    """Direct database access for TicketStatus records."""
+
     def get(self, db: Session, id: int) -> TicketStatus | None:
         """
-        Returns a single TicketStatus instance matching the given ID.
+        Fetch a single TicketStatus by primary key.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to fetch.
+
+        Returns:
+            The matching TicketStatus instance, or None if no record exists.
         """
         return db.query(TicketStatus).filter(TicketStatus.id == id).first()
 
-    # Retrieves multiple TicketStatus records.
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
         """
-        Returns a list of TicketStatus records with pagination support.
+        Fetch multiple TicketStatus records with simple offset pagination.
+
+        Args:
+            db: Active database session.
+            skip: Number of records to skip.
+            limit: Maximum number of records to return.
+
+        Returns:
+            A list of TicketStatus instances.
         """
         return db.query(TicketStatus).offset(skip).limit(limit).all()
 
-    # Creates a new TicketStatus record.
     def create(self, db: Session, obj_in: TicketStatusCreate) -> TicketStatus:
         """
-        Creates a new TicketStatus using the provided input schema.
+        Insert a new TicketStatus record.
+
+        Args:
+            db: Active database session.
+            obj_in: Validated input data for the new record.
+
+        Returns:
+            The newly created, refreshed TicketStatus instance.
         """
         obj = TicketStatus(**obj_in.dict())
         db.add(obj)
@@ -39,10 +59,17 @@ class TicketStatusCRUD:
         db.refresh(obj)
         return obj
 
-    # Updates an existing TicketStatus record.
     def update(self, db: Session, db_obj: TicketStatus, obj_in: TicketStatusUpdate) -> TicketStatus:
         """
-        Updates the given TicketStatus instance with new values.
+        Apply a partial update to an existing TicketStatus record.
+
+        Args:
+            db: Active database session.
+            db_obj: The existing TicketStatus instance to update.
+            obj_in: Fields to change; unset fields are left untouched.
+
+        Returns:
+            The updated, refreshed TicketStatus instance.
         """
         for field, value in obj_in.dict(exclude_unset=True).items():
             setattr(db_obj, field, value)
@@ -50,10 +77,13 @@ class TicketStatusCRUD:
         db.refresh(db_obj)
         return db_obj
 
-    # Deletes a TicketStatus record by ID.
     def delete(self, db: Session, id: int) -> None:
         """
-        Deletes the TicketStatus instance matching the given ID.
+        Delete a TicketStatus record by primary key, if it exists.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to delete.
         """
         obj = db.query(TicketStatus).filter(TicketStatus.id == id).first()
         if obj:

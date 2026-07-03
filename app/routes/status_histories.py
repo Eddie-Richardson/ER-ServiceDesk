@@ -1,13 +1,11 @@
-# ER-ServiceDesk/app/routes/status_histories.py
+# ER-ServiceDesk/app/routes/status_historys.py
 # API routes for StatusHistory operations.
-#
-# Exposes REST endpoints for interacting with StatusHistory records.
-# Uses the service layer to perform business logic.
-# Defines request/response schemas and HTTP method handlers.
+"""
+REST endpoints for an audit trail entry for a ticket status transition.
 
-# ---------------------------------------------------------------------------
-# Route Handlers
-# ---------------------------------------------------------------------------
+Thin HTTP layer: validates the request via the schema layer and delegates
+all real work to the service layer.
+"""
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -18,36 +16,68 @@ from app.schemas.status_history import StatusHistory, StatusHistoryCreate, Statu
 router = APIRouter(prefix="/status_histories", tags=["status_histories"])
 
 @router.get("/", response_model=list[StatusHistory])
-def list_status_histories(db: Session = Depends(get_db)):
+def list_status_historys(db: Session = Depends(get_db)):
     """
-    Returns a list of StatusHistory records.
+    List an audit trail entry for a ticket status transition, paginated.
+
+    Args:
+        db: Injected database session.
+
+    Returns:
+        A list of StatusHistory records.
     """
     return status_history_service.get_multi(db)
 
 @router.get("/{id}", response_model=StatusHistory)
 def get_status_history(id: int, db: Session = Depends(get_db)):
     """
-    Returns a single StatusHistory record by ID.
+    Fetch a single StatusHistory record by ID.
+
+    Args:
+        id: Primary key of the record to fetch.
+        db: Injected database session.
+
+    Returns:
+        The matching StatusHistory record.
     """
     return status_history_service.get(db, id)
 
 @router.post("/", response_model=StatusHistory)
 def create_status_history(obj_in: StatusHistoryCreate, db: Session = Depends(get_db)):
     """
-    Creates a new StatusHistory record.
+    Create a new StatusHistory record.
+
+    Args:
+        obj_in: Validated request body for the new record.
+        db: Injected database session.
+
+    Returns:
+        The newly created StatusHistory record.
     """
     return status_history_service.create(db, obj_in)
 
 @router.put("/{id}", response_model=StatusHistory)
 def update_status_history(id: int, obj_in: StatusHistoryUpdate, db: Session = Depends(get_db)):
     """
-    Updates an existing StatusHistory record.
+    Update an existing StatusHistory record.
+
+    Args:
+        id: Primary key of the record to update.
+        obj_in: Fields to change; unset fields are left untouched.
+        db: Injected database session.
+
+    Returns:
+        The updated StatusHistory record.
     """
     return status_history_service.update(db, id, obj_in)
 
 @router.delete("/{id}")
 def delete_status_history(id: int, db: Session = Depends(get_db)):
     """
-    Deletes a StatusHistory record by ID.
+    Delete a StatusHistory record by ID.
+
+    Args:
+        id: Primary key of the record to delete.
+        db: Injected database session.
     """
     return status_history_service.delete(db, id)

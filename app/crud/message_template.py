@@ -1,37 +1,57 @@
 # ER-ServiceDesk/app/crud/message_template.py
 # CRUD operations for the MessageTemplate model.
-#
-# Provides database access for creating, reading, updating, and deleting MessageTemplate records.
-# Used by the service layer to perform data operations.
-# Contains no business logic; only direct database interaction.
+"""
+Database access layer for a reusable template for outbound emails/notifications.
 
-# ---------------------------------------------------------------------------
-# CRUD Operations
-# ---------------------------------------------------------------------------
+Talks directly to the database via SQLAlchemy. Contains no business logic --
+callers (the service layer) are responsible for that. Kept intentionally
+"dumb" so it stays simple to test and reuse.
+"""
 
 from sqlalchemy.orm import Session
 from app.models.message_template import MessageTemplate
 from app.schemas.message_template import MessageTemplateCreate, MessageTemplateUpdate
 
 class MessageTemplateCRUD:
-    # Retrieves a single MessageTemplate by ID.
+    """Direct database access for MessageTemplate records."""
+
     def get(self, db: Session, id: int) -> MessageTemplate | None:
         """
-        Returns a single MessageTemplate instance matching the given ID.
+        Fetch a single MessageTemplate by primary key.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to fetch.
+
+        Returns:
+            The matching MessageTemplate instance, or None if no record exists.
         """
         return db.query(MessageTemplate).filter(MessageTemplate.id == id).first()
 
-    # Retrieves multiple MessageTemplate records.
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
         """
-        Returns a list of MessageTemplate records with pagination support.
+        Fetch multiple MessageTemplate records with simple offset pagination.
+
+        Args:
+            db: Active database session.
+            skip: Number of records to skip.
+            limit: Maximum number of records to return.
+
+        Returns:
+            A list of MessageTemplate instances.
         """
         return db.query(MessageTemplate).offset(skip).limit(limit).all()
 
-    # Creates a new MessageTemplate record.
     def create(self, db: Session, obj_in: MessageTemplateCreate) -> MessageTemplate:
         """
-       Creates a new MessageTemplate using the provided input schema.
+        Insert a new MessageTemplate record.
+
+        Args:
+            db: Active database session.
+            obj_in: Validated input data for the new record.
+
+        Returns:
+            The newly created, refreshed MessageTemplate instance.
         """
         obj = MessageTemplate(**obj_in.dict())
         db.add(obj)
@@ -39,10 +59,17 @@ class MessageTemplateCRUD:
         db.refresh(obj)
         return obj
 
-    # Updates an existing MessageTemplate record.
     def update(self, db: Session, db_obj: MessageTemplate, obj_in: MessageTemplateUpdate) -> MessageTemplate:
         """
-        Updates the given MessageTemplate instance with new values.
+        Apply a partial update to an existing MessageTemplate record.
+
+        Args:
+            db: Active database session.
+            db_obj: The existing MessageTemplate instance to update.
+            obj_in: Fields to change; unset fields are left untouched.
+
+        Returns:
+            The updated, refreshed MessageTemplate instance.
         """
         for field, value in obj_in.dict(exclude_unset=True).items():
             setattr(db_obj, field, value)
@@ -50,10 +77,13 @@ class MessageTemplateCRUD:
         db.refresh(db_obj)
         return db_obj
 
-    # Deletes a MessageTemplate record by ID.
     def delete(self, db: Session, id: int) -> None:
         """
-        Deletes the MessageTemplate instance matching the given ID.
+        Delete a MessageTemplate record by primary key, if it exists.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to delete.
         """
         obj = db.query(MessageTemplate).filter(MessageTemplate.id == id).first()
         if obj:

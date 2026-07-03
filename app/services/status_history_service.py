@@ -1,52 +1,82 @@
 # ER-ServiceDesk/app/services/status_history_service.py
 # Service layer for StatusHistory.
-#
-# Provides business logic for StatusHistory operations.
-# Coordinates CRUD operations and applies system rules.
-# Contains no API routing; used by route handlers.
+"""
+Business logic for an audit trail entry for a ticket status transition.
 
-# ---------------------------------------------------------------------------
-# Service Logic
-# ---------------------------------------------------------------------------
+Coordinates CRUD operations and is where entity-specific rules should live
+as they're added. Route handlers call into this layer rather than the CRUD
+layer directly, so business rules stay in one place.
+"""
 
 from sqlalchemy.orm import Session
 from app.crud.status_history import crud_status_history
 from app.schemas.status_history import StatusHistoryCreate, StatusHistoryUpdate
 
 class StatusHistoryService:
-    # Retrieves a single StatusHistory by ID.
+    """Business logic for StatusHistory operations."""
+
     def get(self, db: Session, id: int):
         """
-        Returns a single StatusHistory instance.
+        Fetch a single StatusHistory by ID.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to fetch.
+
+        Returns:
+            The matching StatusHistory instance, or None if not found.
         """
         return crud_status_history.get(db, id)
 
-    # Retrieves multiple StatusHistory records.
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
         """
-        Returns a list of StatusHistory records.
+        Fetch a page of StatusHistory records.
+
+        Args:
+            db: Active database session.
+            skip: Number of records to skip.
+            limit: Maximum number of records to return.
+
+        Returns:
+            A list of StatusHistory instances.
         """
         return crud_status_history.get_multi(db, skip, limit)
 
-    # Creates a new StatusHistory.
     def create(self, db: Session, obj_in: StatusHistoryCreate):
         """
-        Creates a new StatusHistory using validated input data.
+        Create a new StatusHistory using validated input data.
+
+        Args:
+            db: Active database session.
+            obj_in: Validated input data for the new record.
+
+        Returns:
+            The newly created StatusHistory instance.
         """
         return crud_status_history.create(db, obj_in)
 
-    # Updates an existing StatusHistory.
     def update(self, db: Session, id: int, obj_in: StatusHistoryUpdate):
         """
-        Updates an existing StatusHistory using validated input data.
+        Update an existing StatusHistory using validated input data.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to update.
+            obj_in: Fields to change; unset fields are left untouched.
+
+        Returns:
+            The updated StatusHistory instance.
         """
         db_obj = crud_status_history.get(db, id)
         return crud_status_history.update(db, db_obj, obj_in)
 
-    # Deletes a StatusHistory by ID.
     def delete(self, db: Session, id: int):
         """
-        Deletes a StatusHistory instance.
+        Delete a StatusHistory by ID.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to delete.
         """
         return crud_status_history.delete(db, id)
 

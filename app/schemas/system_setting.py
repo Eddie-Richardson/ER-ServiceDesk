@@ -1,40 +1,27 @@
-# ER-ServiceDesk/app/schemas/system_settings.py
-# Pydantic schemas for SystemSetting entities used to validate and
-# structure data exchanged between the client and server.
-#
-# These schemas define the fields required for creating, updating,
-# and returning system‑wide configuration settings within the
-# ER‑ServiceDesk application. System settings store dynamic key/value
-# configuration data that administrators can modify without requiring
-# a redeploy.
+# ER-ServiceDesk/app/schemas/system_setting.py
+# Pydantic schemas for SystemSetting entities used to validate and structure a dynamic, admin-editable key/value configuration entry
+"""
+Pydantic schemas for SystemSetting entities used to validate and structure a dynamic, admin-editable key/value configuration entry.
+"""
 
 from pydantic import BaseModel
 
-# ---------------------------------------------------------------------------
-# Base Schema (shared fields)
-# ---------------------------------------------------------------------------
 class SystemSettingBase(BaseModel):
+    """Shared fields for SystemSetting across create/read/update."""
     key: str
     value: str | None = None
 
-# ---------------------------------------------------------------------------
-# Create Schema (client → server)
-# ---------------------------------------------------------------------------
 class SystemSettingCreate(SystemSettingBase):
+    """Schema for creating a new SystemSetting record (client -> server)."""
     pass
 
-# ---------------------------------------------------------------------------
-# Update Schema (partial updates allowed)
-# ---------------------------------------------------------------------------
 class SystemSettingUpdate(BaseModel):
+    """Schema for partially updating an existing SystemSetting record. All fields optional."""
     key: str | None = None
     value: str | None = None
 
-# ---------------------------------------------------------------------------
-# Response Schema (server → client)
-# ---------------------------------------------------------------------------
 class SystemSetting(SystemSettingBase):
+    """Schema returned to the client for a SystemSetting record (server -> client)."""
     id: int
-
     class Config:
         orm_mode = True

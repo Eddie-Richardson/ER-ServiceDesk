@@ -1,19 +1,14 @@
 # ER-ServiceDesk/app/schemas/ticket.py
-# Pydantic schemas for Ticket entities used to validate and
-# structure data exchanged between the client and server.
-#
-# These schemas define the fields required for creating, updating,
-# and returning ticket records within the ER‑ServiceDesk system.
-# Tickets serve as the core workflow entity, linking customers,
-# devices, categories, types, statuses, and assigned technicians.
+# Pydantic schemas for Ticket entities used to validate and structure a support/repair job tracked from intake to completion
+"""
+Pydantic schemas for Ticket entities used to validate and structure a support/repair job tracked from intake to completion.
+"""
 
 from datetime import datetime
 from pydantic import BaseModel
 
-# ---------------------------------------------------------------------------
-# Base Schema (shared fields)
-# ---------------------------------------------------------------------------
 class TicketBase(BaseModel):
+    """Shared fields for Ticket across create/read/update."""
     customer_id: int
     device_id: int
     category_id: int
@@ -24,16 +19,12 @@ class TicketBase(BaseModel):
     description: str | None = None
     priority: str
 
-# ---------------------------------------------------------------------------
-# Create Schema (client → server)
-# ---------------------------------------------------------------------------
 class TicketCreate(TicketBase):
+    """Schema for creating a new Ticket record (client -> server)."""
     pass
 
-# ---------------------------------------------------------------------------
-# Update Schema (partial updates allowed)
-# ---------------------------------------------------------------------------
 class TicketUpdate(BaseModel):
+    """Schema for partially updating an existing Ticket record. All fields optional."""
     customer_id: int | None = None
     device_id: int | None = None
     category_id: int | None = None
@@ -45,13 +36,10 @@ class TicketUpdate(BaseModel):
     priority: str | None = None
     updated_at: datetime | None = None
 
-# ---------------------------------------------------------------------------
-# Response Schema (server → client)
-# ---------------------------------------------------------------------------
 class Ticket(TicketBase):
+    """Schema returned to the client for a Ticket record (server -> client)."""
     id: int
     created_at: datetime
     updated_at: datetime
-
     class Config:
         orm_mode = True

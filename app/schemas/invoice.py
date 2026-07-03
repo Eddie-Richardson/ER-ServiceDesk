@@ -1,47 +1,35 @@
-# ER-ServiceDesk/app/schemas/invoices.py
-# Pydantic schemas for Invoice entities used to validate and
-# structure data exchanged between the client and server.
-#
-# These schemas define the fields required for creating, updating,
-# and returning invoice records within the ER‑ServiceDesk system.
-# They support billing workflows, payment tracking, and ticket‑linked
-# financial operations.
+# ER-ServiceDesk/app/schemas/invoice.py
+# Pydantic schemas for Invoice entities used to validate and structure a bill generated for work performed on a ticket
+"""
+Pydantic schemas for Invoice entities used to validate and structure a bill generated for work performed on a ticket.
+"""
 
 from datetime import datetime
 from pydantic import BaseModel
 
-# ---------------------------------------------------------------------------
-# Base Schema (shared fields)
-# ---------------------------------------------------------------------------
 class InvoiceBase(BaseModel):
+    """Shared fields for Invoice across create/read/update."""
     ticket_id: int
     amount: float
     details: str | None = None
     is_paid: bool
 
-# ---------------------------------------------------------------------------
-# Create Schema (client → server)
-# ---------------------------------------------------------------------------
 class InvoiceCreate(InvoiceBase):
+    """Schema for creating a new Invoice record (client -> server)."""
     pass
 
-# ---------------------------------------------------------------------------
-# Update Schema (partial updates allowed)
-# ---------------------------------------------------------------------------
 class InvoiceUpdate(BaseModel):
+    """Schema for partially updating an existing Invoice record. All fields optional."""
     ticket_id: int | None = None
     amount: float | None = None
     details: str | None = None
     is_paid: bool | None = None
     updated_at: datetime | None = None
 
-# ---------------------------------------------------------------------------
-# Response Schema (server → client)
-# ---------------------------------------------------------------------------
 class Invoice(InvoiceBase):
+    """Schema returned to the client for a Invoice record (server -> client)."""
     id: int
     created_at: datetime
     updated_at: datetime
-
     class Config:
         orm_mode = True

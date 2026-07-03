@@ -1,52 +1,103 @@
 # ER-ServiceDesk/app/services/user_service.py
 # Service layer for User.
-#
-# Provides business logic for User operations.
-# Coordinates CRUD operations and applies system rules.
-# Contains no API routing; used by route handlers.
+"""
+Business logic for User accounts, including password hashing.
 
-# ---------------------------------------------------------------------------
-# Service Logic
-# ---------------------------------------------------------------------------
+Handles password hashing on create/update, since the User model stores
+`hashed_password` but the API schemas only ever accept/expose a plaintext
+`password` field. This logic intentionally lives here (not in crud/user.py)
+so the CRUD layer stays a generic, dumb data-access layer.
+"""
 
 from sqlalchemy.orm import Session
 from app.crud.user import crud_user
+from app.models.user import User
 from app.schemas.user import UserCreate, UserUpdate
+from app.core.security import hash_password
 
 class UserService:
-    # Retrieves a single User by ID.
+    """Business logic for User account operations."""
+
     def get(self, db: Session, id: int):
         """
-        Returns a single User instance.
+        Fetch a single User by ID.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the user to fetch.
+
+        Returns:
+            The matching User instance, or None if not found.
         """
         return crud_user.get(db, id)
 
-    # Retrieves multiple User records.
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
         """
-        Returns a list of User records.
+        Fetch a page of User records.
+
+        Args:
+            db: Active database session.
+            skip: Number of records to skip.
+            limit: Maximum number of records to return.
+
+        Returns:
+            A list of User instances.
         """
         return crud_user.get_multi(db, skip, limit)
 
-    # Creates a new User.
     def create(self, db: Session, obj_in: UserCreate):
         """
-        Creates a new User using validated input data.
-        """
-        return crud_user.create(db, obj_in)
+        Create a new User, hashing the plaintext password first.
 
-    # Updates an existing User.
+        Args:
+            db: Active database session.
+            obj_in: Validated input data, including a plaintext password.
+
+        Returns:
+            The newly created User instance.
+        """
+        user_data = obj_in.dict(exclude={"password"})
+        user_data["hashed_password"] = hash_password(obj_in.password)
+
+        db_obj = User(**user_data)
+        db.add(db_obj)
+        db.commit()
+        db.refresh(db_obj)
+        return db_obj
+
     def update(self, db: Session, id: int, obj_in: UserUpdate):
         """
-        Updates an existing User using validated input data.
+        Update an existing User, hashing the password if one was provided.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the user to update.
+            obj_in: Fields to change; unset fields are left untouched.
+
+        Returns:
+            The updated User instance.
         """
         db_obj = crud_user.get(db, id)
-        return crud_user.update(db, db_obj, obj_in)
+        update_data = obj_in.dict(exclude_unset=True)
 
-    # Deletes a User by ID.
+        if "password" in update_data:
+            plaintext = update_data.pop("password")
+            update_data["hashed_password"] = hash_password(plaintext)
+
+        for field, value in update_data.items():
+            setattr(db_obj, field, value)
+
+        db.commit()
+        db.refresh(db_obj)
+        return db_obj
+
     def delete(self, db: Session, id: int):
         """
-        Deletes a User instance.
+        Delete a User by ID.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the user to delete.
         """
         return crud_user.delete(db, id)
 

@@ -1,37 +1,57 @@
 # ER-ServiceDesk/app/crud/note.py
 # CRUD operations for the Note model.
-#
-# Provides database access for creating, reading, updating, and deleting Note records.
-# Used by the service layer to perform data operations.
-# Contains no business logic; only direct database interaction.
+"""
+Database access layer for an internal or customer-visible annotation on a ticket.
 
-# ---------------------------------------------------------------------------
-# CRUD Operations
-# ---------------------------------------------------------------------------
+Talks directly to the database via SQLAlchemy. Contains no business logic --
+callers (the service layer) are responsible for that. Kept intentionally
+"dumb" so it stays simple to test and reuse.
+"""
 
 from sqlalchemy.orm import Session
 from app.models.note import Note
 from app.schemas.note import NoteCreate, NoteUpdate
 
 class NoteCRUD:
-    # Retrieves a single Note by ID.
+    """Direct database access for Note records."""
+
     def get(self, db: Session, id: int) -> Note | None:
         """
-        Returns a single Note instance matching the given ID.
+        Fetch a single Note by primary key.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to fetch.
+
+        Returns:
+            The matching Note instance, or None if no record exists.
         """
         return db.query(Note).filter(Note.id == id).first()
 
-    # Retrieves multiple Note records.
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
         """
-        Returns a list of Note records with pagination support.
+        Fetch multiple Note records with simple offset pagination.
+
+        Args:
+            db: Active database session.
+            skip: Number of records to skip.
+            limit: Maximum number of records to return.
+
+        Returns:
+            A list of Note instances.
         """
         return db.query(Note).offset(skip).limit(limit).all()
 
-    # Creates a new Note record.
     def create(self, db: Session, obj_in: NoteCreate) -> Note:
         """
-        Creates a new Note using the provided input schema.
+        Insert a new Note record.
+
+        Args:
+            db: Active database session.
+            obj_in: Validated input data for the new record.
+
+        Returns:
+            The newly created, refreshed Note instance.
         """
         obj = Note(**obj_in.dict())
         db.add(obj)
@@ -39,10 +59,17 @@ class NoteCRUD:
         db.refresh(obj)
         return obj
 
-    # Updates an existing Note record.
     def update(self, db: Session, db_obj: Note, obj_in: NoteUpdate) -> Note:
         """
-        Updates the given Note instance with new values.
+        Apply a partial update to an existing Note record.
+
+        Args:
+            db: Active database session.
+            db_obj: The existing Note instance to update.
+            obj_in: Fields to change; unset fields are left untouched.
+
+        Returns:
+            The updated, refreshed Note instance.
         """
         for field, value in obj_in.dict(exclude_unset=True).items():
             setattr(db_obj, field, value)
@@ -50,10 +77,13 @@ class NoteCRUD:
         db.refresh(db_obj)
         return db_obj
 
-    # Deletes a Note record by ID.
     def delete(self, db: Session, id: int) -> None:
         """
-        Deletes the Note instance matching the given ID.
+        Delete a Note record by primary key, if it exists.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to delete.
         """
         obj = db.query(Note).filter(Note.id == id).first()
         if obj:

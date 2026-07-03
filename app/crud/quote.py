@@ -1,37 +1,57 @@
 # ER-ServiceDesk/app/crud/quote.py
 # CRUD operations for the Quote model.
-#
-# Provides database access for creating, reading, updating, and deleting Quote records.
-# Used by the service layer to perform data operations.
-# Contains no business logic; only direct database interaction.
+"""
+Database access layer for an estimated price for ticket-related work, pending customer approval.
 
-# ---------------------------------------------------------------------------
-# CRUD Operations
-# ---------------------------------------------------------------------------
+Talks directly to the database via SQLAlchemy. Contains no business logic --
+callers (the service layer) are responsible for that. Kept intentionally
+"dumb" so it stays simple to test and reuse.
+"""
 
 from sqlalchemy.orm import Session
 from app.models.quote import Quote
 from app.schemas.quote import QuoteCreate, QuoteUpdate
 
 class QuoteCRUD:
-    # Retrieves a single Quote by ID.
+    """Direct database access for Quote records."""
+
     def get(self, db: Session, id: int) -> Quote | None:
         """
-        Returns a single Quote instance matching the given ID.
+        Fetch a single Quote by primary key.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to fetch.
+
+        Returns:
+            The matching Quote instance, or None if no record exists.
         """
         return db.query(Quote).filter(Quote.id == id).first()
 
-    # Retrieves multiple Quote records.
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
         """
-        Returns a list of Quote records with pagination support.
+        Fetch multiple Quote records with simple offset pagination.
+
+        Args:
+            db: Active database session.
+            skip: Number of records to skip.
+            limit: Maximum number of records to return.
+
+        Returns:
+            A list of Quote instances.
         """
         return db.query(Quote).offset(skip).limit(limit).all()
 
-    # Creates a new Quote record.
     def create(self, db: Session, obj_in: QuoteCreate) -> Quote:
         """
-        Creates a new Quote using the provided input schema.
+        Insert a new Quote record.
+
+        Args:
+            db: Active database session.
+            obj_in: Validated input data for the new record.
+
+        Returns:
+            The newly created, refreshed Quote instance.
         """
         obj = Quote(**obj_in.dict())
         db.add(obj)
@@ -39,10 +59,17 @@ class QuoteCRUD:
         db.refresh(obj)
         return obj
 
-    # Updates an existing Quote record.
     def update(self, db: Session, db_obj: Quote, obj_in: QuoteUpdate) -> Quote:
         """
-        Updates the given Quote instance with new values.
+        Apply a partial update to an existing Quote record.
+
+        Args:
+            db: Active database session.
+            db_obj: The existing Quote instance to update.
+            obj_in: Fields to change; unset fields are left untouched.
+
+        Returns:
+            The updated, refreshed Quote instance.
         """
         for field, value in obj_in.dict(exclude_unset=True).items():
             setattr(db_obj, field, value)
@@ -50,10 +77,13 @@ class QuoteCRUD:
         db.refresh(db_obj)
         return db_obj
 
-    # Deletes a Quote record by ID.
     def delete(self, db: Session, id: int) -> None:
         """
-        Deletes the Quote instance matching the given ID.
+        Delete a Quote record by primary key, if it exists.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to delete.
         """
         obj = db.query(Quote).filter(Quote.id == id).first()
         if obj:

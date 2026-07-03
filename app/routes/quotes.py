@@ -1,13 +1,11 @@
 # ER-ServiceDesk/app/routes/quotes.py
 # API routes for Quote operations.
-#
-# Exposes REST endpoints for interacting with Quote records.
-# Uses the service layer to perform business logic.
-# Defines request/response schemas and HTTP method handlers.
+"""
+REST endpoints for an estimated price for ticket-related work, pending customer approval.
 
-# ---------------------------------------------------------------------------
-# Route Handlers
-# ---------------------------------------------------------------------------
+Thin HTTP layer: validates the request via the schema layer and delegates
+all real work to the service layer.
+"""
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -20,34 +18,66 @@ router = APIRouter(prefix="/quotes", tags=["quotes"])
 @router.get("/", response_model=list[Quote])
 def list_quotes(db: Session = Depends(get_db)):
     """
-    Returns a list of Quote records.
+    List an estimated price for ticket-related work, pending customer approval, paginated.
+
+    Args:
+        db: Injected database session.
+
+    Returns:
+        A list of Quote records.
     """
     return quote_service.get_multi(db)
 
 @router.get("/{id}", response_model=Quote)
 def get_quote(id: int, db: Session = Depends(get_db)):
     """
-    Returns a single Quote record by ID.
+    Fetch a single Quote record by ID.
+
+    Args:
+        id: Primary key of the record to fetch.
+        db: Injected database session.
+
+    Returns:
+        The matching Quote record.
     """
     return quote_service.get(db, id)
 
 @router.post("/", response_model=Quote)
 def create_quote(obj_in: QuoteCreate, db: Session = Depends(get_db)):
     """
-    Creates a new Quote record.
+    Create a new Quote record.
+
+    Args:
+        obj_in: Validated request body for the new record.
+        db: Injected database session.
+
+    Returns:
+        The newly created Quote record.
     """
     return quote_service.create(db, obj_in)
 
 @router.put("/{id}", response_model=Quote)
 def update_quote(id: int, obj_in: QuoteUpdate, db: Session = Depends(get_db)):
     """
-    Updates an existing Quote record.
+    Update an existing Quote record.
+
+    Args:
+        id: Primary key of the record to update.
+        obj_in: Fields to change; unset fields are left untouched.
+        db: Injected database session.
+
+    Returns:
+        The updated Quote record.
     """
     return quote_service.update(db, id, obj_in)
 
 @router.delete("/{id}")
 def delete_quote(id: int, db: Session = Depends(get_db)):
     """
-    Deletes a Quote record by ID.
+    Delete a Quote record by ID.
+
+    Args:
+        id: Primary key of the record to delete.
+        db: Injected database session.
     """
     return quote_service.delete(db, id)

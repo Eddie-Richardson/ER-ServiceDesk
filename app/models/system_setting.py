@@ -1,24 +1,22 @@
-# ER-ServiceDesk/app/models/system_settings.py
-# ORM model for storing system-wide configuration settings
-#
-# This model represents key/value configuration entries used by the
-# ER‑ServiceDesk application. These settings allow administrators to
-# store dynamic configuration values without redeploying the system.
+# ER-ServiceDesk/app/models/system_setting.py
+# ORM model for a dynamic, admin-editable key/value configuration entry
+"""
+ORM model for a dynamic, admin-editable key/value configuration entry.
+"""
 
 from sqlalchemy import Column, Integer, String, Text
 from app.db.base import Base
 
-# ---------------------------------------------------------------------------
-# SystemSetting Model
-# ---------------------------------------------------------------------------
 class SystemSetting(Base):
+    """
+    Represents a single system-wide configuration value that can change without a redeploy.
+
+    Attributes:
+        id: Primary key.
+        key: Unique setting name (e.g. 'site_name').
+        value: Arbitrary text value for the setting.
+    """
     __tablename__ = "system_settings"
-
-    # Primary key
     id = Column(Integer, primary_key=True, index=True)
-
-    # Unique key name for the setting (e.g., "site_name", "support_email")
     key = Column(String, unique=True, nullable=False)
-
-    # Arbitrary text value for the setting
     value = Column(Text, nullable=True)

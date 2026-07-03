@@ -1,37 +1,57 @@
 # ER-ServiceDesk/app/crud/ticket_type.py
 # CRUD operations for the TicketType model.
-#
-# Provides database access for creating, reading, updating, and deleting TicketType records.
-# Used by the service layer to perform data operations.
-# Contains no business logic; only direct database interaction.
+"""
+Database access layer for a classification of the kind of work a ticket represents.
 
-# ---------------------------------------------------------------------------
-# CRUD Operations
-# ---------------------------------------------------------------------------
+Talks directly to the database via SQLAlchemy. Contains no business logic --
+callers (the service layer) are responsible for that. Kept intentionally
+"dumb" so it stays simple to test and reuse.
+"""
 
 from sqlalchemy.orm import Session
 from app.models.ticket_type import TicketType
 from app.schemas.ticket_type import TicketTypeCreate, TicketTypeUpdate
 
 class TicketTypeCRUD:
-    # Retrieves a single TicketType by ID.
+    """Direct database access for TicketType records."""
+
     def get(self, db: Session, id: int) -> TicketType | None:
         """
-        Returns a single TicketType instance matching the given ID.
+        Fetch a single TicketType by primary key.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to fetch.
+
+        Returns:
+            The matching TicketType instance, or None if no record exists.
         """
         return db.query(TicketType).filter(TicketType.id == id).first()
 
-    # Retrieves multiple TicketType records.
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
         """
-        Returns a list of TicketType records with pagination support.
+        Fetch multiple TicketType records with simple offset pagination.
+
+        Args:
+            db: Active database session.
+            skip: Number of records to skip.
+            limit: Maximum number of records to return.
+
+        Returns:
+            A list of TicketType instances.
         """
         return db.query(TicketType).offset(skip).limit(limit).all()
 
-    # Creates a new TicketType record.
     def create(self, db: Session, obj_in: TicketTypeCreate) -> TicketType:
         """
-        Creates a new TicketType using the provided input schema.
+        Insert a new TicketType record.
+
+        Args:
+            db: Active database session.
+            obj_in: Validated input data for the new record.
+
+        Returns:
+            The newly created, refreshed TicketType instance.
         """
         obj = TicketType(**obj_in.dict())
         db.add(obj)
@@ -39,10 +59,17 @@ class TicketTypeCRUD:
         db.refresh(obj)
         return obj
 
-    # Updates an existing TicketType record.
     def update(self, db: Session, db_obj: TicketType, obj_in: TicketTypeUpdate) -> TicketType:
         """
-        Updates the given TicketType instance with new values.
+        Apply a partial update to an existing TicketType record.
+
+        Args:
+            db: Active database session.
+            db_obj: The existing TicketType instance to update.
+            obj_in: Fields to change; unset fields are left untouched.
+
+        Returns:
+            The updated, refreshed TicketType instance.
         """
         for field, value in obj_in.dict(exclude_unset=True).items():
             setattr(db_obj, field, value)
@@ -50,10 +77,13 @@ class TicketTypeCRUD:
         db.refresh(db_obj)
         return db_obj
 
-    # Deletes a TicketType record by ID.
     def delete(self, db: Session, id: int) -> None:
         """
-        Deletes the TicketType instance matching the given ID.
+        Delete a TicketType record by primary key, if it exists.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to delete.
         """
         obj = db.query(TicketType).filter(TicketType.id == id).first()
         if obj:

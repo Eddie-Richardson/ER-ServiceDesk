@@ -1,47 +1,31 @@
 # ER-ServiceDesk/app/schemas/attachment.py
-# Pydantic schemas for file attachments linked to support tickets
-#
-# The Attachment schemas define the data structures used for creating,
-# updating, and returning attachment records in the ER‑ServiceDesk API.
-# These schemas mirror the Attachment ORM model, which represents uploaded
-# files associated with tickets, including metadata such as file name,
-# storage path, and upload timestamp.
+# Pydantic schemas for Attachment entities used to validate and structure a file uploaded and linked to a support ticket
+"""
+Pydantic schemas for Attachment entities used to validate and structure a file uploaded and linked to a support ticket.
+"""
 
 from datetime import datetime
 from pydantic import BaseModel
 
-
-# ---------------------------------------------------------------------------
-# Base Schema (shared fields)
-# ---------------------------------------------------------------------------
 class AttachmentBase(BaseModel):
+    """Shared fields for Attachment across create/read/update."""
     ticket_id: int
     file_path: str
     file_name: str
 
-
-# ---------------------------------------------------------------------------
-# Create Schema (client → server)
-# ---------------------------------------------------------------------------
 class AttachmentCreate(AttachmentBase):
+    """Schema for creating a new Attachment record (client -> server)."""
     pass
 
-
-# ---------------------------------------------------------------------------
-# Update Schema (partial updates allowed)
-# ---------------------------------------------------------------------------
 class AttachmentUpdate(BaseModel):
+    """Schema for partially updating an existing Attachment record. All fields optional."""
     ticket_id: int | None = None
     file_path: str | None = None
     file_name: str | None = None
 
-
-# ---------------------------------------------------------------------------
-# Response Schema (server → client)
-# ---------------------------------------------------------------------------
 class Attachment(AttachmentBase):
+    """Schema returned to the client for a Attachment record (server -> client)."""
     id: int
     uploaded_at: datetime
-
     class Config:
         orm_mode = True

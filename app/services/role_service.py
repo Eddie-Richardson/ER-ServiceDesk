@@ -1,52 +1,82 @@
 # ER-ServiceDesk/app/services/role_service.py
 # Service layer for Role.
-#
-# Provides business logic for Role operations.
-# Coordinates CRUD operations and applies system rules.
-# Contains no API routing; used by route handlers.
+"""
+Business logic for an authorization grouping assigned to users.
 
-# ---------------------------------------------------------------------------
-# Service Logic
-# ---------------------------------------------------------------------------
+Coordinates CRUD operations and is where entity-specific rules should live
+as they're added. Route handlers call into this layer rather than the CRUD
+layer directly, so business rules stay in one place.
+"""
 
 from sqlalchemy.orm import Session
 from app.crud.role import crud_role
 from app.schemas.role import RoleCreate, RoleUpdate
 
 class RoleService:
-    # Retrieves a single Role by ID.
+    """Business logic for Role operations."""
+
     def get(self, db: Session, id: int):
         """
-        Returns a single Role instance.
+        Fetch a single Role by ID.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to fetch.
+
+        Returns:
+            The matching Role instance, or None if not found.
         """
         return crud_role.get(db, id)
 
-    # Retrieves multiple Role records.
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
         """
-        Returns a list of Role records.
+        Fetch a page of Role records.
+
+        Args:
+            db: Active database session.
+            skip: Number of records to skip.
+            limit: Maximum number of records to return.
+
+        Returns:
+            A list of Role instances.
         """
         return crud_role.get_multi(db, skip, limit)
 
-    # Creates a new Role.
     def create(self, db: Session, obj_in: RoleCreate):
         """
-        Creates a new Role using validated input data.
+        Create a new Role using validated input data.
+
+        Args:
+            db: Active database session.
+            obj_in: Validated input data for the new record.
+
+        Returns:
+            The newly created Role instance.
         """
         return crud_role.create(db, obj_in)
 
-    # Updates an existing Role.
     def update(self, db: Session, id: int, obj_in: RoleUpdate):
         """
-        Updates an existing Role using validated input data.
+        Update an existing Role using validated input data.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to update.
+            obj_in: Fields to change; unset fields are left untouched.
+
+        Returns:
+            The updated Role instance.
         """
         db_obj = crud_role.get(db, id)
         return crud_role.update(db, db_obj, obj_in)
 
-    # Deletes a Role by ID.
     def delete(self, db: Session, id: int):
         """
-        Deletes a Role instance.
+        Delete a Role by ID.
+
+        Args:
+            db: Active database session.
+            id: Primary key of the record to delete.
         """
         return crud_role.delete(db, id)
 

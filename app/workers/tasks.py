@@ -1,20 +1,19 @@
 # ER-ServiceDesk/app/workers/tasks.py
 # Example background task used by the worker system
-#
-# This module defines example background tasks for the ER‑ServiceDesk worker
-# system. These tasks are executed asynchronously by the worker process and
-# can be expanded to include email sending, notifications, cleanup jobs,
-# scheduled maintenance, or any other non‑blocking operations.
+"""
+Placeholder background task demonstrating the worker-executed function
+signature. Real tasks (emails, notifications, cleanup jobs) follow this
+same pattern.
+"""
 
-# ---------------------------------------------------------------------------
-# Example background task
-# ---------------------------------------------------------------------------
 def example_task(name: str):
     """
-    Example background task.
+    Run a trivial example task.
 
-    This task demonstrates how a worker‑executed function behaves. It accepts
-    a name, performs lightweight processing, and returns a success message.
-    In real implementations, this could trigger emails, logs, or async jobs.
+    Args:
+        name: Name to greet.
+
+    Returns:
+        A success message string.
     """
     return f"Hello {name}, your task ran successfully!"

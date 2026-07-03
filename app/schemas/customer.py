@@ -1,36 +1,26 @@
-# ER-ServiceDesk/app/schemas/customers.py
-# Pydantic schemas for Customer entities used to validate and
-# structure data exchanged between the client and server.
-#
-# These schemas define the fields required for creating, updating,
-# and returning customer records within the ER‑ServiceDesk system.
-# They are used throughout the application for ticket creation,
-# device assignment, and customer‑facing communication workflows.
-
+# ER-ServiceDesk/app/schemas/customer.py
+# Pydantic schemas for Customer entities used to validate and structure a client of the repair shop
+"""
+Pydantic schemas for Customer entities used to validate and structure a client of the repair shop.
+"""
 
 from datetime import datetime
 from pydantic import BaseModel
 
-# ---------------------------------------------------------------------------
-# Base Schema (shared fields)
-# ---------------------------------------------------------------------------
 class CustomerBase(BaseModel):
+    """Shared fields for Customer across create/read/update."""
     first_name: str
     last_name: str
     email: str
     phone: str | None = None
     address: str | None = None
 
-# ---------------------------------------------------------------------------
-# Create Schema (client → server)
-# ---------------------------------------------------------------------------
 class CustomerCreate(CustomerBase):
+    """Schema for creating a new Customer record (client -> server)."""
     pass
 
-# ---------------------------------------------------------------------------
-# Update Schema (partial updates allowed)
-# ---------------------------------------------------------------------------
 class CustomerUpdate(BaseModel):
+    """Schema for partially updating an existing Customer record. All fields optional."""
     first_name: str | None = None
     last_name: str | None = None
     email: str | None = None
@@ -38,13 +28,10 @@ class CustomerUpdate(BaseModel):
     address: str | None = None
     updated_at: datetime | None = None
 
-# ---------------------------------------------------------------------------
-# Response Schema (server → client)
-# ---------------------------------------------------------------------------
 class Customer(CustomerBase):
+    """Schema returned to the client for a Customer record (server -> client)."""
     id: int
     created_at: datetime
     updated_at: datetime
-
     class Config:
         orm_mode = True

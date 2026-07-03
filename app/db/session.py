@@ -1,53 +1,22 @@
 # ER-ServiceDesk/app/db/session.py
 # Database engine and session factory
-#
-# This module initializes the SQLAlchemy engine and session factory used
-# throughout the ER‑ServiceDesk application. It provides the core database
-# connection infrastructure, allowing the rest of the system to create
-# sessions for executing queries and transactions.
-# The engine is configured from environment variables via the settings object.
+"""
+SQLAlchemy engine and session factory used throughout the application.
+"""
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 
-# ---------------------------------------------------------------------------
-# SQLAlchemy Engine
-# ---------------------------------------------------------------------------
-# The engine manages the connection to the database. It is created using the
-# DATABASE_URL loaded from environment variables. `future=True` enables the
-# SQLAlchemy 2.0‑style engine behavior.
-
-engine = create_engine(
-    settings.DATABASE_URL,
-    future=True
-)
-
-# ---------------------------------------------------------------------------
-# Session Factory
-# ---------------------------------------------------------------------------
-# SessionLocal is a sessionmaker instance that creates new SQLAlchemy Session
-# objects. These sessions are used for all ORM interactions within the app.
-# - autocommit=False ensures explicit transaction control
-# - autoflush=False prevents automatic flushes before queries
-# - bind=engine attaches the session to the configured database engine
-
-SessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
-    bind=engine
-)
-
-# ---------------------------------------------------------------------------
-# Dependency: get_db
-# ---------------------------------------------------------------------------
-# Provides a database session for FastAPI dependency injection.
-# Ensures the session is closed after the request is processed.
+engine = create_engine(settings.DATABASE_URL, future=True)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db():
     """
-    Yields a database session for request handling.
-    Ensures the session is properly closed after use.
+    FastAPI dependency that yields a database session for a single request.
+
+    Yields:
+        A SQLAlchemy Session, closed automatically once the request finishes.
     """
     db = SessionLocal()
     try:

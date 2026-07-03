@@ -1,53 +1,83 @@
-# ER-ServiceDesk/app/routes/permissions.py
-# API routes for Permission operations.
-#
-# Exposes REST endpoints for interacting with Permission records.
-# Uses the service layer to perform business logic.
-# Defines request/response schemas and HTTP method handlers.
+# ER-ServiceDesk/app/routes/payments.py
+# API routes for Payment operations.
+"""
+REST endpoints for a payment applied against an invoice.
 
-# ---------------------------------------------------------------------------
-# Route Handlers
-# ---------------------------------------------------------------------------
+Thin HTTP layer: validates the request via the schema layer and delegates
+all real work to the service layer.
+"""
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
-from app.services.permission_service import permission_service
-from app.schemas.permission import Permission, PermissionCreate, PermissionUpdate
+from app.services.payment_service import payment_service
+from app.schemas.payment import Payment, PaymentCreate, PaymentUpdate
 
-router = APIRouter(prefix="/permissions", tags=["permissions"])
+router = APIRouter(prefix="/payments", tags=["payments"])
 
-@router.get("/", response_model=list[Permission])
-def list_permissions(db: Session = Depends(get_db)):
+@router.get("/", response_model=list[Payment])
+def list_payments(db: Session = Depends(get_db)):
     """
-    Returns a list of Permission records.
-    """
-    return permission_service.get_multi(db)
+    List a payment applied against an invoice, paginated.
 
-@router.get("/{id}", response_model=Permission)
-def get_permission(id: int, db: Session = Depends(get_db)):
-    """
-    Returns a single Permission record by ID.
-    """
-    return permission_service.get(db, id)
+    Args:
+        db: Injected database session.
 
-@router.post("/", response_model=Permission)
-def create_permission(obj_in: PermissionCreate, db: Session = Depends(get_db)):
+    Returns:
+        A list of Payment records.
     """
-    Creates a new Permission record.
-    """
-    return permission_service.create(db, obj_in)
+    return payment_service.get_multi(db)
 
-@router.put("/{id}", response_model=Permission)
-def update_permission(id: int, obj_in: PermissionUpdate, db: Session = Depends(get_db)):
+@router.get("/{id}", response_model=Payment)
+def get_payment(id: int, db: Session = Depends(get_db)):
     """
-    Updates an existing Permission record.
+    Fetch a single Payment record by ID.
+
+    Args:
+        id: Primary key of the record to fetch.
+        db: Injected database session.
+
+    Returns:
+        The matching Payment record.
     """
-    return permission_service.update(db, id, obj_in)
+    return payment_service.get(db, id)
+
+@router.post("/", response_model=Payment)
+def create_payment(obj_in: PaymentCreate, db: Session = Depends(get_db)):
+    """
+    Create a new Payment record.
+
+    Args:
+        obj_in: Validated request body for the new record.
+        db: Injected database session.
+
+    Returns:
+        The newly created Payment record.
+    """
+    return payment_service.create(db, obj_in)
+
+@router.put("/{id}", response_model=Payment)
+def update_payment(id: int, obj_in: PaymentUpdate, db: Session = Depends(get_db)):
+    """
+    Update an existing Payment record.
+
+    Args:
+        id: Primary key of the record to update.
+        obj_in: Fields to change; unset fields are left untouched.
+        db: Injected database session.
+
+    Returns:
+        The updated Payment record.
+    """
+    return payment_service.update(db, id, obj_in)
 
 @router.delete("/{id}")
-def delete_permission(id: int, db: Session = Depends(get_db)):
+def delete_payment(id: int, db: Session = Depends(get_db)):
     """
-    Deletes a Permission record by ID.
+    Delete a Payment record by ID.
+
+    Args:
+        id: Primary key of the record to delete.
+        db: Injected database session.
     """
-    return permission_service.delete(db, id)
+    return payment_service.delete(db, id)

@@ -1,13 +1,11 @@
 # ER-ServiceDesk/app/routes/invoices.py
 # API routes for Invoice operations.
-#
-# Exposes REST endpoints for interacting with Invoice records.
-# Uses the service layer to perform business logic.
-# Defines request/response schemas and HTTP method handlers.
+"""
+REST endpoints for a bill generated for work performed on a ticket.
 
-# ---------------------------------------------------------------------------
-# Route Handlers
-# ---------------------------------------------------------------------------
+Thin HTTP layer: validates the request via the schema layer and delegates
+all real work to the service layer.
+"""
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -20,34 +18,66 @@ router = APIRouter(prefix="/invoices", tags=["invoices"])
 @router.get("/", response_model=list[Invoice])
 def list_invoices(db: Session = Depends(get_db)):
     """
-    Returns a list of Invoice records.
+    List a bill generated for work performed on a ticket, paginated.
+
+    Args:
+        db: Injected database session.
+
+    Returns:
+        A list of Invoice records.
     """
     return invoice_service.get_multi(db)
 
 @router.get("/{id}", response_model=Invoice)
 def get_invoice(id: int, db: Session = Depends(get_db)):
     """
-    Returns a single Invoice record by ID.
+    Fetch a single Invoice record by ID.
+
+    Args:
+        id: Primary key of the record to fetch.
+        db: Injected database session.
+
+    Returns:
+        The matching Invoice record.
     """
     return invoice_service.get(db, id)
 
 @router.post("/", response_model=Invoice)
 def create_invoice(obj_in: InvoiceCreate, db: Session = Depends(get_db)):
     """
-    Creates a new Invoice record.
+    Create a new Invoice record.
+
+    Args:
+        obj_in: Validated request body for the new record.
+        db: Injected database session.
+
+    Returns:
+        The newly created Invoice record.
     """
     return invoice_service.create(db, obj_in)
 
 @router.put("/{id}", response_model=Invoice)
 def update_invoice(id: int, obj_in: InvoiceUpdate, db: Session = Depends(get_db)):
     """
-    Updates an existing Invoice record.
+    Update an existing Invoice record.
+
+    Args:
+        id: Primary key of the record to update.
+        obj_in: Fields to change; unset fields are left untouched.
+        db: Injected database session.
+
+    Returns:
+        The updated Invoice record.
     """
     return invoice_service.update(db, id, obj_in)
 
 @router.delete("/{id}")
 def delete_invoice(id: int, db: Session = Depends(get_db)):
     """
-    Deletes an Invoice record by ID.
+    Delete a Invoice record by ID.
+
+    Args:
+        id: Primary key of the record to delete.
+        db: Injected database session.
     """
     return invoice_service.delete(db, id)

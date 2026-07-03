@@ -1,53 +1,36 @@
-# ER-ServiceDesk/app/models/customers.py
-# Customer model for storing client information
-#
-# Represents a customer within the ER‑ServiceDesk system. Customers may own
-# multiple devices and may have multiple support tickets associated with them.
-# This model stores identifying and contact information for each customer.
-# It is used throughout the system for ticket creation, device assignment,
-# and customer‑facing communication workflows.
-
-# ---------------------------------------------------------------------------
-# Customer Model
-# ---------------------------------------------------------------------------
+# ER-ServiceDesk/app/models/customer.py
+# ORM model for a client of the repair shop
+"""
+ORM model for a client of the repair shop.
+"""
 
 from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.orm import relationship
 from datetime import datetime, UTC
-
 from app.db.base import Base
 
-
 class Customer(Base):
+    """
+    Represents a customer who owns devices and may have one or more support tickets open.
+
+    Attributes:
+        id: Primary key.
+        first_name: Customer's first name.
+        last_name: Customer's last name.
+        email: Unique contact email, used for ticket notifications.
+        phone: Optional contact phone number.
+        address: Optional mailing/service address.
+        created_at: Timestamp the record was created.
+        updated_at: Timestamp the record was last updated.
+    """
     __tablename__ = "customers"
-
-    # Unique identifier for the customer
     id = Column(Integer, primary_key=True, index=True)
-
-    # Customer's first and last name
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
-
-    # Contact information
     email = Column(String, unique=True, index=True, nullable=False)
     phone = Column(String, nullable=True)
     address = Column(String, nullable=True)
-
-    # Timestamp of when the log entry was created
-    created_at = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        nullable=False
-    )
-
-    # Timestamp of when the log entry was last updated
-    updated_at = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
-        nullable=False
-    )
-
-    # Relationships
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)
     devices = relationship("Device", back_populates="customer")
     tickets = relationship("Ticket", back_populates="customer")

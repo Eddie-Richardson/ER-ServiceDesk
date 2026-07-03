@@ -1,27 +1,19 @@
 # ER-ServiceDesk/app/db/init_db.py
 # Database initialization / seeding placeholder
-#
-# This module provides the initialization hook for database seeding in the
-# ER‑ServiceDesk application. It is intended for creating default records such
-# as admin users, roles, permissions, or any baseline data required for the
-# system to operate correctly. Currently a placeholder, it can be expanded as
-# the project’s data requirements grow.
+"""
+Initialization hook for database seeding, called at startup/deployment.
+"""
 
 from sqlalchemy.orm import Session
 
-# ---------------------------------------------------------------------------
-# Database initialization / seeding entry point
-# ---------------------------------------------------------------------------
 def init_db(db: Session):
     """
     Initialize the database with default data.
 
-    This function is called during application startup or deployment to ensure
-    required baseline data exists. Examples include:
-      - Creating an initial admin user
-      - Populating default roles or permissions
-      - Inserting system configuration records
+    Placeholder until additional seeding requirements beyond app.db.seed
+    are needed (e.g. default admin user, baseline roles/permissions).
 
-    Currently a placeholder until seeding requirements are defined.
+    Args:
+        db: Active database session.
     """
     pass

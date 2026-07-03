@@ -1,19 +1,18 @@
 # ER-ServiceDesk/app/db/seed.py
 # Seed initial system data
-#
-# This module populates the database with baseline roles, permissions,
-# role-permission mappings, and default users required for the system to run.
-# It is executed after migrations to ensure a fresh database is immediately
-# operational. This file is intentionally kept as a single seed source.
-# It fits into the initialization layer of the application.
+"""
+Populates a fresh database with baseline roles, permissions,
+role-permission mappings, and default users so the system is immediately
+usable after migrations run. Idempotent -- safe to run multiple times.
+"""
 
 from sqlalchemy.orm import Session
 
 from app.models.role import Role
-from app.crud.permission import Permission
-from app.crud.role_permission import RolePermission
+from app.models.permission import Permission
+from app.models.role_permission import RolePermission
 from app.models.user import User
-from app.crud.user_role import UserRole
+from app.models.user_role import UserRole
 
 from app.core.security import hash_password
 
@@ -22,13 +21,16 @@ def seed_data(db: Session):
     """
     Insert initial roles, permissions, mappings, and default users.
 
-    This function is idempotent — running it multiple times will not create
-    duplicate records. Existing entries are detected and reused.
+    Existing entries are detected and reused rather than duplicated, so
+    this is safe to call on every startup/deploy.
+
+    Args:
+        db: Active database session.
     """
 
-    # -----------------------------------------------------------------------
+    # -------------------------------------------------------------------
     # Roles
-    # -----------------------------------------------------------------------
+    # -------------------------------------------------------------------
     roles = {
         "admin": "System administrator with full access",
         "agent": "Technician/employee with operational access",
@@ -46,9 +48,9 @@ def seed_data(db: Session):
 
     db.commit()
 
-    # -----------------------------------------------------------------------
+    # -------------------------------------------------------------------
     # Permissions
-    # -----------------------------------------------------------------------
+    # -------------------------------------------------------------------
     permissions = [
         ("ticket.create", "Create new tickets"),
         ("ticket.update", "Update ticket details"),
@@ -75,9 +77,9 @@ def seed_data(db: Session):
 
     db.commit()
 
-    # -----------------------------------------------------------------------
-    # Role → Permission Mapping
-    # -----------------------------------------------------------------------
+    # -------------------------------------------------------------------
+    # Role -> Permission mapping
+    # -------------------------------------------------------------------
     admin_perms = permissions
     agent_perms = [
         p for p in permissions
@@ -85,6 +87,7 @@ def seed_data(db: Session):
     ]
 
     def assign_perms(role_name, perm_list):
+        """Grant every permission in perm_list to the given role, skipping duplicates."""
         role = role_objs[role_name]
         for perm_name, _ in perm_list:
             perm = perm_objs[perm_name]
@@ -102,9 +105,9 @@ def seed_data(db: Session):
 
     db.commit()
 
-    # -----------------------------------------------------------------------
-    # Default Admin User
-    # -----------------------------------------------------------------------
+    # -------------------------------------------------------------------
+    # Default admin user
+    # -------------------------------------------------------------------
     admin_email = "admin@example.com"
     admin_user = db.query(User).filter_by(email=admin_email).first()
 
@@ -115,6 +118,7 @@ def seed_data(db: Session):
             first_name="Admin",
             last_name="User",
             is_active=True,
+            is_superuser=True,
         )
         db.add(admin_user)
         db.commit()
@@ -124,9 +128,9 @@ def seed_data(db: Session):
 
     db.commit()
 
-    # -----------------------------------------------------------------------
-    # Default Agent User
-    # -----------------------------------------------------------------------
+    # -------------------------------------------------------------------
+    # Default agent user
+    # -------------------------------------------------------------------
     agent_email = "agent@example.com"
     agent_user = db.query(User).filter_by(email=agent_email).first()
 
@@ -137,6 +141,7 @@ def seed_data(db: Session):
             first_name="Agent",
             last_name="User",
             is_active=True,
+            is_superuser=False,
         )
         db.add(agent_user)
         db.commit()

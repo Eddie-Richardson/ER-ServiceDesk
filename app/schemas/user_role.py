@@ -1,41 +1,27 @@
-# ER-ServiceDesk/app/schemas/user_roles.py
-# Pydantic schemas for UserRole entities used to validate and
-# structure data exchanged between the client and server.
-#
-# These schemas define the fields required for creating, updating,
-# and returning user‑role association records within the ER‑ServiceDesk
-# RBAC system. UserRole entries represent the many‑to‑many relationship
-# between users and roles, forming the foundation of permission and
-# authorization logic throughout the platform.
+# ER-ServiceDesk/app/schemas/user_role.py
+# Pydantic schemas for UserRole entities used to validate and structure the many-to-many link between users and roles
+"""
+Pydantic schemas for UserRole entities used to validate and structure the many-to-many link between users and roles.
+"""
 
 from pydantic import BaseModel
 
-
-# ---------------------------------------------------------------------------
-# Base Schema (shared fields)
-# ---------------------------------------------------------------------------
 class UserRoleBase(BaseModel):
+    """Shared fields for UserRole across create/read/update."""
     user_id: int
     role_id: int
 
-# ---------------------------------------------------------------------------
-# Create Schema (client → server)
-# ---------------------------------------------------------------------------
 class UserRoleCreate(UserRoleBase):
+    """Schema for creating a new UserRole record (client -> server)."""
     pass
 
-# ---------------------------------------------------------------------------
-# Update Schema (partial updates allowed)
-# ---------------------------------------------------------------------------
 class UserRoleUpdate(BaseModel):
+    """Schema for partially updating an existing UserRole record. All fields optional."""
     user_id: int | None = None
     role_id: int | None = None
 
-# ---------------------------------------------------------------------------
-# Response Schema (server → client)
-# ---------------------------------------------------------------------------
 class UserRole(UserRoleBase):
+    """Schema returned to the client for a UserRole record (server -> client)."""
     id: int
-
     class Config:
         orm_mode = True

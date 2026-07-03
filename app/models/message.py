@@ -1,51 +1,34 @@
-# ER-ServiceDesk/app/models/message_service.py
-# ORM model for storing inbound and outbound ticket messages
-#
-# The Message model represents communication exchanged between customers
-# and support agents within the ER‑ServiceDesk system. Each message is
-# linked to a ticket and optionally to a customer. Messages track direction,
-# content, and timestamps for full conversation history.
+# ER-ServiceDesk/app/models/message.py
+# ORM model for a customer-facing message exchanged on a ticket (e.g. via email)
+"""
+ORM model for a customer-facing message exchanged on a ticket (e.g. via email).
+"""
 
 from sqlalchemy import Column, Integer, Text, ForeignKey, DateTime, String
 from sqlalchemy.orm import relationship
 from datetime import datetime, UTC
-
 from app.db.base import Base
 
-# ---------------------------------------------------------------------------
-# Message Model
-# ---------------------------------------------------------------------------
 class Message(Base):
+    """
+    Represents a single inbound or outbound message in the conversation thread for a ticket.
+
+    Attributes:
+        id: Primary key.
+        ticket_id: The ticket this message belongs to.
+        customer_id: The customer this message was sent to/received from.
+        direction: 'inbound' (from customer) or 'outbound' (from agent/system).
+        content: The message body.
+        created_at: Timestamp the record was created.
+        updated_at: Timestamp the record was last updated.
+    """
     __tablename__ = "messages"
-
-    # Primary key
     id = Column(Integer, primary_key=True, index=True)
-
-    # Optional links to ticket and customer
     ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=False)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
-
-    # Message direction: "inbound" (from customer) or "outbound" (from agent/system)
     direction = Column(String, nullable=False)
-
-    # Message body content
     content = Column(Text, nullable=False)
-
-    # Timestamp of when the log entry was created
-    created_at = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        nullable=False
-    )
-
-    # Timestamp of when the log entry was last updated
-    updated_at = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
-        nullable=False
-    )
-
-    # Relationships
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)
     ticket = relationship("Ticket")
     customer = relationship("Customer")

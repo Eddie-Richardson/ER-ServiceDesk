@@ -1,49 +1,31 @@
-# ER-ServiceDesk/app/models/quotes.py
-# ORM model for representing service quotes generated from support tickets
-#
-# The Quote model stores estimated pricing information tied to support
-# tickets within the ER‑ServiceDesk system. Quotes allow agents to provide
-# customers with cost estimates before work is approved. Each quote tracks
-# the amount, optional descriptive details, and creation timestamp.
+# ER-ServiceDesk/app/models/quote.py
+# ORM model for an estimated price for ticket-related work, pending customer approval
+"""
+ORM model for an estimated price for ticket-related work, pending customer approval.
+"""
 
 from sqlalchemy import Column, Integer, Float, ForeignKey, DateTime, Text
 from sqlalchemy.orm import relationship
 from datetime import datetime, UTC
-
 from app.db.base import Base
 
-# ---------------------------------------------------------------------------
-# Quote Model
-# ---------------------------------------------------------------------------
 class Quote(Base):
+    """
+    Represents a cost estimate given to a customer before work is approved.
+
+    Attributes:
+        id: Primary key.
+        ticket_id: The ticket this quote is for.
+        amount: Estimated amount for the quoted work.
+        details: Optional description or breakdown of the quote.
+        created_at: Timestamp the record was created.
+        updated_at: Timestamp the record was last updated.
+    """
     __tablename__ = "quotes"
-
-    # Primary key
     id = Column(Integer, primary_key=True, index=True)
-
-    # Foreign key linking the quote to a ticket
     ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=False)
-
-    # Estimated amount for the quoted work
     amount = Column(Float, nullable=False)
-
-    # Optional description or breakdown of the quote
     details = Column(Text, nullable=True)
-
-    # Timestamp of when the log entry was created
-    created_at = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        nullable=False
-    )
-
-    # Timestamp of when the log entry was last updated
-    updated_at = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
-        nullable=False
-    )
-
-    # Relationship back to the Ticket model
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)
     ticket = relationship("Ticket")

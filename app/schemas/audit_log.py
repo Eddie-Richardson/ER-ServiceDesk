@@ -1,37 +1,26 @@
 # ER-ServiceDesk/app/schemas/audit_log.py
-# Pydantic schemas for audit log entries used to track user actions
-# and system events within the ER‑ServiceDesk application.
-#
-# These schemas define the structure for creating, updating, and
-# returning audit log records. Audit logs are essential for
-# security reviews, compliance, and debugging.
+# Pydantic schemas for AuditLog entities used to validate and structure a record of a user action or system event, for security review and compliance
+"""
+Pydantic schemas for AuditLog entities used to validate and structure a record of a user action or system event, for security review and compliance.
+"""
 
 from datetime import datetime
 from pydantic import BaseModel
 
-
-# ---------------------------------------------------------------------------
-# Base Schema (shared fields)
-# ---------------------------------------------------------------------------
 class AuditLogBase(BaseModel):
+    """Shared fields for AuditLog across create/read/update."""
     user_id: int | None = None
     action: str
     details: str | None = None
     entity_type: str
     entity_id: int
 
-
-# ---------------------------------------------------------------------------
-# Create Schema (client → server)
-# ---------------------------------------------------------------------------
 class AuditLogCreate(AuditLogBase):
+    """Schema for creating a new AuditLog record (client -> server)."""
     pass
 
-
-# ---------------------------------------------------------------------------
-# Update Schema (partial updates allowed)
-# ---------------------------------------------------------------------------
 class AuditLogUpdate(BaseModel):
+    """Schema for partially updating an existing AuditLog record. All fields optional."""
     user_id: int | None = None
     action: str | None = None
     details: str | None = None
@@ -39,14 +28,10 @@ class AuditLogUpdate(BaseModel):
     entity_id: int | None = None
     updated_at: datetime | None = None
 
-
-# ---------------------------------------------------------------------------
-# Response Schema (server → client)
-# ---------------------------------------------------------------------------
 class AuditLog(AuditLogBase):
+    """Schema returned to the client for a AuditLog record (server -> client)."""
     id: int
     created_at: datetime
     updated_at: datetime
-
     class Config:
         orm_mode = True

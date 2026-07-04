@@ -1,0 +1,23 @@
+# ER-ServiceDesk/.gitattributes
+# Enforce consistent line endings regardless of OS/editor, so Git stops
+# warning about LF/CRLF conversion and diffs don't get noisy from line
+# endings silently flipping between commits.
+
+* text=auto eol=lf
+
+*.py text eol=lf
+*.md text eol=lf
+*.ini text eol=lf
+*.txt text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.cfg text eol=lf
+
+# Binary files should never be touched by line-ending conversion
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary

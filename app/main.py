@@ -7,7 +7,11 @@ module, and exposes a health check endpoint for deployment/monitoring.
 
 from fastapi import FastAPI
 
+from app.core.error_handlers import register_error_handlers
+from app.core.logging_config import setup_logging
+
 from app.routes import (
+    assets,
     attachments,
     audit_logs,
     auth,
@@ -15,9 +19,11 @@ from app.routes import (
     customers,
     devices,
     invoices,
+    locations,
     message_templates,
     messages,
     notes,
+    parts,
     payments,
     permissions,
     quotes,
@@ -26,7 +32,10 @@ from app.routes import (
     status_histories,
     system_settings,
     ticket_categories,
+    ticket_parts,
+    ticket_stages,
     ticket_statuses,
+    ticket_type_stages,
     ticket_types,
     tickets,
     user_roles,
@@ -34,6 +43,9 @@ from app.routes import (
 )
 
 app = FastAPI(title="ER Service Desk API")
+
+register_error_handlers(app)
+setup_logging()
 
 
 # ---------------------------------------------------------------------------
@@ -55,8 +67,10 @@ app.include_router(customers.router)
 app.include_router(devices.router)
 app.include_router(tickets.router)
 app.include_router(ticket_categories.router)
+app.include_router(ticket_stages.router)
 app.include_router(ticket_statuses.router)
 app.include_router(ticket_types.router)
+app.include_router(ticket_type_stages.router)
 app.include_router(status_histories.router)
 
 # Ticket-linked records
@@ -72,6 +86,12 @@ app.include_router(payments.router)
 app.include_router(audit_logs.router)
 app.include_router(background_jobs.router)
 app.include_router(system_settings.router)
+
+# Inventory (merged from InventoryHub)
+app.include_router(locations.router)
+app.include_router(assets.router)
+app.include_router(parts.router)
+app.include_router(ticket_parts.router)
 
 
 @app.get("/health")

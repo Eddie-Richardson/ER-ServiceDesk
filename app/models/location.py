@@ -1,0 +1,33 @@
+# ER-ServiceDesk/app/models/location.py
+# ORM model for a named physical location
+"""
+ORM model for a physical location, used to anchor asset, part, and ticket
+"where is it" tracking to a single consistent value instead of free-text
+strings that drift out of sync (e.g. "Bench 3" vs "bench3").
+"""
+
+from sqlalchemy import Column, Integer, String
+from sqlalchemy.orm import relationship
+from app.db.base import Base
+
+
+class Location(Base):
+    """
+    Represents a single named physical location within the shop (a bench,
+    a shelf, a shipping area, etc.).
+
+    Attributes:
+        id: Primary key.
+        name: Unique location name (e.g. "Bench 3", "Customer Pickup Shelf").
+        description: Optional longer explanation of the location.
+    """
+    __tablename__ = "locations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, nullable=False, index=True)
+    description = Column(String, nullable=True)
+
+    assets = relationship("Asset", back_populates="location")
+    parts = relationship("Part", back_populates="location")
+    tickets = relationship("Ticket", back_populates="current_location")
+    devices = relationship("Device", back_populates="current_location")

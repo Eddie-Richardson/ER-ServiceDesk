@@ -1,7 +1,8 @@
 # ER-ServiceDesk/app/schemas/ticket.py
-# Pydantic schemas for Ticket entities used to validate and structure a support/repair job tracked from intake to completion
+# Pydantic schemas for Ticket entities
 """
-Pydantic schemas for Ticket entities used to validate and structure a support/repair job tracked from intake to completion.
+Pydantic schemas for Ticket entities used to validate and structure a
+support/repair job tracked from intake to completion.
 """
 
 from datetime import datetime
@@ -14,7 +15,9 @@ class TicketBase(BaseModel):
     category_id: int
     type_id: int
     status_id: int
+    stage_id: int | None = None
     assigned_to: int | None = None
+    current_location_id: int | None = None
     title: str
     description: str | None = None
     priority: str
@@ -30,7 +33,9 @@ class TicketUpdate(BaseModel):
     category_id: int | None = None
     type_id: int | None = None
     status_id: int | None = None
+    stage_id: int | None = None
     assigned_to: int | None = None
+    current_location_id: int | None = None
     title: str | None = None
     description: str | None = None
     priority: str | None = None

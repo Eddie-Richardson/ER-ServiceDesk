@@ -1,7 +1,8 @@
 # ER-ServiceDesk/app/schemas/device.py
-# Pydantic schemas for Device entities used to validate and structure a customer-owned device brought in for service
+# Pydantic schemas for Device entities
 """
-Pydantic schemas for Device entities used to validate and structure a customer-owned device brought in for service.
+Pydantic schemas for Device entities used to validate and structure a
+customer-owned device brought in for service.
 """
 
 from datetime import datetime
@@ -14,6 +15,7 @@ class DeviceBase(BaseModel):
     brand: str | None = None
     model: str | None = None
     serial_number: str | None = None
+    current_location_id: int | None = None
 
 class DeviceCreate(DeviceBase):
     """Schema for creating a new Device record (client -> server)."""
@@ -26,6 +28,7 @@ class DeviceUpdate(BaseModel):
     brand: str | None = None
     model: str | None = None
     serial_number: str | None = None
+    current_location_id: int | None = None
     updated_at: datetime | None = None
 
 class Device(DeviceBase):

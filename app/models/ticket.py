@@ -20,7 +20,12 @@ class Ticket(Base):
         category_id: High-level grouping (e.g. Hardware, Software).
         type_id: Classification (e.g. Bug, Repair Request).
         status_id: Current workflow status.
+        stage_id: Granular step of work (e.g. "Diagnosing" for a repair,
+            "Burn-in Test" for a custom build). Distinct from status_id,
+            which stays at the high-level Open/In Progress/Resolved axis.
         assigned_to: The technician assigned to this ticket, if any.
+        current_location_id: Where the device physically is right now
+            (e.g. a bench, a shelf, shipped to customer).
         title: Short summary of the issue.
         description: Optional full description of the issue.
         priority: Ticket priority level.
@@ -34,7 +39,9 @@ class Ticket(Base):
     category_id = Column(Integer, ForeignKey("ticket_categories.id"), nullable=False)
     type_id = Column(Integer, ForeignKey("ticket_types.id"), nullable=False)
     status_id = Column(Integer, ForeignKey("ticket_statuses.id"), nullable=False)
+    stage_id = Column(Integer, ForeignKey("ticket_stages.id"), nullable=True)
     assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
+    current_location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     priority = Column(String, nullable=False, index=True)
@@ -45,6 +52,9 @@ class Ticket(Base):
     category = relationship("TicketCategory", back_populates="tickets")
     type = relationship("TicketType", back_populates="tickets")
     status = relationship("TicketStatus", back_populates="tickets")
+    stage = relationship("TicketStage", back_populates="tickets")
     assigned_to_user = relationship("User", back_populates="tickets_assigned")
     notes = relationship("Note", back_populates="ticket")
     status_history = relationship("StatusHistory", back_populates="ticket")
+    current_location = relationship("Location", back_populates="tickets")
+    parts_needed = relationship("TicketPart", back_populates="ticket")

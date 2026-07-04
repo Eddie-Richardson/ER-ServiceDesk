@@ -22,3 +22,4 @@ class TicketType(Base):
     name = Column(String, unique=True, nullable=False)
     description = Column(String, nullable=True)
     tickets = relationship("Ticket", back_populates="type")
+    allowed_stages = relationship("TicketTypeStage", back_populates="ticket_type")

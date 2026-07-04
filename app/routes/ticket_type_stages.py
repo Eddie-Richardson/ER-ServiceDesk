@@ -8,10 +8,11 @@ TicketType.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
+from app.api.dependencies import get_current_user
 from app.services.ticket_type_stage_service import ticket_type_stage_service
 from app.schemas.ticket_type_stage import TicketTypeStage, TicketTypeStageCreate, TicketTypeStageUpdate
 
-router = APIRouter(prefix="/ticket_type_stages", tags=["ticket_type_stages"])
+router = APIRouter(prefix="/ticket_type_stages", tags=["ticket_type_stages"], dependencies=[Depends(get_current_user)])
 
 @router.get("/", response_model=list[TicketTypeStage])
 def list_ticket_type_stages(db: Session = Depends(get_db)):

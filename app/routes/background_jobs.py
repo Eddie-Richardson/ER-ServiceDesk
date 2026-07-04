@@ -10,10 +10,11 @@ all real work to the service layer.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
+from app.api.dependencies import get_current_user
 from app.services.background_job_service import background_job_service
 from app.schemas.background_job import BackgroundJob, BackgroundJobCreate, BackgroundJobUpdate
 
-router = APIRouter(prefix="/background_jobs", tags=["background_jobs"])
+router = APIRouter(prefix="/background_jobs", tags=["background_jobs"], dependencies=[Depends(get_current_user)])
 
 @router.get("/", response_model=list[BackgroundJob])
 def list_background_jobs(db: Session = Depends(get_db)):

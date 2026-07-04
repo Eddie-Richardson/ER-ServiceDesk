@@ -10,10 +10,11 @@ all real work to the service layer.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
+from app.api.dependencies import require_superuser
 from app.services.audit_log_service import audit_log_service
 from app.schemas.audit_log import AuditLog, AuditLogCreate, AuditLogUpdate
 
-router = APIRouter(prefix="/audit_logs", tags=["audit_logs"])
+router = APIRouter(prefix="/audit_logs", tags=["audit_logs"], dependencies=[Depends(require_superuser)])
 
 @router.get("/", response_model=list[AuditLog])
 def list_audit_logs(db: Session = Depends(get_db)):

@@ -10,10 +10,11 @@ all real work to the service layer.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
+from app.api.dependencies import require_superuser
 from app.services.user_role_service import user_role_service
 from app.schemas.user_role import UserRole, UserRoleCreate, UserRoleUpdate
 
-router = APIRouter(prefix="/user_roles", tags=["user_roles"])
+router = APIRouter(prefix="/user_roles", tags=["user_roles"], dependencies=[Depends(require_superuser)])
 
 @router.get("/", response_model=list[UserRole])
 def list_user_roles(db: Session = Depends(get_db)):

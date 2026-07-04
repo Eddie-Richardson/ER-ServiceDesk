@@ -7,10 +7,11 @@ REST endpoints for staff/system account management.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
+from app.api.dependencies import require_superuser
 from app.services.user_service import user_service
 from app.schemas.user import User, UserCreate, UserUpdate
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(require_superuser)])
 
 @router.get("/", response_model=list[User])
 def list_users(db: Session = Depends(get_db)):

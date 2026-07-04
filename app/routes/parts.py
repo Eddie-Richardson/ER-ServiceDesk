@@ -8,11 +8,12 @@ used to drive the reorder-tracking feature.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
+from app.api.dependencies import get_current_user
 from app.services.part_service import part_service
 from app.crud.part import crud_part
 from app.schemas.part import Part, PartCreate, PartUpdate
 
-router = APIRouter(prefix="/inventory/parts", tags=["inventory-parts"])
+router = APIRouter(prefix="/inventory/parts", tags=["inventory-parts"], dependencies=[Depends(get_current_user)])
 
 @router.get("/", response_model=list[Part])
 def list_parts(db: Session = Depends(get_db)):

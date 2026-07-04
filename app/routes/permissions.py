@@ -10,10 +10,11 @@ all real work to the service layer.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
+from app.api.dependencies import require_superuser
 from app.services.permission_service import permission_service
 from app.schemas.permission import Permission, PermissionCreate, PermissionUpdate
 
-router = APIRouter(prefix="/permissions", tags=["permissions"])
+router = APIRouter(prefix="/permissions", tags=["permissions"], dependencies=[Depends(require_superuser)])
 
 @router.get("/", response_model=list[Permission])
 def list_permissions(db: Session = Depends(get_db)):

@@ -10,10 +10,11 @@ all real work to the service layer.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
+from app.api.dependencies import get_current_user
 from app.services.invoice_service import invoice_service
 from app.schemas.invoice import Invoice, InvoiceCreate, InvoiceUpdate
 
-router = APIRouter(prefix="/invoices", tags=["invoices"])
+router = APIRouter(prefix="/invoices", tags=["invoices"], dependencies=[Depends(get_current_user)])
 
 @router.get("/", response_model=list[Invoice])
 def list_invoices(db: Session = Depends(get_db)):

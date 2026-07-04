@@ -10,10 +10,11 @@ all real work to the service layer.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
+from app.api.dependencies import get_current_user
 from app.services.device_service import device_service
 from app.schemas.device import Device, DeviceCreate, DeviceUpdate
 
-router = APIRouter(prefix="/devices", tags=["devices"])
+router = APIRouter(prefix="/devices", tags=["devices"], dependencies=[Depends(get_current_user)])
 
 @router.get("/", response_model=list[Device])
 def list_devices(db: Session = Depends(get_db)):

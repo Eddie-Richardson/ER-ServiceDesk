@@ -10,10 +10,11 @@ all real work to the service layer.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
+from app.api.dependencies import get_current_user
 from app.services.payment_service import payment_service
 from app.schemas.payment import Payment, PaymentCreate, PaymentUpdate
 
-router = APIRouter(prefix="/payments", tags=["payments"])
+router = APIRouter(prefix="/payments", tags=["payments"], dependencies=[Depends(get_current_user)])
 
 @router.get("/", response_model=list[Payment])
 def list_payments(db: Session = Depends(get_db)):

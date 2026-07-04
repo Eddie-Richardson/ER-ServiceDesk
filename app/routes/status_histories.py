@@ -10,10 +10,11 @@ all real work to the service layer.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
+from app.api.dependencies import get_current_user
 from app.services.status_history_service import status_history_service
 from app.schemas.status_history import StatusHistory, StatusHistoryCreate, StatusHistoryUpdate
 
-router = APIRouter(prefix="/status_histories", tags=["status_histories"])
+router = APIRouter(prefix="/status_histories", tags=["status_histories"], dependencies=[Depends(get_current_user)])
 
 @router.get("/", response_model=list[StatusHistory])
 def list_status_historys(db: Session = Depends(get_db)):

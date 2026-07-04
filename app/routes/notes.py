@@ -10,10 +10,11 @@ all real work to the service layer.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
+from app.api.dependencies import get_current_user
 from app.services.note_service import note_service
 from app.schemas.note import Note, NoteCreate, NoteUpdate
 
-router = APIRouter(prefix="/notes", tags=["notes"])
+router = APIRouter(prefix="/notes", tags=["notes"], dependencies=[Depends(get_current_user)])
 
 @router.get("/", response_model=list[Note])
 def list_notes(db: Session = Depends(get_db)):

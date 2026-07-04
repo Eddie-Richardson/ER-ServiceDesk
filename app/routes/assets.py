@@ -8,12 +8,13 @@ and wrapped-create-response shape from the original InventoryHub API.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
+from app.api.dependencies import get_current_user
 from app.services.asset_service import asset_service
 from app.models.asset import Asset as AssetModel
 from app.utils.pagination import paginate_query
 from app.schemas.asset import Asset, AssetCreate, AssetUpdate, AssetCreateResponse, PaginationResponse
 
-router = APIRouter(prefix="/inventory/assets", tags=["inventory-assets"])
+router = APIRouter(prefix="/inventory/assets", tags=["inventory-assets"], dependencies=[Depends(get_current_user)])
 
 @router.get("/", response_model=PaginationResponse)
 def list_assets(

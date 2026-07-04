@@ -10,10 +10,11 @@ all real work to the service layer.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
+from app.api.dependencies import get_current_user
 from app.services.ticket_category_service import ticket_category_service
 from app.schemas.ticket_category import TicketCategory, TicketCategoryCreate, TicketCategoryUpdate
 
-router = APIRouter(prefix="/ticket_categories", tags=["ticket_categories"])
+router = APIRouter(prefix="/ticket_categories", tags=["ticket_categories"], dependencies=[Depends(get_current_user)])
 
 @router.get("/", response_model=list[TicketCategory])
 def list_ticket_categorys(db: Session = Depends(get_db)):

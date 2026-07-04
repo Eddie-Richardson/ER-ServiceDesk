@@ -10,10 +10,11 @@ all real work to the service layer.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
+from app.api.dependencies import get_current_user
 from app.services.quote_service import quote_service
 from app.schemas.quote import Quote, QuoteCreate, QuoteUpdate
 
-router = APIRouter(prefix="/quotes", tags=["quotes"])
+router = APIRouter(prefix="/quotes", tags=["quotes"], dependencies=[Depends(get_current_user)])
 
 @router.get("/", response_model=list[Quote])
 def list_quotes(db: Session = Depends(get_db)):

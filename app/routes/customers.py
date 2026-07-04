@@ -10,10 +10,11 @@ all real work to the service layer.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
+from app.api.dependencies import get_current_user
 from app.services.customer_service import customer_service
 from app.schemas.customer import Customer, CustomerCreate, CustomerUpdate
 
-router = APIRouter(prefix="/customers", tags=["customers"])
+router = APIRouter(prefix="/customers", tags=["customers"], dependencies=[Depends(get_current_user)])
 
 @router.get("/", response_model=list[Customer])
 def list_customers(db: Session = Depends(get_db)):

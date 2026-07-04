@@ -10,10 +10,11 @@ all real work to the service layer.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
+from app.api.dependencies import get_current_user
 from app.services.message_service import message_service
 from app.schemas.message import Message, MessageCreate, MessageUpdate
 
-router = APIRouter(prefix="/messages", tags=["messages"])
+router = APIRouter(prefix="/messages", tags=["messages"], dependencies=[Depends(get_current_user)])
 
 @router.get("/", response_model=list[Message])
 def list_messages(db: Session = Depends(get_db)):

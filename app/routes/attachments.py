@@ -10,10 +10,11 @@ all real work to the service layer.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
+from app.api.dependencies import get_current_user
 from app.services.attachment_service import attachment_service
 from app.schemas.attachment import Attachment, AttachmentCreate, AttachmentUpdate
 
-router = APIRouter(prefix="/attachments", tags=["attachments"])
+router = APIRouter(prefix="/attachments", tags=["attachments"], dependencies=[Depends(get_current_user)])
 
 @router.get("/", response_model=list[Attachment])
 def list_attachments(db: Session = Depends(get_db)):

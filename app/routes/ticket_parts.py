@@ -7,10 +7,11 @@ REST endpoints for TicketPart records.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
+from app.api.dependencies import get_current_user
 from app.services.ticket_part_service import ticket_part_service
 from app.schemas.ticket_part import TicketPart, TicketPartCreate, TicketPartUpdate
 
-router = APIRouter(prefix="/ticket_parts", tags=["ticket_parts"])
+router = APIRouter(prefix="/ticket_parts", tags=["ticket_parts"], dependencies=[Depends(get_current_user)])
 
 @router.get("/", response_model=list[TicketPart])
 def list_ticket_parts(db: Session = Depends(get_db)):

@@ -10,10 +10,11 @@ all real work to the service layer.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
+from app.api.dependencies import require_superuser
 from app.services.system_setting_service import system_setting_service
 from app.schemas.system_setting import SystemSetting, SystemSettingCreate, SystemSettingUpdate
 
-router = APIRouter(prefix="/system_settings", tags=["system_settings"])
+router = APIRouter(prefix="/system_settings", tags=["system_settings"], dependencies=[Depends(require_superuser)])
 
 @router.get("/", response_model=list[SystemSetting])
 def list_system_settings(db: Session = Depends(get_db)):

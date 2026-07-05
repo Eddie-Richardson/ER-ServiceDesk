@@ -21,7 +21,7 @@ class TicketStageCRUD:
 
     def create(self, db: Session, obj_in: TicketStageCreate) -> TicketStage:
         """Insert a new TicketStage record."""
-        obj = TicketStage(**obj_in.dict())
+        obj = TicketStage(**obj_in.model_dump())
         db.add(obj)
         db.commit()
         db.refresh(obj)
@@ -29,7 +29,7 @@ class TicketStageCRUD:
 
     def update(self, db: Session, db_obj: TicketStage, obj_in: TicketStageUpdate) -> TicketStage:
         """Apply a partial update to an existing TicketStage record."""
-        for field, value in obj_in.dict(exclude_unset=True).items():
+        for field, value in obj_in.model_dump(exclude_unset=True).items():
             setattr(db_obj, field, value)
         db.commit()
         db.refresh(db_obj)

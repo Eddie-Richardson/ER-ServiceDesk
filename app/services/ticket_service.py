@@ -112,7 +112,7 @@ class TicketService:
         """
         db_obj = crud_ticket.get(db, id)
 
-        update_data = obj_in.dict(exclude_unset=True)
+        update_data = obj_in.model_dump(exclude_unset=True)
         effective_type_id = update_data.get("type_id", db_obj.type_id)
         effective_stage_id = update_data.get("stage_id", db_obj.stage_id)
         self._validate_stage_for_type(db, effective_type_id, effective_stage_id)

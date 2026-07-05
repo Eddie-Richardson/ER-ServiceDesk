@@ -6,7 +6,7 @@ customer-owned device brought in for service.
 """
 
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class DeviceBase(BaseModel):
     """Shared fields for Device across create/read/update."""
@@ -36,5 +36,4 @@ class Device(DeviceBase):
     id: int
     created_at: datetime
     updated_at: datetime
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

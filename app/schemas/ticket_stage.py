@@ -5,7 +5,7 @@ Request/response schemas for the granular repair/build stage a ticket
 is at, distinct from its high-level TicketStatus.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class TicketStageBase(BaseModel):
     """Shared fields for TicketStage across create/read/update."""
@@ -25,5 +25,4 @@ class TicketStage(TicketStageBase):
     """Schema returned to the client for a TicketStage record (server -> client)."""
     id: int
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

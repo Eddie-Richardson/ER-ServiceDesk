@@ -4,7 +4,7 @@
 Pydantic schemas for RolePermission entities used to validate and structure the many-to-many link between roles and permissions.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class RolePermissionBase(BaseModel):
     """Shared fields for RolePermission across create/read/update."""
@@ -23,5 +23,4 @@ class RolePermissionUpdate(BaseModel):
 class RolePermission(RolePermissionBase):
     """Schema returned to the client for a RolePermission record (server -> client)."""
     id: int
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

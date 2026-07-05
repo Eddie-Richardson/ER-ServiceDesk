@@ -53,7 +53,7 @@ class BackgroundJobCRUD:
         Returns:
             The newly created, refreshed BackgroundJob instance.
         """
-        obj = BackgroundJob(**obj_in.dict())
+        obj = BackgroundJob(**obj_in.model_dump())
         db.add(obj)
         db.commit()
         db.refresh(obj)
@@ -71,7 +71,7 @@ class BackgroundJobCRUD:
         Returns:
             The updated, refreshed BackgroundJob instance.
         """
-        for field, value in obj_in.dict(exclude_unset=True).items():
+        for field, value in obj_in.model_dump(exclude_unset=True).items():
             setattr(db_obj, field, value)
         db.commit()
         db.refresh(db_obj)

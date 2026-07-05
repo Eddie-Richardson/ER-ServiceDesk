@@ -66,7 +66,7 @@ class TicketTypeStageCRUD:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="This stage is already allowed for this ticket type",
             )
-        obj = TicketTypeStage(**obj_in.dict())
+        obj = TicketTypeStage(**obj_in.model_dump())
         db.add(obj)
         db.commit()
         db.refresh(obj)
@@ -74,7 +74,7 @@ class TicketTypeStageCRUD:
 
     def update(self, db: Session, db_obj: TicketTypeStage, obj_in: TicketTypeStageUpdate) -> TicketTypeStage:
         """Apply a partial update to an existing TicketTypeStage record."""
-        for field, value in obj_in.dict(exclude_unset=True).items():
+        for field, value in obj_in.model_dump(exclude_unset=True).items():
             setattr(db_obj, field, value)
         db.commit()
         db.refresh(db_obj)

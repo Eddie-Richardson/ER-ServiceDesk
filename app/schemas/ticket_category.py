@@ -4,7 +4,7 @@
 Pydantic schemas for TicketCategory entities used to validate and structure a high-level grouping used to organize tickets.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class TicketCategoryBase(BaseModel):
     """Shared fields for TicketCategory across create/read/update."""
@@ -23,5 +23,4 @@ class TicketCategoryUpdate(BaseModel):
 class TicketCategory(TicketCategoryBase):
     """Schema returned to the client for a TicketCategory record (server -> client)."""
     id: int
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

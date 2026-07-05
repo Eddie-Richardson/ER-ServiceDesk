@@ -5,7 +5,7 @@ Request/response schemas for the (ticket type, stage) allow-list used to
 restrict which TicketStage values are valid for a given TicketType.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class TicketTypeStageBase(BaseModel):
     """Shared fields for TicketTypeStage across create/read/update."""
@@ -25,5 +25,4 @@ class TicketTypeStage(TicketTypeStageBase):
     """Schema returned to the client for a TicketTypeStage record (server -> client)."""
     id: int
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

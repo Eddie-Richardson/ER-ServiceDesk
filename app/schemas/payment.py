@@ -5,7 +5,7 @@ Pydantic schemas for Payment entities used to validate and structure a payment a
 """
 
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class PaymentBase(BaseModel):
     """Shared fields for Payment across create/read/update."""
@@ -31,5 +31,4 @@ class Payment(PaymentBase):
     id: int
     created_at: datetime
     updated_at: datetime
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

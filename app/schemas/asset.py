@@ -7,7 +7,7 @@ Merged in from the standalone InventoryHub API.
 
 import datetime
 from typing import List
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class AssetBase(BaseModel):
     """Shared fields for Asset across create/read/update."""
@@ -53,8 +53,7 @@ class Asset(AssetBase):
     created_at: datetime.datetime
     updated_at: datetime.datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class AssetCreateResponse(BaseModel):
     """Response wrapper returned when creating a new asset."""

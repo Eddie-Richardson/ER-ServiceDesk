@@ -7,7 +7,7 @@ route that needs to authenticate a request.
 """
 
 from passlib.context import CryptContext
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from jose import jwt, JWTError
 from app.core.config import settings
 
@@ -58,7 +58,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
         The encoded JWT string.
     """
     to_encode = data.copy()
-    expire = datetime.utcnow() + (
+    expire = datetime.now(timezone.utc) + (
         expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     to_encode.update({"exp": expire})

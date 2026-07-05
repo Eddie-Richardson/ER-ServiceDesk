@@ -4,7 +4,7 @@
 Pydantic schemas for UserRole entities used to validate and structure the many-to-many link between users and roles.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class UserRoleBase(BaseModel):
     """Shared fields for UserRole across create/read/update."""
@@ -23,5 +23,4 @@ class UserRoleUpdate(BaseModel):
 class UserRole(UserRoleBase):
     """Schema returned to the client for a UserRole record (server -> client)."""
     id: int
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

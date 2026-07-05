@@ -49,7 +49,7 @@ class LocationCRUD:
         Returns:
             The newly created, refreshed Location instance.
         """
-        obj = Location(**obj_in.dict())
+        obj = Location(**obj_in.model_dump())
         db.add(obj)
         db.commit()
         db.refresh(obj)
@@ -67,7 +67,7 @@ class LocationCRUD:
         Returns:
             The updated, refreshed Location instance.
         """
-        for field, value in obj_in.dict(exclude_unset=True).items():
+        for field, value in obj_in.model_dump(exclude_unset=True).items():
             setattr(db_obj, field, value)
         db.commit()
         db.refresh(db_obj)

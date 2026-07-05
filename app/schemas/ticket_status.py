@@ -4,7 +4,7 @@
 Pydantic schemas for TicketStatus entities used to validate and structure a workflow state a ticket can occupy.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class TicketStatusBase(BaseModel):
     """Shared fields for TicketStatus across create/read/update."""
@@ -25,5 +25,4 @@ class TicketStatusUpdate(BaseModel):
 class TicketStatus(TicketStatusBase):
     """Schema returned to the client for a TicketStatus record (server -> client)."""
     id: int
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

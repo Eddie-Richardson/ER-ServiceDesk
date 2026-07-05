@@ -53,7 +53,7 @@ class UserRoleCRUD:
         Returns:
             The newly created, refreshed UserRole instance.
         """
-        obj = UserRole(**obj_in.dict())
+        obj = UserRole(**obj_in.model_dump())
         db.add(obj)
         db.commit()
         db.refresh(obj)
@@ -71,7 +71,7 @@ class UserRoleCRUD:
         Returns:
             The updated, refreshed UserRole instance.
         """
-        for field, value in obj_in.dict(exclude_unset=True).items():
+        for field, value in obj_in.model_dump(exclude_unset=True).items():
             setattr(db_obj, field, value)
         db.commit()
         db.refresh(db_obj)

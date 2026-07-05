@@ -4,7 +4,7 @@
 Pydantic schemas for MessageTemplate entities used to validate and structure a reusable template for outbound emails/notifications.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class MessageTemplateBase(BaseModel):
     """Shared fields for MessageTemplate across create/read/update."""
@@ -25,5 +25,4 @@ class MessageTemplateUpdate(BaseModel):
 class MessageTemplate(MessageTemplateBase):
     """Schema returned to the client for a MessageTemplate record (server -> client)."""
     id: int
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

@@ -5,7 +5,7 @@ Pydantic schemas for Attachment entities used to validate and structure a file u
 """
 
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class AttachmentBase(BaseModel):
     """Shared fields for Attachment across create/read/update."""
@@ -27,5 +27,4 @@ class Attachment(AttachmentBase):
     """Schema returned to the client for a Attachment record (server -> client)."""
     id: int
     uploaded_at: datetime
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

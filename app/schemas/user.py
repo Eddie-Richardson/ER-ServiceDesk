@@ -9,7 +9,7 @@ layer hashes it before it ever touches the database or a response.
 """
 
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class UserLogin(BaseModel):
     """Credentials submitted to the login endpoint."""
@@ -48,5 +48,4 @@ class User(UserBase):
     updated_at: datetime
     full_name: str
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

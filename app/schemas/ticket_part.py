@@ -6,7 +6,7 @@ fulfillment status (needed/ordered/backordered/received/installed).
 """
 
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class TicketPartBase(BaseModel):
     """Shared fields for TicketPart across create/read/update."""
@@ -36,5 +36,4 @@ class TicketPart(TicketPartBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

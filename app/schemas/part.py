@@ -5,7 +5,7 @@ Request/response schemas for consumable, quantity-tracked parts stock.
 """
 
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class PartBase(BaseModel):
     """Shared fields for Part across create/read/update."""
@@ -39,5 +39,4 @@ class Part(PartBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

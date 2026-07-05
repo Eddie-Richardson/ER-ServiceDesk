@@ -5,7 +5,7 @@ Pydantic schemas for Note entities used to validate and structure an internal or
 """
 
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class NoteBase(BaseModel):
     """Shared fields for Note across create/read/update."""
@@ -31,5 +31,4 @@ class Note(NoteBase):
     id: int
     created_at: datetime
     updated_at: datetime
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

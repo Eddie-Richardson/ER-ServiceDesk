@@ -74,7 +74,7 @@ class PartCRUD:
                     detail="Part with this SKU already exists",
                 )
 
-        obj = Part(**obj_in.dict())
+        obj = Part(**obj_in.model_dump())
         db.add(obj)
         db.commit()
         db.refresh(obj)
@@ -92,7 +92,7 @@ class PartCRUD:
         Returns:
             The updated, refreshed Part instance.
         """
-        for field, value in obj_in.dict(exclude_unset=True).items():
+        for field, value in obj_in.model_dump(exclude_unset=True).items():
             setattr(db_obj, field, value)
         db.commit()
         db.refresh(db_obj)

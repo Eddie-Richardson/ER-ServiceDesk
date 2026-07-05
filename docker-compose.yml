@@ -10,8 +10,11 @@
 #
 # Developers can run the entire stack with:
 #     docker-compose up --build
-
-version: "3.9"
+#
+# Postgres credentials/db name are pulled from .env via ${VAR} substitution,
+# so they only need to be set in one place -- see .env for the values that
+# POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB resolve to, and make sure
+# DATABASE_URL in .env uses the same password.
 
 services:
   # -------------------------------------------------------------------------
@@ -33,10 +36,13 @@ services:
   db:
     image: postgres:15
     container_name: er_postgres
+    ports:
+      - "5432:5432"        # Expose Postgres on localhost:5432 for local
+                            # pytest runs and admin tools (psql, DBeaver, etc.)
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: erservicedesk
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres-data:/var/lib/postgresql/data  # Persist database files
 

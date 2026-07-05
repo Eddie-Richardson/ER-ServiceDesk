@@ -5,7 +5,7 @@ Pydantic schemas for Invoice entities used to validate and structure a bill gene
 """
 
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class InvoiceBase(BaseModel):
     """Shared fields for Invoice across create/read/update."""
@@ -31,5 +31,4 @@ class Invoice(InvoiceBase):
     id: int
     created_at: datetime
     updated_at: datetime
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

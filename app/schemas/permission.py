@@ -4,7 +4,7 @@
 Pydantic schemas for Permission entities used to validate and structure a single grantable capability in the RBAC system.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List
 from app.schemas.role_permission import RolePermission
 
@@ -26,5 +26,4 @@ class Permission(PermissionBase):
     """Schema returned to the client for a Permission record (server -> client)."""
     id: int
     role_permissions: List[RolePermission] = []
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

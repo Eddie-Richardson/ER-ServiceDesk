@@ -33,7 +33,7 @@ class AttachmentCRUD:
         """
         Creates a new Attachment using the provided input schema.
         """
-        obj = Attachment(**obj_in.dict())
+        obj = Attachment(**obj_in.model_dump())
         db.add(obj)
         db.commit()
         db.refresh(obj)
@@ -44,7 +44,7 @@ class AttachmentCRUD:
         """
         Updates the given Attachment instance with new values.
         """
-        for field, value in obj_in.dict(exclude_unset=True).items():
+        for field, value in obj_in.model_dump(exclude_unset=True).items():
             setattr(db_obj, field, value)
         db.commit()
         db.refresh(db_obj)

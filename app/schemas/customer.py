@@ -5,7 +5,7 @@ Pydantic schemas for Customer entities used to validate and structure a client o
 """
 
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class CustomerBase(BaseModel):
     """Shared fields for Customer across create/read/update."""
@@ -33,5 +33,4 @@ class Customer(CustomerBase):
     id: int
     created_at: datetime
     updated_at: datetime
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

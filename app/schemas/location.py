@@ -5,7 +5,7 @@ Request/response schemas for named physical locations (benches, shelves,
 shipping areas) used to anchor asset, part, and ticket location tracking.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class LocationBase(BaseModel):
     """Shared fields for Location across create/read/update."""
@@ -25,5 +25,4 @@ class Location(LocationBase):
     """Schema returned to the client for a Location record (server -> client)."""
     id: int
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

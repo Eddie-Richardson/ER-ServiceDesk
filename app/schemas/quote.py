@@ -5,7 +5,7 @@ Pydantic schemas for Quote entities used to validate and structure an estimated 
 """
 
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class QuoteBase(BaseModel):
     """Shared fields for Quote across create/read/update."""
@@ -29,5 +29,4 @@ class Quote(QuoteBase):
     id: int
     created_at: datetime
     updated_at: datetime
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

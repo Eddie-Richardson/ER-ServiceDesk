@@ -53,7 +53,7 @@ class QuoteCRUD:
         Returns:
             The newly created, refreshed Quote instance.
         """
-        obj = Quote(**obj_in.dict())
+        obj = Quote(**obj_in.model_dump())
         db.add(obj)
         db.commit()
         db.refresh(obj)
@@ -71,7 +71,7 @@ class QuoteCRUD:
         Returns:
             The updated, refreshed Quote instance.
         """
-        for field, value in obj_in.dict(exclude_unset=True).items():
+        for field, value in obj_in.model_dump(exclude_unset=True).items():
             setattr(db_obj, field, value)
         db.commit()
         db.refresh(db_obj)

@@ -56,7 +56,7 @@ class UserService:
         Returns:
             The newly created User instance.
         """
-        user_data = obj_in.dict(exclude={"password"})
+        user_data = obj_in.model_dump(exclude={"password"})
         user_data["hashed_password"] = hash_password(obj_in.password)
 
         db_obj = User(**user_data)
@@ -78,7 +78,7 @@ class UserService:
             The updated User instance.
         """
         db_obj = crud_user.get(db, id)
-        update_data = obj_in.dict(exclude_unset=True)
+        update_data = obj_in.model_dump(exclude_unset=True)
 
         if "password" in update_data:
             plaintext = update_data.pop("password")

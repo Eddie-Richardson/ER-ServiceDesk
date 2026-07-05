@@ -5,7 +5,7 @@ Pydantic schemas for StatusHistory entities used to validate and structure an au
 """
 
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class StatusHistoryBase(BaseModel):
     """Shared fields for StatusHistory across create/read/update."""
@@ -27,5 +27,4 @@ class StatusHistory(StatusHistoryBase):
     """Schema returned to the client for a StatusHistory record (server -> client)."""
     id: int
     changed_at: datetime
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

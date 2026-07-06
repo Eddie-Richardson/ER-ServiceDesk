@@ -28,6 +28,25 @@ class CustomerCRUD:
         """
         return db.query(Customer).filter(Customer.id == id).first()
 
+    def get_by_email(self, db: Session, email: str) -> Customer | None:
+        """
+        Fetch a single Customer by email address, case-insensitively.
+
+        Used to match an inbound email's sender address back to the
+        customer it came from. Case-insensitive because email addresses
+        are effectively case-insensitive in practice (most providers,
+        including Gmail, treat them that way), and a customer's stored
+        address may not exactly match the casing their mail client sends.
+
+        Args:
+            db: Active database session.
+            email: The email address to look up.
+
+        Returns:
+            The matching Customer instance, or None if no record exists.
+        """
+        return db.query(Customer).filter(Customer.email.ilike(email)).first()
+
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
         """
         Fetch multiple Customer records with simple offset pagination.

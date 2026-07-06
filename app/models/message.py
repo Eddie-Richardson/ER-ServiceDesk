@@ -19,6 +19,10 @@ class Message(Base):
         customer_id: The customer this message was sent to/received from.
         direction: 'inbound' (from customer) or 'outbound' (from agent/system).
         content: The message body.
+        email_status: For outbound messages only -- 'sent' or 'failed'.
+            Null for inbound messages, where it doesn't apply. A tech
+            seeing 'failed' here knows the customer was NOT notified and
+            should retry or call them directly.
         created_at: Timestamp the record was created.
         updated_at: Timestamp the record was last updated.
     """
@@ -28,6 +32,7 @@ class Message(Base):
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
     direction = Column(String, nullable=False)
     content = Column(Text, nullable=False)
+    email_status = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)
     ticket = relationship("Ticket")

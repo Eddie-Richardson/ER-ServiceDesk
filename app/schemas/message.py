@@ -29,6 +29,7 @@ class MessageUpdate(BaseModel):
 class Message(MessageBase):
     """Schema returned to the client for a Message record (server -> client)."""
     id: int
+    email_status: str | None = None
     created_at: datetime
     updated_at: datetime
     model_config = ConfigDict(from_attributes=True)

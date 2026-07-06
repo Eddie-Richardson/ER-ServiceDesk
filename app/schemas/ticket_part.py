@@ -14,6 +14,8 @@ class TicketPartBase(BaseModel):
     part_id: int
     quantity_needed: int = 1
     status: str = "needed"
+    carrier: str | None = None
+    tracking_number: str | None = None
     notes: str | None = None
 
 class TicketPartCreate(TicketPartBase):
@@ -24,6 +26,8 @@ class TicketPartUpdate(BaseModel):
     """Schema for partially updating an existing TicketPart record. All fields optional."""
     quantity_needed: int | None = None
     status: str | None = None
+    carrier: str | None = None
+    tracking_number: str | None = None
     ordered_at: datetime | None = None
     received_at: datetime | None = None
     notes: str | None = None

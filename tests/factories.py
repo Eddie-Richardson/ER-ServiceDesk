@@ -8,11 +8,78 @@ actually under test instead of repeating setup boilerplate.
 
 from app.models.customer import Customer
 from app.models.device import Device
+from app.models.ticket import Ticket
 from app.models.ticket_category import TicketCategory
 from app.models.ticket_type import TicketType
 from app.models.ticket_status import TicketStatus
 from app.models.ticket_stage import TicketStage
 from app.models.ticket_type_stage import TicketTypeStage
+from app.models.role import Role
+from app.models.permission import Permission
+from app.models.invoice import Invoice
+from app.models.user import User
+from app.core.security import hash_password
+
+
+def make_role(db, name="Technician") -> Role:
+    """Create and persist a minimal Role record."""
+    obj = Role(name=name)
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def make_permission(db, name="ticket.view") -> Permission:
+    """Create and persist a minimal Permission record."""
+    obj = Permission(name=name)
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def make_plain_user(db, email="plain_user@example.com") -> User:
+    """Create and persist a minimal User record (not authenticated -- just a target FK)."""
+    obj = User(
+        email=email,
+        hashed_password=hash_password("irrelevant"),
+        first_name="Plain",
+        last_name="User",
+        is_active=True,
+        is_superuser=False,
+    )
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def make_full_ticket(db) -> Ticket:
+    """Create a Ticket plus every dependency it requires, and return the Ticket itself."""
+    deps = make_ticket_dependencies(db)
+    ticket = Ticket(
+        customer_id=deps["customer"].id,
+        device_id=deps["device"].id,
+        category_id=deps["category"].id,
+        type_id=deps["type"].id,
+        status_id=deps["status"].id,
+        title="Test ticket",
+        priority="normal",
+    )
+    db.add(ticket)
+    db.commit()
+    db.refresh(ticket)
+    return ticket
+
+
+def make_invoice(db, ticket_id: int) -> Invoice:
+    """Create and persist a minimal Invoice record for the given ticket."""
+    obj = Invoice(ticket_id=ticket_id, amount=100.0, is_paid=False)
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return obj
 
 
 def make_customer(db, email="customer@example.com") -> Customer:

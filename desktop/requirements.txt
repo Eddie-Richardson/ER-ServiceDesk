@@ -1,0 +1,7 @@
+# ER-ServiceDesk/desktop/requirements.txt
+# Dependencies for the PySide6 desktop client only.
+# The FastAPI backend has its own requirements.txt at the project root --
+# these are separate concerns and intentionally not merged.
+
+PySide6==6.9.1
+requests==2.34.2

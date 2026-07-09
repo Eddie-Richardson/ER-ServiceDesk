@@ -101,7 +101,7 @@ config.ini
 .env.dev
 .env.prod
 .flaskenv
-.ps1
+*.ps1
 
 # -------------------------------------------------------------------
 # Static analysis / linters

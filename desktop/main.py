@@ -13,7 +13,9 @@ from pathlib import Path
 from PySide6.QtWidgets import QApplication
 
 from desktop.login_window import LoginWindow
+from desktop.settings_manager import get_saved_theme
 from desktop.startup_window import StartupWindow
+from desktop.theme import get_stylesheet
 
 # docker-compose.yml lives at the project root, one level up from desktop/.
 COMPOSE_DIR = str(Path(__file__).resolve().parent.parent)
@@ -21,6 +23,10 @@ COMPOSE_DIR = str(Path(__file__).resolve().parent.parent)
 
 def main():
     app = QApplication(sys.argv)
+
+    # Apply the saved theme before any window is constructed, so nothing
+    # ever flashes unstyled or in the wrong theme on launch.
+    app.setStyleSheet(get_stylesheet(get_saved_theme()))
 
     startup_window = StartupWindow(compose_dir=COMPOSE_DIR)
     login_window_holder = {}  # avoids the Login window being garbage-collected

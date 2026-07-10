@@ -1,41 +1,41 @@
 # ER-ServiceDesk/desktop/login_window.py
-# Placeholder Login window.
+# Real Login window.
 #
-# Still a placeholder for the actual login form (email/password fields,
-# calling POST /auth/login, storing the JWT) -- that's built separately.
-# What this DOES demonstrate now is the real visual pattern every window
-# will follow: a centered card panel, title/subtitle text roles from
-# theme.py, and layout.py's spacing constants instead of hand-picked
-# numbers. It also includes a live theme toggle so the light/dark system
-# is testable end to end before more windows are built on top of it.
+# Collects email/password, calls POST /auth/login on a background thread,
+# and on success stores the JWT in desktop.session for the rest of the
+# app to use. Emits login_succeeded so main.py can move on to the next
+# window (Dashboard, once it exists) and close this one.
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QApplication,
     QLabel,
+    QLineEdit,
     QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
-from desktop import layout
+from desktop import layout, session
+from desktop.login_worker import LoginWorker
 from desktop.settings_manager import get_saved_theme, save_theme
 from desktop.theme import get_stylesheet
 
 
 class LoginWindow(QWidget):
-    """Placeholder window shown once the backend is confirmed healthy."""
+    """Login window shown once the backend is confirmed healthy."""
+
+    login_succeeded = Signal()
 
     def __init__(self):
         super().__init__()
         self.setWindowTitle("ER-ServiceDesk - Login")
-        self.setFixedSize(layout.DIALOG_WIDTH, 260)
+        self.setFixedSize(layout.DIALOG_WIDTH, 340)
+
+        self._thread: QThread | None = None
+        self._worker: LoginWorker | None = None
 
         # --- Card panel -----------------------------------------------
-        # Every window with a focused, single-purpose form (login, a
-        # dialog, a settings pane) should sit inside a #card panel rather
-        # than floating directly on the window background. It's the
-        # visual language the whole app will share.
         card = QWidget()
         card.setObjectName("card")
 
@@ -43,13 +43,35 @@ class LoginWindow(QWidget):
         title.setObjectName("title")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        subtitle = QLabel("Backend is ready. (Login form goes here.)")
+        subtitle = QLabel("Sign in to continue")
         subtitle.setObjectName("subtitle")
         subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        subtitle.setWordWrap(True)
+
+        self.email_input = QLineEdit()
+        self.email_input.setPlaceholderText("Email")
+        self.email_input.setFixedHeight(layout.INPUT_HEIGHT)
+        self.email_input.returnPressed.connect(self._attempt_login)
+
+        self.password_input = QLineEdit()
+        self.password_input.setPlaceholderText("Password")
+        self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.password_input.setFixedHeight(layout.INPUT_HEIGHT)
+        self.password_input.returnPressed.connect(self._attempt_login)
+
+        self.error_label = QLabel("")
+        self.error_label.setObjectName("subtitle")
+        self.error_label.setStyleSheet("color: #DC2626;")  # error red, distinct from theme's muted text
+        self.error_label.setWordWrap(True)
+        self.error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.error_label.hide()
+
+        self.login_button = QPushButton("Log In")
+        self.login_button.setFixedHeight(layout.BUTTON_HEIGHT)
+        self.login_button.clicked.connect(self._attempt_login)
 
         self.theme_toggle_button = QPushButton()
         self.theme_toggle_button.setObjectName("secondary")
+        self.theme_toggle_button.setFixedHeight(layout.BUTTON_HEIGHT)
         self.theme_toggle_button.clicked.connect(self._toggle_theme)
         self._refresh_toggle_label()
 
@@ -58,14 +80,18 @@ class LoginWindow(QWidget):
             layout.CARD_PADDING, layout.CARD_PADDING,
             layout.CARD_PADDING, layout.CARD_PADDING,
         )
-        card_layout.setSpacing(layout.SPACE_MD)
+        card_layout.setSpacing(layout.SPACE_SM)
         card_layout.addWidget(title)
         card_layout.addWidget(subtitle)
+        card_layout.addSpacing(layout.SPACE_MD)
+        card_layout.addWidget(self.email_input)
+        card_layout.addWidget(self.password_input)
+        card_layout.addWidget(self.error_label)
         card_layout.addSpacing(layout.SPACE_SM)
+        card_layout.addWidget(self.login_button)
         card_layout.addWidget(self.theme_toggle_button)
         card.setLayout(card_layout)
 
-        # --- Outer window layout ---------------------------------------
         outer_layout = QVBoxLayout()
         outer_layout.setContentsMargins(
             layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
@@ -73,6 +99,52 @@ class LoginWindow(QWidget):
         )
         outer_layout.addWidget(card)
         self.setLayout(outer_layout)
+
+        self.email_input.setFocus()
+
+    def _attempt_login(self):
+        email = self.email_input.text().strip()
+        password = self.password_input.text()
+
+        if not email or not password:
+            self._show_error("Enter both email and password.")
+            return
+
+        self._set_form_enabled(False)
+        self.error_label.hide()
+        self.login_button.setText("Logging in...")
+
+        self._thread = QThread()
+        self._worker = LoginWorker(email, password)
+        self._worker.moveToThread(self._thread)
+
+        self._thread.started.connect(self._worker.run)
+        self._worker.finished.connect(self._on_login_finished)
+        self._worker.finished.connect(self._thread.quit)
+        self._worker.finished.connect(self._worker.deleteLater)
+        self._thread.finished.connect(self._thread.deleteLater)
+
+        self._thread.start()
+
+    def _on_login_finished(self, success: bool, result: str):
+        self._set_form_enabled(True)
+        self.login_button.setText("Log In")
+
+        if not success:
+            self._show_error(result)
+            return
+
+        session.set_token(result)
+        self.login_succeeded.emit()
+
+    def _set_form_enabled(self, enabled: bool):
+        self.email_input.setEnabled(enabled)
+        self.password_input.setEnabled(enabled)
+        self.login_button.setEnabled(enabled)
+
+    def _show_error(self, message: str):
+        self.error_label.setText(message)
+        self.error_label.show()
 
     def _current_theme(self) -> str:
         return get_saved_theme()
@@ -83,11 +155,6 @@ class LoginWindow(QWidget):
         self.theme_toggle_button.setText(f"Switch to {next_theme} theme")
 
     def _toggle_theme(self):
-        """
-        Flips the theme, persists the choice for this machine, and
-        re-applies the stylesheet immediately so the change is visible
-        without restarting the app.
-        """
         next_theme = "dark" if self._current_theme() == "light" else "light"
         save_theme(next_theme)
 

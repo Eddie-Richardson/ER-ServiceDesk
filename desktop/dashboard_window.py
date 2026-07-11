@@ -1,10 +1,15 @@
 # ER-ServiceDesk/desktop/dashboard_window.py
-# Dashboard window: nav sidebar + live ticket status counts.
-#
-# The individual feature windows (Tickets, Inventory, Customers, Users &
-# Roles, Settings) aren't built yet -- their nav buttons currently show a
-# "not built yet" notice rather than pretending to navigate somewhere.
-# Only Logout does real work here, alongside the live status counts.
+
+"""
+Main landing window shown after a successful login.
+
+Provides the sidebar navigation to every feature area and a live summary
+of ticket counts by status on the backend. The individual feature windows
+(Tickets, Inventory, Customers, Users & Roles, Settings) aren't built yet
+-- their nav buttons currently show a "not built yet" notice rather than
+pretending to navigate somewhere. Only Logout does real work here,
+alongside the live status counts.
+"""
 
 from PySide6.QtCore import Qt, QThread
 from PySide6.QtWidgets import (
@@ -26,6 +31,10 @@ class DashboardWindow(QWidget):
     """Main landing window shown after a successful login."""
 
     def __init__(self):
+        """
+        Builds the sidebar and content area, then kicks off an initial
+        load of ticket status counts.
+        """
         super().__init__()
         self.setWindowTitle("ER-ServiceDesk - Dashboard")
         self.resize(760, 480)
@@ -48,6 +57,12 @@ class DashboardWindow(QWidget):
     # Sidebar
     # -----------------------------------------------------------------
     def _build_sidebar(self) -> QWidget:
+        """
+        Constructs the left-hand navigation sidebar.
+
+        Returns:
+            The assembled sidebar QWidget, ready to add to the root layout.
+        """
         sidebar = QWidget()
         sidebar.setObjectName("sidebar")
         sidebar.setFixedWidth(layout.SIDEBAR_WIDTH)
@@ -88,25 +103,55 @@ class DashboardWindow(QWidget):
         Roles" maps to backend endpoints that are superuser-only
         (/users, /roles, /permissions, etc.), so it's hidden entirely
         for regular agents rather than shown and then rejected.
+
+        Returns:
+            The subset of NAV_ITEMS this session is allowed to see.
         """
         if session.is_superuser():
             return NAV_ITEMS
         return [item for item in NAV_ITEMS if item != "Users & Roles"]
 
     def _on_nav_clicked(self, name: str):
+        """
+        Handles a click on any sidebar nav button whose window doesn't
+        exist yet. Shows an honest "not built yet" notice rather than
+        pretending to navigate.
+
+        Args:
+            name: The clicked nav item's label, e.g. "Tickets".
+        """
         QMessageBox.information(
             self, name, f"The {name} window isn't built yet -- coming soon."
         )
 
     def _on_logout(self):
+        """
+        Clears the session, hands off to whatever the caller wired up as
+        the post-logout action (typically opening a fresh Login window),
+        then closes this window.
+
+        Closing self here is deliberate, not incidental: on a shared shop
+        machine, leaving a logged-out user's Dashboard rendered on screen
+        -- ticket data and all -- after they've logged out is a real
+        exposure. The next person at the machine should see a login
+        screen, not a stale authenticated view.
+        """
         session.clear()
         if self.logout_callback:
             self.logout_callback()
+        self.close()
 
     # -----------------------------------------------------------------
     # Main content: ticket status counts
     # -----------------------------------------------------------------
     def _build_content_area(self) -> QWidget:
+        """
+        Constructs the main content area, including the ticket-status
+        counts region that _load_status_counts() populates.
+
+        Returns:
+            The assembled content QWidget, ready to add to the root layout.
+        """
         content = QWidget()
 
         self.content_layout = QVBoxLayout()
@@ -129,6 +174,7 @@ class DashboardWindow(QWidget):
         return content
 
     def _clear_status_area(self):
+        """Removes every widget currently in the status counts area."""
         while self.status_area_layout.count():
             item = self.status_area_layout.takeAt(0)
             widget = item.widget()
@@ -136,6 +182,11 @@ class DashboardWindow(QWidget):
                 widget.deleteLater()
 
     def _load_status_counts(self):
+        """
+        Starts a background fetch of ticket status counts. Shows a
+        loading label immediately, then hands off to _on_counts_loaded
+        once the worker thread finishes.
+        """
         self._clear_status_area()
         loading_label = QLabel("Loading ticket counts...")
         loading_label.setObjectName("subtitle")
@@ -154,6 +205,16 @@ class DashboardWindow(QWidget):
         self._thread.start()
 
     def _on_counts_loaded(self, success: bool, result):
+        """
+        Handles the result of the background status-count fetch. Renders
+        one row per status on success, an error + Retry button on
+        failure, or an empty-state message if no statuses exist yet.
+
+        Args:
+            success: Whether the fetch succeeded.
+            result: On success, a list of {"name", "color", "count"}
+                dicts. On failure, a human-readable error message string.
+        """
         self._clear_status_area()
 
         if not success:
@@ -184,6 +245,14 @@ class DashboardWindow(QWidget):
             self.status_area_layout.addWidget(row)
 
     def _on_status_clicked(self, status_name: str):
+        """
+        Handles a click on a status row. Filtering by status isn't built
+        yet, so this shows an honest notice rather than pretending to
+        filter.
+
+        Args:
+            status_name: The clicked status's name, e.g. "Open".
+        """
         QMessageBox.information(
             self,
             status_name,

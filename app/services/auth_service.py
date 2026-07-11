@@ -39,9 +39,21 @@ class AuthService:
 
         Returns:
             A dict containing the access token and token type.
+
+        Note:
+            The token carries is_superuser (and email/full_name for display
+            purposes) so clients can determine role and identity without a
+            separate API call. This means a role change won't take effect
+            for an already-issued token until the user logs in again --
+            acceptable for this system's scale, but worth knowing.
         """
         return {
-            "access_token": create_access_token({"sub": str(user.id)}),
+            "access_token": create_access_token({
+                "sub": str(user.id),
+                "is_superuser": user.is_superuser,
+                "email": user.email,
+                "full_name": user.full_name,
+            }),
             "token_type": "bearer"
         }
 

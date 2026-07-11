@@ -13,7 +13,7 @@ from pathlib import Path
 from PySide6.QtWidgets import QApplication
 
 from desktop.login_window import LoginWindow
-from desktop.logged_in_placeholder import LoggedInPlaceholder
+from desktop.dashboard_window import DashboardWindow
 from desktop.settings_manager import get_saved_theme
 from desktop.startup_window import StartupWindow
 from desktop.theme import get_stylesheet
@@ -32,18 +32,21 @@ def main():
     startup_window = StartupWindow(compose_dir=COMPOSE_DIR)
     window_holder = {}  # avoids windows being garbage-collected once referenced only locally
 
-    def on_backend_ready():
+    def show_login():
         login_window = LoginWindow()
-
-        def on_login_succeeded():
-            next_window = LoggedInPlaceholder()
-            next_window.show()
-            window_holder["next"] = next_window
-            login_window.close()
-
-        login_window.login_succeeded.connect(on_login_succeeded)
+        login_window.login_succeeded.connect(lambda: show_dashboard(login_window))
         login_window.show()
         window_holder["login"] = login_window
+
+    def show_dashboard(previous_window):
+        dashboard = DashboardWindow()
+        dashboard.logout_callback = show_login
+        dashboard.show()
+        window_holder["dashboard"] = dashboard
+        previous_window.close()
+
+    def on_backend_ready():
+        show_login()
         startup_window.close()
 
     startup_window.backend_ready.connect(on_backend_ready)

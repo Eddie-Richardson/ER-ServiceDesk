@@ -8,6 +8,8 @@
 
 import requests
 
+from desktop import session
+
 BASE_URL = "http://localhost:8000"
 
 
@@ -18,6 +20,61 @@ class LoginError(Exception):
     written to be shown directly in the UI.
     """
     pass
+
+
+class ApiError(Exception):
+    """
+    Raised when an authenticated request fails. The message is written
+    to be shown directly in the UI.
+    """
+    pass
+
+
+def _authed_get(path: str) -> list | dict:
+    """
+    Performs a GET request against the backend with the current session's
+    bearer token attached.
+
+    Args:
+        path: Path relative to BASE_URL, e.g. "/tickets/".
+
+    Returns:
+        The parsed JSON response body.
+
+    Raises:
+        ApiError: If there's no active session, the backend can't be
+            reached, or the response isn't a success.
+    """
+    token = session.current_token()
+    if not token:
+        raise ApiError("No active session. Please log in again.")
+
+    try:
+        response = requests.get(
+            f"{BASE_URL}{path}",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10,
+        )
+    except requests.exceptions.RequestException:
+        raise ApiError("Couldn't reach the backend. Make sure it's still running.")
+
+    if response.status_code == 401:
+        raise ApiError("Session expired. Please log in again.")
+
+    if response.status_code != 200:
+        raise ApiError(f"Request failed (server returned {response.status_code}).")
+
+    return response.json()
+
+
+def list_tickets() -> list[dict]:
+    """Returns all tickets. Requires an active session."""
+    return _authed_get("/tickets/")
+
+
+def list_ticket_statuses() -> list[dict]:
+    """Returns all ticket statuses (id, name, color). Requires an active session."""
+    return _authed_get("/ticket_statuses/")
 
 
 def login(email: str, password: str) -> str:

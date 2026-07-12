@@ -1,9 +1,12 @@
 # ER-ServiceDesk/desktop/layout.py
-# Shared layout constants for the desktop app.
-#
-# Centralizes spacing, margins, and common sizing so every window follows
-# the same visual rhythm instead of each one guessing its own numbers.
-# Pair with theme.py, which handles color/typography -- this handles space.
+
+"""
+Shared layout constants for the desktop app.
+
+Centralizes spacing, margins, and common sizing so every window follows
+the same visual rhythm instead of each one guessing its own numbers.
+Pair with theme.py, which handles color/typography -- this handles space.
+"""
 
 # ---------------------------------------------------------------------------
 # Spacing scale (px)

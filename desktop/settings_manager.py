@@ -1,10 +1,13 @@
 # ER-ServiceDesk/desktop/settings_manager.py
-# Per-machine app settings, backed by QSettings.
-#
-# QSettings stores data in the OS-native location automatically -- the
-# Windows registry on Windows, a plist on macOS, an ini file on Linux.
-# This gives us "remember the theme choice for this machine" without
-# writing any platform-specific code ourselves.
+
+"""
+Per-machine app settings, backed by QSettings.
+
+QSettings stores data in the OS-native location automatically -- the
+Windows registry on Windows, a plist on macOS, an ini file on Linux.
+This gives us "remember the theme choice for this machine" without
+writing any platform-specific code ourselves.
+"""
 
 from PySide6.QtCore import QSettings
 

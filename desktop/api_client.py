@@ -1,10 +1,13 @@
 # ER-ServiceDesk/desktop/api_client.py
-# Thin API client for talking to the FastAPI backend.
-#
-# Kept deliberately small: right now it only knows how to log in. As more
-# windows need the API (Tickets, Inventory, etc.) they can add their own
-# request functions here, all sharing BASE_URL and the same error-handling
-# shape established by login().
+
+"""
+Thin API client for talking to the FastAPI backend.
+
+Kept deliberately small: right now it only knows how to log in and fetch
+tickets/ticket statuses. As more windows need the API (Inventory,
+Customers, etc.) they can add their own request functions here, all
+sharing BASE_URL and the same error-handling shape established below.
+"""
 
 import requests
 

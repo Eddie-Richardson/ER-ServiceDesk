@@ -1,11 +1,14 @@
 # ER-ServiceDesk/desktop/dashboard_worker.py
-# Background worker that fetches ticket data for the Dashboard.
-#
-# Runs on a QThread so the Dashboard never freezes while loading. There's
-# no dedicated stats endpoint on the backend yet, so this fetches the full
-# ticket and status lists and groups counts client-side -- reasonable at
-# a single repair shop's ticket volume, and avoids adding a new backend
-# endpoint for what's still an early desktop build.
+
+"""
+Background worker that fetches ticket data for the Dashboard.
+
+Runs on a QThread so the Dashboard never freezes while loading. There's
+no dedicated stats endpoint on the backend yet, so this fetches the full
+ticket and status lists and groups counts client-side -- reasonable at
+a single repair shop's ticket volume, and avoids adding a new backend
+endpoint for what's still an early desktop build.
+"""
 
 from PySide6.QtCore import QObject, Signal
 
@@ -27,6 +30,12 @@ class DashboardWorker(QObject):
     finished = Signal(bool, object)
 
     def run(self):
+        """
+        Entry point when this worker is moved to a QThread and started.
+        Fetches statuses and tickets, groups counts by status, and emits
+        `finished`. Never raises -- API failures are reported through the
+        signal instead.
+        """
         try:
             statuses = list_ticket_statuses()
             tickets = list_tickets()

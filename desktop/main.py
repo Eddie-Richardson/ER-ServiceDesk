@@ -1,11 +1,14 @@
 # ER-ServiceDesk/desktop/main.py
-# Entry point for the ER-ServiceDesk desktop application.
-#
-# Flow on launch:
-#   1. Show the startup splash screen.
-#   2. It starts the Docker backend stack and polls until healthy.
-#   3. On success, the splash screen closes and the Login window opens.
-#   4. On failure, the splash screen shows the error with a Retry option.
+
+"""
+Entry point for the ER-ServiceDesk desktop application.
+
+Flow on launch:
+  1. Show the startup splash screen.
+  2. It starts the Docker backend stack and polls until healthy.
+  3. On success, the splash screen closes and the Login window opens.
+  4. On failure, the splash screen shows the error with a Retry option.
+"""
 
 import sys
 from pathlib import Path
@@ -23,6 +26,10 @@ COMPOSE_DIR = str(Path(__file__).resolve().parent.parent)
 
 
 def main():
+    """
+    Builds the QApplication, applies the saved theme, and wires up the
+    startup -> login -> dashboard -> (logout ->) login window flow.
+    """
     app = QApplication(sys.argv)
 
     # Apply the saved theme before any window is constructed, so nothing
@@ -33,12 +40,19 @@ def main():
     window_holder = {}  # avoids windows being garbage-collected once referenced only locally
 
     def show_login():
+        """Opens a fresh Login window. Used both at startup and after logout."""
         login_window = LoginWindow()
         login_window.login_succeeded.connect(lambda: show_dashboard(login_window))
         login_window.show()
         window_holder["login"] = login_window
 
     def show_dashboard(previous_window):
+        """
+        Opens the Dashboard and closes the window that led here.
+
+        Args:
+            previous_window: The Login window to close now that its job is done.
+        """
         dashboard = DashboardWindow()
         dashboard.logout_callback = show_login
         dashboard.show()
@@ -46,6 +60,7 @@ def main():
         previous_window.close()
 
     def on_backend_ready():
+        """Called once the backend is confirmed healthy; opens Login and closes the splash screen."""
         show_login()
         startup_window.close()
 

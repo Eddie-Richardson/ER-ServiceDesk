@@ -1,19 +1,22 @@
 # ER-ServiceDesk/desktop/session.py
-# In-memory session state for the currently logged-in user.
-#
-# The JWT lives here for the lifetime of the running app -- never written
-# to disk. Any window that needs to make an authenticated API call imports
-# this module and reads current_token(). Closing the app clears it, which
-# is the correct behavior for a shared shop machine: nobody stays logged
-# in after the app closes.
-#
-# The token's claims (is_superuser, email, full_name) are decoded once at
-# login and cached here for the UI to read -- e.g. to decide whether to
-# show the Users & Roles nav item. This is read-only, UI-convenience
-# decoding with no signature check: the client has no way to verify a
-# JWT's signature without the backend's SECRET_KEY, and it doesn't need
-# to -- the backend independently re-verifies and re-authorizes every
-# request regardless of what the client believes about its own token.
+
+"""
+In-memory session state for the currently logged-in user.
+
+The JWT lives here for the lifetime of the running app -- never written
+to disk. Any window that needs to make an authenticated API call imports
+this module and reads current_token(). Closing the app clears it, which
+is the correct behavior for a shared shop machine: nobody stays logged
+in after the app closes.
+
+The token's claims (is_superuser, email, full_name) are decoded once at
+login and cached here for the UI to read -- e.g. to decide whether to
+show the Users & Roles nav item. This is read-only, UI-convenience
+decoding with no signature check: the client has no way to verify a
+JWT's signature without the backend's SECRET_KEY, and it doesn't need
+to -- the backend independently re-verifies and re-authorizes every
+request regardless of what the client believes about its own token.
+"""
 
 import base64
 import json
@@ -57,6 +60,10 @@ def clear():
 
 
 def is_logged_in() -> bool:
+    """
+    Returns:
+        Whether a session is currently active.
+    """
     return _access_token is not None
 
 
@@ -66,8 +73,16 @@ def is_superuser() -> bool:
 
 
 def current_email() -> str | None:
+    """
+    Returns:
+        The current session's email address, or None if not logged in.
+    """
     return _claims.get("email")
 
 
 def current_full_name() -> str | None:
+    """
+    Returns:
+        The current session's full name, or None if not logged in.
+    """
     return _claims.get("full_name")

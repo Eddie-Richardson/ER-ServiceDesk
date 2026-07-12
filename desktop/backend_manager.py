@@ -1,13 +1,16 @@
 # ER-ServiceDesk/desktop/backend_manager.py
-# Backend stack startup and health-check logic.
-#
-# Runs on a background QThread so the GUI never freezes while Docker
-# containers spin up. Responsible for two things only:
-#   1. Running `docker compose up -d` in the project's compose directory.
-#   2. Polling the FastAPI /health endpoint until it responds, or timing out.
-#
-# This module has no GUI code in it -- it only emits Qt signals. The actual
-# splash-screen UI lives in startup_window.py, which listens to these signals.
+
+"""
+Backend stack startup and health-check logic.
+
+Runs on a background QThread so the GUI never freezes while Docker
+containers spin up. Responsible for two things only:
+  1. Running `docker compose up -d` in the project's compose directory.
+  2. Polling the FastAPI /health endpoint until it responds, or timing out.
+
+This module has no GUI code in it -- it only emits Qt signals. The actual
+splash-screen UI lives in startup_window.py, which listens to these signals.
+"""
 
 import subprocess
 import time
@@ -39,6 +42,8 @@ class BackendStartupWorker(QObject):
         poll_interval_seconds: float = 2.0,
     ):
         """
+        Stores configuration for the startup sequence; does no work itself.
+
         Args:
             compose_dir: Directory containing docker-compose.yml. This is
                 where `docker compose up -d` will be run from.
@@ -72,8 +77,11 @@ class BackendStartupWorker(QObject):
 
     def _start_compose_stack(self) -> bool:
         """
-        Runs `docker compose up -d`. Returns True on success, False on
-        failure (after emitting the `finished` signal with details).
+        Runs `docker compose up -d`.
+
+        Returns:
+            True on success, False on failure (after emitting the
+            `finished` signal with details).
         """
         self.status_changed.emit("Starting Docker containers...")
 
@@ -118,8 +126,11 @@ class BackendStartupWorker(QObject):
     def _wait_for_healthy(self) -> bool:
         """
         Polls the health endpoint until it responds successfully or the
-        timeout is reached. Returns True on success, False on timeout
-        (after emitting the `finished` signal with details).
+        timeout is reached.
+
+        Returns:
+            True on success, False on timeout (after emitting the
+            `finished` signal with details).
         """
         self.status_changed.emit("Waiting for backend to become ready...")
 

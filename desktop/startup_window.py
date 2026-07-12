@@ -1,10 +1,13 @@
 # ER-ServiceDesk/desktop/startup_window.py
-# Splash screen shown while the backend stack is starting up.
-#
-# Displays a status label and an indeterminate progress bar while
-# BackendStartupWorker does its work on a background thread. On success,
-# emits backend_ready so main.py can move on to the Login window. On
-# failure, shows the error and offers Retry / Quit.
+
+"""
+Splash screen shown while the backend stack is starting up.
+
+Displays a status label and an indeterminate progress bar while
+BackendStartupWorker does its work on a background thread. On success,
+emits backend_ready so main.py can move on to the Login window. On
+failure, shows the error and offers Retry / Quit.
+"""
 
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
@@ -32,6 +35,11 @@ class StartupWindow(QWidget):
     backend_ready = Signal()
 
     def __init__(self, compose_dir: str):
+        """
+        Args:
+            compose_dir: Directory containing docker-compose.yml, passed
+                through to BackendStartupWorker.
+        """
         super().__init__()
         self.compose_dir = compose_dir
         self._thread: QThread | None = None
@@ -84,9 +92,22 @@ class StartupWindow(QWidget):
         self._thread.start()
 
     def _on_status_changed(self, message: str):
+        """
+        Args:
+            message: Progress text from the worker to display to the user.
+        """
         self.status_label.setText(message)
 
     def _on_finished(self, success: bool, message: str):
+        """
+        Handles the worker's final result: emits backend_ready on
+        success, or shows an error dialog with a Retry option on failure.
+
+        Args:
+            success: Whether the backend started successfully.
+            message: A confirmation message on success, or an error
+                description on failure.
+        """
         if success:
             self.status_label.setText(message)
             self.backend_ready.emit()

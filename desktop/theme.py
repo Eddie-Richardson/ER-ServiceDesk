@@ -1,12 +1,15 @@
 # ER-ServiceDesk/desktop/theme.py
-# Light and dark QSS stylesheets for the desktop app.
-#
-# QSS is Qt's CSS-like styling language. Applying one of these at the
-# QApplication level (app.setStyleSheet(...)) themes every window in the
-# app at once, so individual windows don't need their own styling code.
-#
-# Accent color and both palettes are defined here as the single source of
-# truth -- change a color once, it updates everywhere.
+
+"""
+Light and dark QSS stylesheets for the desktop app.
+
+QSS is Qt's CSS-like styling language. Applying one of these at the
+QApplication level (app.setStyleSheet(...)) themes every window in the
+app at once, so individual windows don't need their own styling code.
+
+Accent color and both palettes are defined here as the single source of
+truth -- change a color once, it updates everywhere.
+"""
 
 # ---------------------------------------------------------------------------
 # Palette

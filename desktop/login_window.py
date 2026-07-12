@@ -1,10 +1,13 @@
 # ER-ServiceDesk/desktop/login_window.py
-# Real Login window.
-#
-# Collects email/password, calls POST /auth/login on a background thread,
-# and on success stores the JWT in desktop.session for the rest of the
-# app to use. Emits login_succeeded so main.py can move on to the next
-# window (Dashboard, once it exists) and close this one.
+
+"""
+Real Login window.
+
+Collects email/password, calls POST /auth/login on a background thread,
+and on success stores the JWT in desktop.session for the rest of the
+app to use. Emits login_succeeded so main.py can move on to the
+Dashboard and close this window.
+"""
 
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
@@ -28,6 +31,7 @@ class LoginWindow(QWidget):
     login_succeeded = Signal()
 
     def __init__(self):
+        """Builds the login form inside a centered card panel."""
         super().__init__()
         self.setWindowTitle("ER-ServiceDesk - Login")
         self.setFixedSize(layout.DIALOG_WIDTH, 340)
@@ -103,6 +107,10 @@ class LoginWindow(QWidget):
         self.email_input.setFocus()
 
     def _attempt_login(self):
+        """
+        Validates the form client-side, then starts the login request on
+        a background thread if both fields are filled in.
+        """
         email = self.email_input.text().strip()
         password = self.password_input.text()
 
@@ -127,6 +135,16 @@ class LoginWindow(QWidget):
         self._thread.start()
 
     def _on_login_finished(self, success: bool, result: str):
+        """
+        Handles the background login worker's result. On success, stores
+        the token and emits login_succeeded. On failure, re-enables the
+        form and shows the error inline.
+
+        Args:
+            success: Whether the login request succeeded.
+            result: On success, the JWT access token. On failure, a
+                human-readable error message.
+        """
         self._set_form_enabled(True)
         self.login_button.setText("Log In")
 
@@ -138,23 +156,46 @@ class LoginWindow(QWidget):
         self.login_succeeded.emit()
 
     def _set_form_enabled(self, enabled: bool):
+        """
+        Enables or disables the form fields and login button, used to
+        prevent double-submission while a login request is in flight.
+
+        Args:
+            enabled: Whether the form should be interactive.
+        """
         self.email_input.setEnabled(enabled)
         self.password_input.setEnabled(enabled)
         self.login_button.setEnabled(enabled)
 
     def _show_error(self, message: str):
+        """
+        Displays an inline error message below the password field.
+
+        Args:
+            message: The error text to show.
+        """
         self.error_label.setText(message)
         self.error_label.show()
 
     def _current_theme(self) -> str:
+        """
+        Returns:
+            The theme currently saved for this machine, "light" or "dark".
+        """
         return get_saved_theme()
 
     def _refresh_toggle_label(self):
+        """Updates the theme toggle button's text to reflect the theme it would switch to."""
         current = self._current_theme()
         next_theme = "dark" if current == "light" else "light"
         self.theme_toggle_button.setText(f"Switch to {next_theme} theme")
 
     def _toggle_theme(self):
+        """
+        Flips the theme, persists the choice for this machine, and
+        re-applies the stylesheet immediately so the change is visible
+        without restarting the app.
+        """
         next_theme = "dark" if self._current_theme() == "light" else "light"
         save_theme(next_theme)
 

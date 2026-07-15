@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 
 from desktop import layout, session
 from desktop.dashboard_worker import DashboardWorker
+from desktop.tickets_window import TicketsWindow
 
 NAV_ITEMS = ["Tickets", "Inventory", "Customers", "Users & Roles", "Settings"]
 
@@ -42,6 +43,7 @@ class DashboardWindow(QWidget):
         self._thread: QThread | None = None
         self._worker: DashboardWorker | None = None
         self.logout_callback = None  # set by main.py
+        self._tickets_window = None  # kept alive while open
 
         root_layout = QHBoxLayout()
         root_layout.setContentsMargins(0, 0, 0, 0)
@@ -113,13 +115,18 @@ class DashboardWindow(QWidget):
 
     def _on_nav_clicked(self, name: str):
         """
-        Handles a click on any sidebar nav button whose window doesn't
-        exist yet. Shows an honest "not built yet" notice rather than
-        pretending to navigate.
+        Handles a click on a sidebar nav button. Opens the matching
+        window if it's built; otherwise shows an honest "not built yet"
+        notice rather than pretending to navigate.
 
         Args:
             name: The clicked nav item's label, e.g. "Tickets".
         """
+        if name == "Tickets":
+            self._tickets_window = TicketsWindow()
+            self._tickets_window.show()
+            return
+
         QMessageBox.information(
             self, name, f"The {name} window isn't built yet -- coming soon."
         )

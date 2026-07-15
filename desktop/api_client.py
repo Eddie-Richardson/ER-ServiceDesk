@@ -70,6 +70,89 @@ def _authed_get(path: str) -> list | dict:
     return response.json()
 
 
+def _authed_post(path: str, payload: dict) -> dict:
+    """
+    Performs a POST request against the backend with the current
+    session's bearer token attached.
+
+    Args:
+        path: Path relative to BASE_URL, e.g. "/tickets/".
+        payload: The JSON body to send.
+
+    Returns:
+        The parsed JSON response body.
+
+    Raises:
+        ApiError: If there's no active session, the backend can't be
+            reached, or the response isn't a success.
+    """
+    return _authed_write("POST", path, payload)
+
+
+def _authed_put(path: str, payload: dict) -> dict:
+    """
+    Performs a PUT request against the backend with the current
+    session's bearer token attached.
+
+    Args:
+        path: Path relative to BASE_URL, e.g. "/tickets/5".
+        payload: The JSON body to send.
+
+    Returns:
+        The parsed JSON response body.
+
+    Raises:
+        ApiError: If there's no active session, the backend can't be
+            reached, or the response isn't a success.
+    """
+    return _authed_write("PUT", path, payload)
+
+
+def _authed_write(method: str, path: str, payload: dict) -> dict:
+    """
+    Shared implementation for _authed_post and _authed_put.
+
+    Args:
+        method: "POST" or "PUT".
+        path: Path relative to BASE_URL.
+        payload: The JSON body to send.
+
+    Returns:
+        The parsed JSON response body.
+
+    Raises:
+        ApiError: If there's no active session, the backend can't be
+            reached, or the response isn't a success.
+    """
+    token = session.current_token()
+    if not token:
+        raise ApiError("No active session. Please log in again.")
+
+    try:
+        response = requests.request(
+            method,
+            f"{BASE_URL}{path}",
+            json=payload,
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10,
+        )
+    except requests.exceptions.RequestException:
+        raise ApiError("Couldn't reach the backend. Make sure it's still running.")
+
+    if response.status_code == 401:
+        raise ApiError("Session expired. Please log in again.")
+
+    if response.status_code not in (200, 201):
+        detail = ""
+        try:
+            detail = response.json().get("detail", "")
+        except ValueError:
+            pass
+        raise ApiError(detail or f"Request failed (server returned {response.status_code}).")
+
+    return response.json()
+
+
 def list_tickets() -> list[dict]:
     """Returns all tickets. Requires an active session."""
     return _authed_get("/tickets/")
@@ -78,6 +161,67 @@ def list_tickets() -> list[dict]:
 def list_ticket_statuses() -> list[dict]:
     """Returns all ticket statuses (id, name, color). Requires an active session."""
     return _authed_get("/ticket_statuses/")
+
+
+def list_ticket_categories() -> list[dict]:
+    """Returns all ticket categories (id, name, description). Requires an active session."""
+    return _authed_get("/ticket_categories/")
+
+
+def list_ticket_types() -> list[dict]:
+    """Returns all ticket types (id, name, description). Requires an active session."""
+    return _authed_get("/ticket_types/")
+
+
+def list_customers() -> list[dict]:
+    """Returns all customers. Requires an active session."""
+    return _authed_get("/customers/")
+
+
+def list_devices() -> list[dict]:
+    """Returns all devices. Requires an active session."""
+    return _authed_get("/devices/")
+
+
+def list_users() -> list[dict]:
+    """
+    Returns all user accounts. Requires an active session belonging to a
+    superuser -- the backend's /users router is superuser-gated. Callers
+    should check session.is_superuser() before calling this, and treat a
+    failure here as non-fatal: regular agents fall back to self-assignment
+    only, which needs no call to this function at all.
+    """
+    return _authed_get("/users/")
+
+
+def create_ticket(payload: dict) -> dict:
+    """
+    Creates a new ticket.
+
+    Args:
+        payload: Fields matching the backend's TicketCreate schema
+            (customer_id, device_id, category_id, type_id, status_id,
+            title, priority, and optionally description/assigned_to).
+
+    Returns:
+        The created ticket record.
+    """
+    return _authed_post("/tickets/", payload)
+
+
+def update_ticket(ticket_id: int, payload: dict) -> dict:
+    """
+    Updates an existing ticket.
+
+    Args:
+        ticket_id: The ticket's id.
+        payload: Fields to update, matching the backend's TicketUpdate
+            schema. Only include fields that changed.
+
+    Returns:
+        The updated ticket record.
+    """
+    return _authed_put(f"/tickets/{ticket_id}", payload)
 
 
 def login(email: str, password: str) -> str:

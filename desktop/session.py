@@ -86,3 +86,23 @@ def current_full_name() -> str | None:
         The current session's full name, or None if not logged in.
     """
     return _claims.get("full_name")
+
+
+def current_user_id() -> int | None:
+    """
+    Returns the current session's own user id, decoded from the JWT's
+    "sub" claim. Used for self-assignment -- an agent doesn't need the
+    full technician list (which they may not have permission to fetch)
+    to assign a ticket to themselves.
+
+    Returns:
+        The current user's id, or None if not logged in or the claim
+        is missing/malformed.
+    """
+    sub = _claims.get("sub")
+    if sub is None:
+        return None
+    try:
+        return int(sub)
+    except (TypeError, ValueError):
+        return None

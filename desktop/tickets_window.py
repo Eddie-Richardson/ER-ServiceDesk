@@ -3,16 +3,16 @@
 """
 Tickets window: list view with filters, plus create/edit.
 
-Filtering starts as single-select dropdowns per column (Category, Status,
-Priority) -- the foundation this is built on (fetch, table, the New/Edit
-form) doesn't change if that later grows into Excel-style multi-select
-checkbox filters. That upgrade is a swap of the filter widgets and
-matching logic, not a rebuild of this window.
+Filtering uses Excel-style multi-select checklist popups per column
+(Category, Status, Priority) -- select zero or more values per column,
+and rows matching any selected value in each filtered column are shown.
+This sits on the same foundation (fetch, table, the New/Edit form) as
+the single-select version it replaced; only the filter widgets
+(MultiSelectFilterButton) and the matching logic changed.
 """
 
 from PySide6.QtCore import QThread, Qt
 from PySide6.QtWidgets import (
-    QComboBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -24,10 +24,10 @@ from PySide6.QtWidgets import (
 )
 
 from desktop import layout
+from desktop.multi_select_filter import MultiSelectFilterButton
 from desktop.ticket_form_dialog import PRIORITY_LEVELS, TicketFormDialog
 from desktop.tickets_worker import TicketsDataWorker
 
-ANY_FILTER = "Any"
 COLUMN_HEADERS = ["ID", "Title", "Customer", "Category", "Status", "Priority"]
 
 
@@ -106,28 +106,23 @@ class TicketsWindow(QWidget):
     def _build_filter_row(self) -> QHBoxLayout:
         """
         Returns:
-            A layout containing the Category/Status/Priority filter
-            dropdowns. Populated once reference data loads.
+            A layout containing the Category/Status/Priority multi-select
+            filter buttons. Options are populated once reference data
+            loads; Priority's options are static since it's a fixed list.
         """
         filter_row = QHBoxLayout()
         filter_row.setSpacing(layout.SPACE_SM)
 
-        self.category_filter = QComboBox()
-        self.category_filter.currentIndexChanged.connect(self._apply_filters)
-        self.status_filter = QComboBox()
-        self.status_filter.currentIndexChanged.connect(self._apply_filters)
-        self.priority_filter = QComboBox()
-        self.priority_filter.addItem(ANY_FILTER)
-        self.priority_filter.addItems(PRIORITY_LEVELS)
-        self.priority_filter.currentIndexChanged.connect(self._apply_filters)
+        self.category_filter = MultiSelectFilterButton("Category")
+        self.category_filter.selection_changed.connect(self._apply_filters)
+        self.status_filter = MultiSelectFilterButton("Status")
+        self.status_filter.selection_changed.connect(self._apply_filters)
+        self.priority_filter = MultiSelectFilterButton("Priority")
+        self.priority_filter.set_options([(p, p) for p in PRIORITY_LEVELS])
+        self.priority_filter.selection_changed.connect(self._apply_filters)
 
-        for label_text, combo in [
-            ("Category", self.category_filter),
-            ("Status", self.status_filter),
-            ("Priority", self.priority_filter),
-        ]:
-            filter_row.addWidget(QLabel(label_text))
-            filter_row.addWidget(combo)
+        for filter_button in [self.category_filter, self.status_filter, self.priority_filter]:
+            filter_row.addWidget(filter_button)
 
         filter_row.addStretch()
         return filter_row
@@ -170,43 +165,38 @@ class TicketsWindow(QWidget):
         self.reference_data = result
         self.all_tickets = result["tickets"]
 
-        self._populate_lookup_filter(self.category_filter, result["categories"])
-        self._populate_lookup_filter(self.status_filter, result["statuses"])
+        self.category_filter.set_options(
+            [(c["id"], c["name"]) for c in result["categories"]]
+        )
+        self.status_filter.set_options(
+            [(s["id"], s["name"]) for s in result["statuses"]]
+        )
 
         self._apply_filters()
-
-    def _populate_lookup_filter(self, combo: QComboBox, records: list[dict]):
-        """
-        Fills a filter dropdown with "Any" plus every record's name,
-        storing each record's id as the item's userData for filtering.
-
-        Args:
-            combo: The filter combo box to populate.
-            records: Lookup records (each with "id" and "name") to list.
-        """
-        combo.blockSignals(True)
-        combo.clear()
-        combo.addItem(ANY_FILTER, userData=None)
-        for record in records:
-            combo.addItem(record["name"], userData=record["id"])
-        combo.blockSignals(False)
 
     # -----------------------------------------------------------------
     # Filtering + table rendering
     # -----------------------------------------------------------------
     def _apply_filters(self):
-        """Re-renders the table with the current Category/Status/Priority filters applied."""
-        category_id = self.category_filter.currentData()
-        status_id = self.status_filter.currentData()
-        priority = self.priority_filter.currentText()
+        """
+        Re-renders the table with the current Category/Status/Priority
+        filters applied. Each filter's selected_ids() being empty means
+        "no filter on this column, show all values" -- otherwise a row
+        must match at least one selected value in that column to stay
+        visible. The three filters combine with AND (a row must satisfy
+        all three), while each filter's own selections combine with OR.
+        """
+        category_ids = self.category_filter.selected_ids()
+        status_ids = self.status_filter.selected_ids()
+        priorities = self.priority_filter.selected_ids()
 
         filtered = self.all_tickets
-        if category_id is not None:
-            filtered = [t for t in filtered if t["category_id"] == category_id]
-        if status_id is not None:
-            filtered = [t for t in filtered if t["status_id"] == status_id]
-        if priority != ANY_FILTER:
-            filtered = [t for t in filtered if t.get("priority") == priority]
+        if category_ids:
+            filtered = [t for t in filtered if t["category_id"] in category_ids]
+        if status_ids:
+            filtered = [t for t in filtered if t["status_id"] in status_ids]
+        if priorities:
+            filtered = [t for t in filtered if t.get("priority") in priorities]
 
         self._render_table(filtered)
         self.status_label.setText(

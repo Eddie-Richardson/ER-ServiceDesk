@@ -8,6 +8,7 @@ Sits between the /auth/login route and the User model.
 from sqlalchemy.orm import Session
 from app.core.security import verify_password, create_access_token
 from app.models.user import User
+from app.services.permission_service import permission_service
 
 
 class AuthService:
@@ -41,16 +42,20 @@ class AuthService:
             A dict containing the access token and token type.
 
         Note:
-            The token carries is_superuser (and email/full_name for display
-            purposes) so clients can determine role and identity without a
-            separate API call. This means a role change won't take effect
+            The token carries is_superuser, the user's effective
+            permissions (computed from their assigned roles), and
+            email/full_name for display purposes, so clients can
+            determine access and identity without a separate API call.
+            This means a role or permission change won't take effect
             for an already-issued token until the user logs in again --
             acceptable for this system's scale, but worth knowing.
         """
+        permissions = sorted(permission_service.get_user_permission_names(user))
         return {
             "access_token": create_access_token({
                 "sub": str(user.id),
                 "is_superuser": user.is_superuser,
+                "permissions": permissions,
                 "email": user.email,
                 "full_name": user.full_name,
             }),

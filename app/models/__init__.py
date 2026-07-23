@@ -17,7 +17,9 @@ from .device import Device
 from .invoice import Invoice
 from .location import Location
 from .asset import Asset
+from .asset_category import AssetCategory
 from .part import Part
+from .part_location import PartLocation
 from .ticket_part import TicketPart
 from .message import Message
 from .message_template import MessageTemplate

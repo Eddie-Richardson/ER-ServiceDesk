@@ -10,11 +10,11 @@ all real work to the service layer.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
-from app.api.dependencies import get_current_user
+from app.api.dependencies import require_permission
 from app.services.ticket_service import ticket_service
 from app.schemas.ticket import Ticket, TicketCreate, TicketUpdate
 
-router = APIRouter(prefix="/tickets", tags=["tickets"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/tickets", tags=["tickets"], dependencies=[Depends(require_permission("tickets.manage"))])
 
 @router.get("/", response_model=list[Ticket])
 def list_tickets(db: Session = Depends(get_db)):

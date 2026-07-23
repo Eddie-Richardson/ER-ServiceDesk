@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.security import decode_access_token
 from app.db.session import get_db
 from app.services.user_service import user_service
+from app.services.permission_service import permission_service
 from app.models.user import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -80,3 +81,55 @@ def require_superuser(current_user: User = Depends(get_current_user)) -> User:
             detail="Insufficient permissions",
         )
     return current_user
+
+
+def require_permission(permission_name: str):
+    """
+    Dependency factory that restricts access to users holding a specific
+    permission through any of their assigned roles.
+
+    Superusers always bypass this check, before any role/permission
+    lookup even happens -- is_superuser is a direct flag on the user,
+    deliberately independent of the Role system, so it can never be
+    lost as a side effect of a role or permission being misconfigured
+    or removed.
+
+    Args:
+        permission_name: The permission required, e.g. "tickets.manage".
+
+    Returns:
+        A FastAPI dependency function suitable for use in
+        `dependencies=[Depends(require_permission("..."))]`.
+
+    Usage:
+        router = APIRouter(
+            ...,
+            dependencies=[Depends(require_permission("tickets.manage"))],
+        )
+    """
+    def check_permission(
+        current_user: User = Depends(get_current_user),
+    ) -> User:
+        """
+        Args:
+            current_user: The already-authenticated user (via get_current_user).
+
+        Returns:
+            The same User instance, if authorized.
+
+        Raises:
+            HTTPException: 403 if the user is authenticated but lacks
+                the required permission and isn't a superuser.
+        """
+        if current_user.is_superuser:
+            return current_user
+
+        user_permissions = permission_service.get_user_permission_names(current_user)
+        if permission_name not in user_permissions:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions",
+            )
+        return current_user
+
+    return check_permission

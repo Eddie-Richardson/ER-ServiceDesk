@@ -38,9 +38,16 @@ def seed_data(db: Session):
     # -------------------------------------------------------------------
     # Roles
     # -------------------------------------------------------------------
+    # "admin" is cosmetic -- real admin access always comes from
+    # User.is_superuser, a direct flag kept deliberately independent of
+    # the Role system so it can't be lost as a side effect of role
+    # bookkeeping. This role exists purely so an admin's profile shows
+    # a label instead of blank in the Users & Roles UI.
     roles = {
-        "admin": "System administrator with full access",
-        "agent": "Technician/employee with operational access",
+        "admin": "System administrator (is_superuser grants actual access; this label is cosmetic)",
+        "agent": "Full ticket and customer access",
+        "front_desk": "Full ticket and customer access -- same permissions as agent, distinct label for job-scope clarity",
+        "inventory_access": "Stackable add-on granting Inventory (assets/parts) access, independent of ticket/customer role",
     }
 
     role_objs = {}
@@ -58,18 +65,15 @@ def seed_data(db: Session):
     # -------------------------------------------------------------------
     # Permissions
     # -------------------------------------------------------------------
+    # Coarse-grained, per feature area -- one permission covers every
+    # action within that area, rather than separate create/edit/delete
+    # permissions per resource. Matches the shop's actual staffing model
+    # (a handful of people, divided by job area, not by fine-grained
+    # action) better than finer granularity would.
     permissions = [
-        ("ticket.create", "Create new tickets"),
-        ("ticket.update", "Update ticket details"),
-        ("ticket.status", "Change ticket status"),
-        ("ticket.assign", "Assign tickets to agents"),
-        ("ticket.view_all", "View all tickets"),
-        ("comment.add", "Add comments to tickets"),
-        ("note.add_internal", "Add internal technician notes"),
-        ("attachment.add", "Upload attachments"),
-        ("user.manage", "Manage system users"),
-        ("role.manage", "Manage roles and permissions"),
-        ("audit.view", "View audit logs"),
+        ("tickets.manage", "Create, edit, and view tickets"),
+        ("customers.manage", "Create, edit, and view customers"),
+        ("inventory.manage", "Create and edit assets and parts"),
     ]
 
     perm_objs = {}
@@ -87,16 +91,17 @@ def seed_data(db: Session):
     # -------------------------------------------------------------------
     # Role -> Permission mapping
     # -------------------------------------------------------------------
-    admin_perms = permissions
-    agent_perms = [
-        p for p in permissions
-        if p[0] not in ("user.manage", "role.manage", "audit.view")
-    ]
+    role_permission_grants = {
+        "admin": ["tickets.manage", "customers.manage", "inventory.manage"],
+        "agent": ["tickets.manage", "customers.manage"],
+        "front_desk": ["tickets.manage", "customers.manage"],
+        "inventory_access": ["inventory.manage"],
+    }
 
-    def assign_perms(role_name, perm_list):
-        """Grant every permission in perm_list to the given role, skipping duplicates."""
+    def assign_perms(role_name, perm_names):
+        """Grant every permission in perm_names to the given role, skipping duplicates."""
         role = role_objs[role_name]
-        for perm_name, _ in perm_list:
+        for perm_name in perm_names:
             perm = perm_objs[perm_name]
 
             exists = (
@@ -107,8 +112,8 @@ def seed_data(db: Session):
             if not exists:
                 db.add(RolePermission(role_id=role.id, permission_id=perm.id))
 
-    assign_perms("admin", admin_perms)
-    assign_perms("agent", agent_perms)
+    for role_name, perm_names in role_permission_grants.items():
+        assign_perms(role_name, perm_names)
 
     db.commit()
 

@@ -8,7 +8,7 @@ used to drive the reorder-tracking feature.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
-from app.api.dependencies import get_current_user
+from app.api.dependencies import get_current_user, require_permission
 from app.services.part_service import part_service
 from app.crud.part import crud_part
 from app.schemas.part import Part, PartCreate, PartUpdate
@@ -38,17 +38,17 @@ def get_part(id: int, db: Session = Depends(get_db)):
     """Fetch a single Part record by ID."""
     return part_service.get(db, id)
 
-@router.post("/", response_model=Part)
+@router.post("/", response_model=Part, dependencies=[Depends(require_permission("inventory.manage"))])
 def create_part(obj_in: PartCreate, db: Session = Depends(get_db)):
     """Create a new Part record. Rejects duplicate SKUs."""
     return part_service.create(db, obj_in)
 
-@router.put("/{id}", response_model=Part)
+@router.put("/{id}", response_model=Part, dependencies=[Depends(require_permission("inventory.manage"))])
 def update_part(id: int, obj_in: PartUpdate, db: Session = Depends(get_db)):
     """Update an existing Part record."""
     return part_service.update(db, id, obj_in)
 
-@router.delete("/{id}")
+@router.delete("/{id}", dependencies=[Depends(require_permission("inventory.manage"))])
 def delete_part(id: int, db: Session = Depends(get_db)):
     """Delete a Part record by ID."""
     return part_service.delete(db, id)

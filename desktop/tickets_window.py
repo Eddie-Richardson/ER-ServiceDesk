@@ -9,9 +9,27 @@ and rows matching any selected value in each filtered column are shown.
 This sits on the same foundation (fetch, table, the New/Edit form) as
 the single-select version it replaced; only the filter widgets
 (MultiSelectFilterButton) and the matching logic changed.
+
+Default view excludes Closed tickets (nothing left to track -- payment
+received, device gone) but includes Resolved (repair done, still needs
+follow-up for pickup/payment), sorted Urgent-to-Low by default. Every
+column header is clickable to sort ascending/descending.
+
+Can be opened pre-filtered to a single status via initial_status_filter,
+which is how the Dashboard's status cards open this window scoped to
+whatever was clicked.
+
+The table's automatic row-number gutter is hidden -- with a real ID
+column present, showing both would put two different numbers on screen
+that look similar but mean different things (visual position vs. the
+ticket's actual permanent identifier), which invites confusing the two.
+
+Emits window_closed so callers (the Dashboard's nav button) can tell
+when this window has actually closed, e.g. to un-highlight a nav button
+that should only stay lit while the window is genuinely open.
 """
 
-from PySide6.QtCore import QThread, Qt
+from PySide6.QtCore import QThread, Qt, Signal
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
@@ -23,30 +41,52 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from desktop import layout
+from desktop import layout, session
 from desktop.multi_select_filter import MultiSelectFilterButton
 from desktop.ticket_form_dialog import PRIORITY_LEVELS, TicketFormDialog
 from desktop.tickets_worker import TicketsDataWorker
 
-COLUMN_HEADERS = ["ID", "Title", "Customer", "Category", "Status", "Priority"]
+COLUMN_HEADERS = ["ID", "Title", "Customer", "Category", "Status", "Priority", "Assigned To"]
+PRIORITY_RANK = {"Urgent": 0, "High": 1, "Medium": 2, "Low": 3}
+DEFAULT_SORT_COLUMN = 5  # Priority
+CLOSED_STATUS_NAME = "Closed"
 
 
 class TicketsWindow(QWidget):
     """Standalone window listing all tickets, with filtering and create/edit."""
 
-    def __init__(self):
-        """Builds the toolbar, filter row, and table, then loads data."""
+    window_closed = Signal()
+
+    def __init__(self, initial_status_filter: str | None = None):
+        """
+        Args:
+            initial_status_filter: If given, the window opens pre-filtered
+                to just this status name (e.g. "Open"), instead of the
+                default "everything except Closed" view. Used by the
+                Dashboard's status cards.
+        """
         super().__init__()
         self.setWindowTitle("ER-ServiceDesk - Tickets")
-        self.resize(820, 520)
+        self.resize(860, 520)
 
         self._thread: QThread | None = None
         self._worker: TicketsDataWorker | None = None
         self.reference_data: dict = {}
         self.all_tickets: list[dict] = []
+        self.initial_status_filter = initial_status_filter
+        self.sort_column = DEFAULT_SORT_COLUMN
+        self.sort_ascending = True
 
         self._build_ui()
         self._load_data()
+
+    def closeEvent(self, event):
+        """
+        Args:
+            event: The Qt close event, passed through unchanged.
+        """
+        super().closeEvent(event)
+        self.window_closed.emit()
 
     # -----------------------------------------------------------------
     # UI construction
@@ -77,10 +117,13 @@ class TicketsWindow(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table.verticalHeader().setVisible(False)  # redundant with the ID column; see module docstring
         self.table.doubleClicked.connect(self._on_row_double_clicked)
+        self.table.horizontalHeader().sectionClicked.connect(self._on_header_clicked)
         outer_layout.addWidget(self.table)
 
         self.setLayout(outer_layout)
+        self._update_header_labels()
 
     def _build_toolbar(self) -> QHBoxLayout:
         """
@@ -171,8 +214,27 @@ class TicketsWindow(QWidget):
         self.status_filter.set_options(
             [(s["id"], s["name"]) for s in result["statuses"]]
         )
+        self._apply_default_status_filter(result["statuses"])
 
         self._apply_filters()
+
+    def _apply_default_status_filter(self, statuses: list[dict]):
+        """
+        Sets the status filter's initial checked set: either the single
+        status requested via initial_status_filter (e.g. from a
+        Dashboard status card), or -- absent that -- every status except
+        Closed, since a Closed ticket has nothing left to track.
+
+        Args:
+            statuses: The full list of status records just loaded.
+        """
+        if self.initial_status_filter is not None:
+            matching = [s["id"] for s in statuses if s["name"] == self.initial_status_filter]
+            self.status_filter.set_checked_ids(set(matching))
+            return
+
+        default_ids = {s["id"] for s in statuses if s["name"] != CLOSED_STATUS_NAME}
+        self.status_filter.set_checked_ids(default_ids)
 
     # -----------------------------------------------------------------
     # Filtering + table rendering
@@ -198,10 +260,91 @@ class TicketsWindow(QWidget):
         if priorities:
             filtered = [t for t in filtered if t.get("priority") in priorities]
 
+        filtered = self._sort_tickets(filtered)
         self._render_table(filtered)
         self.status_label.setText(
             f"Showing {len(filtered)} of {len(self.all_tickets)} ticket(s)."
         )
+
+    def _on_header_clicked(self, column: int):
+        """
+        Toggles ascending/descending if the same column is clicked again,
+        otherwise switches to sorting by the newly clicked column
+        ascending. Re-renders with the new sort applied.
+
+        Args:
+            column: The clicked column's index.
+        """
+        if column == self.sort_column:
+            self.sort_ascending = not self.sort_ascending
+        else:
+            self.sort_column = column
+            self.sort_ascending = True
+        self._update_header_labels()
+        self._apply_filters()
+
+    def _update_header_labels(self):
+        """Adds a sort-direction arrow to whichever column header is currently sorted."""
+        arrow = " \u25b2" if self.sort_ascending else " \u25bc"
+        labels = list(COLUMN_HEADERS)
+        labels[self.sort_column] = labels[self.sort_column] + arrow
+        self.table.setHorizontalHeaderLabels(labels)
+
+    def _sort_tickets(self, tickets: list[dict]) -> list[dict]:
+        """
+        Args:
+            tickets: The filtered tickets to sort.
+
+        Returns:
+            The same tickets, sorted by the current sort column/direction.
+        """
+        categories_by_id = {c["id"]: c["name"] for c in self.reference_data.get("categories", [])}
+        statuses_by_id = {s["id"]: s["name"] for s in self.reference_data.get("statuses", [])}
+        customers_by_id = {c["id"]: c for c in self.reference_data.get("customers", [])}
+
+        def sort_key(ticket: dict):
+            column = self.sort_column
+            if column == 0:
+                return ticket["id"]
+            if column == 1:
+                return ticket.get("title", "").lower()
+            if column == 2:
+                customer = customers_by_id.get(ticket["customer_id"])
+                name = f"{customer['first_name']} {customer['last_name']}" if customer else ""
+                return name.lower()
+            if column == 3:
+                return categories_by_id.get(ticket["category_id"], "").lower()
+            if column == 4:
+                return statuses_by_id.get(ticket["status_id"], "").lower()
+            if column == 5:
+                return PRIORITY_RANK.get(ticket.get("priority"), len(PRIORITY_RANK))
+            if column == 6:
+                return self._assigned_to_label(ticket.get("assigned_to")).lower()
+            return 0
+
+        return sorted(tickets, key=sort_key, reverse=not self.sort_ascending)
+
+    def _assigned_to_label(self, assigned_to) -> str:
+        """
+        Resolves an assigned_to id to a display name.
+
+        Args:
+            assigned_to: The ticket's assigned_to field (a user id, or None).
+
+        Returns:
+            "Unassigned", "Me", the resolved technician's name (only
+            possible for superuser sessions, which have the full user
+            list), or a generic "Assigned" fallback when the name can't
+            be resolved.
+        """
+        if assigned_to is None:
+            return "Unassigned"
+        if assigned_to == session.current_user_id():
+            return "Me"
+        for user in self.reference_data.get("users", []):
+            if user["id"] == assigned_to:
+                return user["full_name"]
+        return "Assigned"
 
     def _render_table(self, tickets: list[dict]):
         """
@@ -226,6 +369,7 @@ class TicketsWindow(QWidget):
                 categories_by_id.get(ticket["category_id"], "-"),
                 statuses_by_id.get(ticket["status_id"], "-"),
                 ticket.get("priority", "-"),
+                self._assigned_to_label(ticket.get("assigned_to")),
             ]
             for col, value in enumerate(values):
                 item = QTableWidgetItem(value)

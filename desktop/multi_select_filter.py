@@ -66,6 +66,19 @@ class MultiSelectFilterButton(QPushButton):
         self._pending_checked = previously_checked & {opt[0] for opt in options}
         self._update_label()
 
+    def set_checked_ids(self, ids: set):
+        """
+        Programmatically sets which ids are checked, e.g. to apply a
+        default filter or one requested by another window (such as the
+        Dashboard's status cards).
+
+        Args:
+            ids: The set of id_values that should start checked.
+        """
+        self._checkboxes = {}
+        self._pending_checked = set(ids) & {opt[0] for opt in self._options}
+        self._update_label()
+
     def selected_ids(self) -> set:
         """
         Returns:

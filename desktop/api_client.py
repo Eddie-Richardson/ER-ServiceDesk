@@ -209,6 +209,21 @@ def create_ticket(payload: dict) -> dict:
     return _authed_post("/tickets/", payload)
 
 
+def create_device(payload: dict) -> dict:
+    """
+    Creates a new device.
+
+    Args:
+        payload: Fields matching the backend's DeviceCreate schema
+            (customer_id, device_type, and optionally brand/model/
+            serial_number).
+
+    Returns:
+        The created device record.
+    """
+    return _authed_post("/devices/", payload)
+
+
 def update_ticket(ticket_id: int, payload: dict) -> dict:
     """
     Updates an existing ticket.

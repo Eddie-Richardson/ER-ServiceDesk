@@ -18,6 +18,12 @@ and it works regardless of role. The backend's /users endpoint is
 superuser-only, so the full technician list is only added to the dropdown
 when the session has permission to fetch it; regular agents simply don't
 see other technicians as assignment targets yet.
+
+The device dropdown always includes a "+ Add New Device" option, since
+intake in practice usually means a device is seeing the system for the
+first time -- requiring it to already exist would block ticket creation
+for most real customers. Choosing it reveals inline fields; the device
+is created as part of the same save as the ticket (see TicketSaveWorker).
 """
 
 from PySide6.QtCore import QThread, Qt
@@ -37,6 +43,7 @@ from desktop.ticket_save_worker import TicketSaveWorker
 
 PRIORITY_LEVELS = ["Low", "Medium", "High", "Urgent"]
 DEFAULT_STATUS_NAME = "Open"
+NEW_DEVICE_SENTINEL = "__new_device__"
 
 
 class TicketFormDialog(QDialog):
@@ -97,6 +104,32 @@ class TicketFormDialog(QDialog):
 
         self.device_combo = QComboBox()
         self.device_combo.setFixedHeight(layout.INPUT_HEIGHT)
+        self.device_combo.currentIndexChanged.connect(self._on_device_selection_changed)
+
+        self.new_device_type_input = QLineEdit()
+        self.new_device_type_input.setPlaceholderText("Device type, e.g. Laptop (required)")
+        self.new_device_type_input.setFixedHeight(layout.INPUT_HEIGHT)
+
+        self.new_device_brand_input = QLineEdit()
+        self.new_device_brand_input.setPlaceholderText("Brand (optional)")
+        self.new_device_brand_input.setFixedHeight(layout.INPUT_HEIGHT)
+
+        self.new_device_model_input = QLineEdit()
+        self.new_device_model_input.setPlaceholderText("Model (optional)")
+        self.new_device_model_input.setFixedHeight(layout.INPUT_HEIGHT)
+
+        self.new_device_serial_input = QLineEdit()
+        self.new_device_serial_input.setPlaceholderText("Serial number (optional)")
+        self.new_device_serial_input.setFixedHeight(layout.INPUT_HEIGHT)
+
+        self.new_device_fields = [
+            self.new_device_type_input,
+            self.new_device_brand_input,
+            self.new_device_model_input,
+            self.new_device_serial_input,
+        ]
+        for field in self.new_device_fields:
+            field.hide()
 
         self.category_combo = QComboBox()
         self.category_combo.setFixedHeight(layout.INPUT_HEIGHT)
@@ -147,6 +180,10 @@ class TicketFormDialog(QDialog):
         for label_text, widget in [
             ("Customer", self.customer_combo),
             ("Device", self.device_combo),
+            (None, self.new_device_type_input),
+            (None, self.new_device_brand_input),
+            (None, self.new_device_model_input),
+            (None, self.new_device_serial_input),
             ("Category", self.category_combo),
             ("Type", self.type_combo),
             ("Status", self.status_combo),
@@ -155,9 +192,10 @@ class TicketFormDialog(QDialog):
             ("Title", self.title_input),
             ("Description", self.description_input),
         ]:
-            field_label = QLabel(label_text)
-            field_label.setObjectName("subtitle")
-            outer_layout.addWidget(field_label)
+            if label_text is not None:
+                field_label = QLabel(label_text)
+                field_label.setObjectName("subtitle")
+                outer_layout.addWidget(field_label)
             outer_layout.addWidget(widget)
 
         outer_layout.addWidget(self.error_label)
@@ -215,7 +253,9 @@ class TicketFormDialog(QDialog):
         """
         Repopulates the device dropdown to only show devices belonging
         to the currently selected customer, since a device always
-        belongs to exactly one customer.
+        belongs to exactly one customer. The "+ Add New Device" option
+        is always available, even when the customer has no devices on
+        file yet -- which is true for most real customers right now.
         """
         self.device_combo.clear()
         customer_id = self.customer_combo.currentData()
@@ -226,7 +266,7 @@ class TicketFormDialog(QDialog):
         matching_devices = [
             d for d in self.reference_data["devices"] if d["customer_id"] == customer_id
         ]
-        self.device_combo.setEnabled(bool(matching_devices))
+        self.device_combo.setEnabled(True)
         for device in matching_devices:
             parts = [device["device_type"]]
             if device.get("brand"):
@@ -237,6 +277,13 @@ class TicketFormDialog(QDialog):
             if device.get("serial_number"):
                 label += f" (SN: {device['serial_number']})"
             self.device_combo.addItem(label, userData=device["id"])
+        self.device_combo.addItem("+ Add New Device", userData=NEW_DEVICE_SENTINEL)
+
+    def _on_device_selection_changed(self):
+        """Shows the inline new-device fields only when "+ Add New Device" is selected."""
+        is_new_device = self.device_combo.currentData() == NEW_DEVICE_SENTINEL
+        for field in self.new_device_fields:
+            field.setVisible(is_new_device)
 
     # -----------------------------------------------------------------
     # Prefill (edit mode) / defaults (create mode)
@@ -286,7 +333,7 @@ class TicketFormDialog(QDialog):
     # -----------------------------------------------------------------
     def _attempt_save(self):
         """Validates the form, then starts the save request on a background thread."""
-        payload, error = self._build_payload()
+        payload, new_device_payload, error = self._build_payload()
         if error:
             self._show_error(error)
             return
@@ -297,7 +344,7 @@ class TicketFormDialog(QDialog):
 
         ticket_id = self.ticket["id"] if self.ticket else None
         self._thread = QThread()
-        self._worker = TicketSaveWorker(payload, ticket_id)
+        self._worker = TicketSaveWorker(payload, ticket_id, new_device_payload)
         self._worker.moveToThread(self._thread)
 
         self._thread.started.connect(self._worker.run)
@@ -308,13 +355,17 @@ class TicketFormDialog(QDialog):
 
         self._thread.start()
 
-    def _build_payload(self) -> tuple[dict, str]:
+    def _build_payload(self) -> tuple[dict, dict | None, str]:
         """
-        Validates every required field and assembles the request payload.
+        Validates every required field and assembles the request
+        payload(s). If "+ Add New Device" was selected, that device's
+        fields are validated too and returned as a separate payload for
+        TicketSaveWorker to create before the ticket itself.
 
         Returns:
-            A (payload, error_message) tuple. error_message is empty if
-            validation passed.
+            A (payload, new_device_payload, error_message) tuple.
+            new_device_payload is None unless a new device is being
+            created. error_message is empty if validation passed.
         """
         customer_id = self.customer_combo.currentData()
         device_id = self.device_combo.currentData()
@@ -324,13 +375,27 @@ class TicketFormDialog(QDialog):
         title = self.title_input.text().strip()
 
         if customer_id is None:
-            return {}, "Select a customer."
+            return {}, None, "Select a customer."
         if device_id is None:
-            return {}, "Select a device for this customer."
+            return {}, None, "Select a device for this customer."
         if category_id is None or type_id is None or status_id is None:
-            return {}, "Select a category, type, and status."
+            return {}, None, "Select a category, type, and status."
         if not title:
-            return {}, "Enter a title."
+            return {}, None, "Enter a title."
+
+        new_device_payload = None
+        if device_id == NEW_DEVICE_SENTINEL:
+            device_type = self.new_device_type_input.text().strip()
+            if not device_type:
+                return {}, None, "Enter a device type for the new device."
+            new_device_payload = {
+                "customer_id": customer_id,
+                "device_type": device_type,
+                "brand": self.new_device_brand_input.text().strip() or None,
+                "model": self.new_device_model_input.text().strip() or None,
+                "serial_number": self.new_device_serial_input.text().strip() or None,
+            }
+            device_id = None  # filled in by TicketSaveWorker once the device is created
 
         payload = {
             "customer_id": customer_id,
@@ -343,7 +408,7 @@ class TicketFormDialog(QDialog):
             "title": title,
             "description": self.description_input.toPlainText().strip() or None,
         }
-        return payload, ""
+        return payload, new_device_payload, ""
 
     def _on_save_finished(self, success: bool, result):
         """

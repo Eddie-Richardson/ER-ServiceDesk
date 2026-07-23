@@ -31,6 +31,8 @@ NAV_ITEMS = ["Tickets", "Inventory", "Customers", "Users & Roles", "Settings"]
 class DashboardWindow(QWidget):
     """Main landing window shown after a successful login."""
 
+    _WINDOW_BACKED_NAV_ITEMS = {"Tickets"}  # extend as more feature windows get built
+
     def __init__(self):
         """
         Builds the sidebar and content area, then kicks off an initial
@@ -80,13 +82,21 @@ class DashboardWindow(QWidget):
         heading.setContentsMargins(layout.SPACE_SM, 0, 0, layout.SPACE_MD)
         sidebar_layout.addWidget(heading)
 
+        self._nav_buttons: dict[str, QPushButton] = {}
         for label in self._visible_nav_items():
             button = QPushButton(label)
             button.setObjectName("navButton")
-            button.setCheckable(True)
+            # Only nav items backed by a real, persistent window get the
+            # checkable "lit up while open" treatment. The rest currently
+            # just show a message box and nothing stays open -- making
+            # those checkable would leave them permanently highlighted
+            # with no way to reflect "closed" state, since nothing ever
+            # actually opens.
+            button.setCheckable(label in self._WINDOW_BACKED_NAV_ITEMS)
             button.setFixedHeight(layout.NAV_BUTTON_HEIGHT)
             button.clicked.connect(lambda _checked, name=label: self._on_nav_clicked(name))
             sidebar_layout.addWidget(button)
+            self._nav_buttons[label] = button
 
         sidebar_layout.addStretch()
 
@@ -123,13 +133,35 @@ class DashboardWindow(QWidget):
             name: The clicked nav item's label, e.g. "Tickets".
         """
         if name == "Tickets":
-            self._tickets_window = TicketsWindow()
-            self._tickets_window.show()
+            self._open_tickets_window()
             return
 
         QMessageBox.information(
             self, name, f"The {name} window isn't built yet -- coming soon."
         )
+
+    def _open_tickets_window(self, initial_status_filter: str | None = None):
+        """
+        Opens the Tickets window and keeps its nav button highlighted for
+        exactly as long as the window is actually open -- not just "was
+        clicked at some point." The button un-highlights itself via
+        TicketsWindow.window_closed once the person closes the window.
+
+        Args:
+            initial_status_filter: Passed straight through to
+                TicketsWindow, e.g. when opened from a Dashboard status
+                card rather than the sidebar.
+        """
+        self._tickets_window = TicketsWindow(initial_status_filter=initial_status_filter)
+
+        tickets_button = self._nav_buttons.get("Tickets")
+        if tickets_button:
+            tickets_button.setChecked(True)
+            self._tickets_window.window_closed.connect(
+                lambda: tickets_button.setChecked(False)
+            )
+
+        self._tickets_window.show()
 
     def _on_logout(self):
         """
@@ -253,16 +285,12 @@ class DashboardWindow(QWidget):
 
     def _on_status_clicked(self, status_name: str):
         """
-        Handles a click on a status row. Filtering by status isn't built
-        yet, so this shows an honest notice rather than pretending to
-        filter.
+        Opens the Tickets window pre-filtered to just this status, via
+        the same path as clicking the Tickets nav button -- so the nav
+        button highlights correctly regardless of which entry point was
+        used to open the window.
 
         Args:
             status_name: The clicked status's name, e.g. "Open".
         """
-        QMessageBox.information(
-            self,
-            status_name,
-            f"Filtering tickets by '{status_name}' isn't built yet -- "
-            f"that'll open the Tickets window once it exists.",
-        )
+        self._open_tickets_window(initial_status_filter=status_name)

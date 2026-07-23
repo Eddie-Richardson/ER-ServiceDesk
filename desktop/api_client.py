@@ -244,6 +244,51 @@ def list_locations() -> list[dict]:
     return _authed_get("/inventory/locations/")
 
 
+def create_customer(payload: dict) -> dict:
+    """
+    Creates a new customer.
+
+    Args:
+        payload: Fields matching the backend's CustomerCreate schema
+            (first_name, last_name, email required; phone/address
+            optional).
+
+    Returns:
+        The created customer record.
+    """
+    return _authed_post("/customers/", payload)
+
+
+def update_customer(customer_id: int, payload: dict) -> dict:
+    """
+    Updates an existing customer.
+
+    Args:
+        customer_id: The customer's id.
+        payload: Fields to update, matching the backend's CustomerUpdate
+            schema. Only include fields that changed.
+
+    Returns:
+        The updated customer record.
+    """
+    return _authed_put(f"/customers/{customer_id}", payload)
+
+
+def update_device(device_id: int, payload: dict) -> dict:
+    """
+    Updates an existing device.
+
+    Args:
+        device_id: The device's id.
+        payload: Fields to update, matching the backend's DeviceUpdate
+            schema. Only include fields that changed.
+
+    Returns:
+        The updated device record.
+    """
+    return _authed_put(f"/devices/{device_id}", payload)
+
+
 def list_asset_categories() -> list[dict]:
     """Returns all asset categories (id, name, description). Requires an active session."""
     return _authed_get("/inventory/asset_categories/")

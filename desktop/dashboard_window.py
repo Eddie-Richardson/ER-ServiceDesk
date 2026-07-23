@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 
 from desktop import layout, session
 from desktop.dashboard_worker import DashboardWorker
+from desktop.customers_window import CustomersWindow
 from desktop.inventory_window import InventoryWindow
 from desktop.tickets_window import TicketsWindow
 
@@ -32,7 +33,7 @@ NAV_ITEMS = ["Tickets", "Inventory", "Customers", "Users & Roles", "Settings"]
 class DashboardWindow(QWidget):
     """Main landing window shown after a successful login."""
 
-    _WINDOW_BACKED_NAV_ITEMS = {"Tickets", "Inventory"}  # extend as more feature windows get built
+    _WINDOW_BACKED_NAV_ITEMS = {"Tickets", "Inventory", "Customers"}  # extend as more feature windows get built
 
     def __init__(self):
         """
@@ -48,6 +49,7 @@ class DashboardWindow(QWidget):
         self.logout_callback = None  # set by main.py
         self._tickets_window = None  # kept alive while open
         self._inventory_window = None  # kept alive while open
+        self._customers_window = None  # kept alive while open
 
         root_layout = QHBoxLayout()
         root_layout.setContentsMargins(0, 0, 0, 0)
@@ -142,6 +144,10 @@ class DashboardWindow(QWidget):
             self._open_inventory_window()
             return
 
+        if name == "Customers":
+            self._open_customers_window()
+            return
+
         QMessageBox.information(
             self, name, f"The {name} window isn't built yet -- coming soon."
         )
@@ -185,6 +191,23 @@ class DashboardWindow(QWidget):
             )
 
         self._inventory_window.show()
+
+    def _open_customers_window(self):
+        """
+        Opens the Customers window and keeps its nav button highlighted
+        for exactly as long as the window is actually open, same pattern
+        as _open_tickets_window and _open_inventory_window.
+        """
+        self._customers_window = CustomersWindow()
+
+        customers_button = self._nav_buttons.get("Customers")
+        if customers_button:
+            customers_button.setChecked(True)
+            self._customers_window.window_closed.connect(
+                lambda: customers_button.setChecked(False)
+            )
+
+        self._customers_window.show()
 
     def _on_logout(self):
         """

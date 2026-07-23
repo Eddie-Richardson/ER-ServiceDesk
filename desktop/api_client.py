@@ -239,6 +239,105 @@ def update_ticket(ticket_id: int, payload: dict) -> dict:
     return _authed_put(f"/tickets/{ticket_id}", payload)
 
 
+def list_locations() -> list[dict]:
+    """Returns all locations. Requires an active session."""
+    return _authed_get("/inventory/locations/")
+
+
+def list_asset_categories() -> list[dict]:
+    """Returns all asset categories (id, name, description). Requires an active session."""
+    return _authed_get("/inventory/asset_categories/")
+
+
+def list_assets() -> list[dict]:
+    """
+    Returns all assets. Requires an active session.
+
+    The backend paginates this endpoint (a holdover from the original
+    InventoryHub API it was merged from), returning {"items": [...],
+    ...page metadata}. A shop's own asset inventory is small enough that
+    the desktop app just requests everything in one page rather than
+    building real pagination UI for it.
+    """
+    response = _authed_get("/inventory/assets/?limit=1000")
+    return response["items"]
+
+
+def create_asset(payload: dict) -> dict:
+    """
+    Creates a new asset.
+
+    Args:
+        payload: Fields matching the backend's AssetCreate schema (name
+            required; sku/category_id/manufacturer/model/serial_number/
+            status/location_id/price/purchase_date/warranty_expiration/
+            assigned_to/condition/notes all optional).
+
+    Returns:
+        The created asset record. The backend wraps this in
+        {"message": ..., "asset": {...}}; this function unwraps it so
+        callers get the record directly, consistent with every other
+        create_* function here.
+    """
+    response = _authed_post("/inventory/assets/", payload)
+    return response["asset"]
+
+
+def update_asset(asset_id: int, payload: dict) -> dict:
+    """
+    Updates an existing asset.
+
+    Args:
+        asset_id: The asset's id.
+        payload: Fields to update, matching the backend's AssetUpdate
+            schema. Only include fields that changed.
+
+    Returns:
+        The updated asset record.
+    """
+    return _authed_put(f"/inventory/assets/{asset_id}", payload)
+
+
+def list_parts() -> list[dict]:
+    """Returns all parts. Requires an active session."""
+    return _authed_get("/inventory/parts/")
+
+
+def list_low_stock_parts() -> list[dict]:
+    """Returns every part currently at or below its reorder threshold. Requires an active session."""
+    return _authed_get("/inventory/parts/low-stock")
+
+
+def create_part(payload: dict) -> dict:
+    """
+    Creates a new part.
+
+    Args:
+        payload: Fields matching the backend's PartCreate schema (name
+            required; sku/quantity_on_hand/reorder_threshold/unit_cost/
+            supplier/location_id/notes all optional).
+
+    Returns:
+        The created part record.
+    """
+    return _authed_post("/inventory/parts/", payload)
+
+
+def update_part(part_id: int, payload: dict) -> dict:
+    """
+    Updates an existing part.
+
+    Args:
+        part_id: The part's id.
+        payload: Fields to update, matching the backend's PartUpdate
+            schema. Only include fields that changed.
+
+    Returns:
+        The updated part record.
+    """
+    return _authed_put(f"/inventory/parts/{part_id}", payload)
+
+
 def login(email: str, password: str) -> str:
     """
     Authenticates against POST /auth/login and returns the access token.

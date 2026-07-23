@@ -17,6 +17,7 @@ from app.models.ticket_status import TicketStatus
 from app.models.ticket_category import TicketCategory
 from app.models.ticket_type import TicketType
 from app.models.location import Location
+from app.models.asset_category import AssetCategory
 from app.models.ticket_stage import TicketStage
 from app.models.ticket_type_stage import TicketTypeStage
 
@@ -225,6 +226,24 @@ def seed_data(db: Session):
     for name, desc in locations:
         if not db.query(Location).filter_by(name=name).first():
             db.add(Location(name=name, description=desc))
+    db.commit()
+
+    # -------------------------------------------------------------------
+    # Asset categories (organizes the shop's own tracked business assets,
+    # distinct from ticket_categories which classify customer repair jobs)
+    # -------------------------------------------------------------------
+    asset_categories = [
+        ("Laptop", "Shop-owned laptops"),
+        ("Desktop", "Shop-owned desktop computers"),
+        ("Monitor", "Displays and monitors"),
+        ("Networking Equipment", "Routers, switches, access points"),
+        ("Furniture", "Desks, chairs, shelving"),
+        ("Tool", "Hand tools, diagnostic equipment"),
+        ("Other", "Anything that doesn't fit an existing category"),
+    ]
+    for name, desc in asset_categories:
+        if not db.query(AssetCategory).filter_by(name=name).first():
+            db.add(AssetCategory(name=name, description=desc))
     db.commit()
 
     # -------------------------------------------------------------------

@@ -154,6 +154,12 @@ class TicketFormDialog(QDialog):
         self.assigned_to_combo.setFixedHeight(layout.INPUT_HEIGHT)
         self._populate_assigned_to()
 
+        self.location_combo = QComboBox()
+        self.location_combo.setFixedHeight(layout.INPUT_HEIGHT)
+        self.location_combo.addItem("-- None --", userData=None)
+        for location in self.reference_data.get("locations", []):
+            self.location_combo.addItem(location["name"], userData=location["id"])
+
         self.title_input = QLineEdit()
         self.title_input.setPlaceholderText("Short summary of the issue")
         self.title_input.setFixedHeight(layout.INPUT_HEIGHT)
@@ -189,6 +195,7 @@ class TicketFormDialog(QDialog):
             ("Status", self.status_combo),
             ("Priority", self.priority_combo),
             ("Assigned To", self.assigned_to_combo),
+            ("Location", self.location_combo),
             ("Title", self.title_input),
             ("Description", self.description_input),
         ]:
@@ -308,6 +315,7 @@ class TicketFormDialog(QDialog):
         self._select_combo_by_data(self.type_combo, ticket["type_id"])
         self._select_combo_by_data(self.status_combo, ticket["status_id"])
         self._select_combo_by_data(self.assigned_to_combo, ticket.get("assigned_to"))
+        self._select_combo_by_data(self.location_combo, ticket.get("current_location_id"))
 
         priority_index = self.priority_combo.findText(ticket.get("priority", ""))
         if priority_index >= 0:
@@ -405,6 +413,7 @@ class TicketFormDialog(QDialog):
             "status_id": status_id,
             "priority": self.priority_combo.currentText(),
             "assigned_to": self.assigned_to_combo.currentData(),
+            "current_location_id": self.location_combo.currentData(),
             "title": title,
             "description": self.description_input.toPlainText().strip() or None,
         }

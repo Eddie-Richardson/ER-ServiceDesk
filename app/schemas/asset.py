@@ -13,7 +13,7 @@ class AssetBase(BaseModel):
     """Shared fields for Asset across create/read/update."""
     name: str
     sku: str | None = None
-    category: str | None = None
+    category_id: int | None = None
     manufacturer: str | None = None
     model: str | None = None
     serial_number: str | None = None
@@ -34,7 +34,7 @@ class AssetUpdate(BaseModel):
     """Schema for partially updating an existing Asset record. All fields optional."""
     name: str | None = None
     sku: str | None = None
-    category: str | None = None
+    category_id: int | None = None
     manufacturer: str | None = None
     model: str | None = None
     serial_number: str | None = None

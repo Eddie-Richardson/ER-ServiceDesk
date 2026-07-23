@@ -46,7 +46,7 @@ from desktop.multi_select_filter import MultiSelectFilterButton
 from desktop.ticket_form_dialog import PRIORITY_LEVELS, TicketFormDialog
 from desktop.tickets_worker import TicketsDataWorker
 
-COLUMN_HEADERS = ["ID", "Title", "Customer", "Category", "Status", "Priority", "Assigned To"]
+COLUMN_HEADERS = ["ID", "Title", "Customer", "Category", "Status", "Priority", "Assigned To", "Location"]
 PRIORITY_RANK = {"Urgent": 0, "High": 1, "Medium": 2, "Low": 3}
 DEFAULT_SORT_COLUMN = 5  # Priority
 CLOSED_STATUS_NAME = "Closed"
@@ -320,6 +320,8 @@ class TicketsWindow(QWidget):
                 return PRIORITY_RANK.get(ticket.get("priority"), len(PRIORITY_RANK))
             if column == 6:
                 return self._assigned_to_label(ticket.get("assigned_to")).lower()
+            if column == 7:
+                return self._location_label(ticket.get("current_location_id")).lower()
             return 0
 
         return sorted(tickets, key=sort_key, reverse=not self.sort_ascending)
@@ -346,6 +348,24 @@ class TicketsWindow(QWidget):
                 return user["full_name"]
         return "Assigned"
 
+    def _location_label(self, location_id) -> str:
+        """
+        Resolves a current_location_id to a display name.
+
+        Args:
+            location_id: The ticket's current_location_id field (a
+                Location id, or None).
+
+        Returns:
+            The location's name, or "-" if unset/unresolvable.
+        """
+        if location_id is None:
+            return "-"
+        for location in self.reference_data.get("locations", []):
+            if location["id"] == location_id:
+                return location["name"]
+        return "-"
+
     def _render_table(self, tickets: list[dict]):
         """
         Args:
@@ -370,6 +390,7 @@ class TicketsWindow(QWidget):
                 statuses_by_id.get(ticket["status_id"], "-"),
                 ticket.get("priority", "-"),
                 self._assigned_to_label(ticket.get("assigned_to")),
+                self._location_label(ticket.get("current_location_id")),
             ]
             for col, value in enumerate(values):
                 item = QTableWidgetItem(value)

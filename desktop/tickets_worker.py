@@ -16,6 +16,7 @@ from desktop.api_client import (
     ApiError,
     list_customers,
     list_devices,
+    list_locations,
     list_ticket_categories,
     list_ticket_statuses,
     list_ticket_types,
@@ -32,10 +33,10 @@ class TicketsDataWorker(QObject):
         finished(bool, object): Emitted once. First argument is success.
             On success, second argument is a dict with keys "tickets",
             "statuses", "categories", "types", "customers", "devices",
-            "users", each a list of the corresponding records. "users"
-            is empty for non-superuser sessions -- see _load_users().
-            On failure, second argument is a human-readable error
-            message string.
+            "users", "locations", each a list of the corresponding
+            records. "users" is empty for non-superuser sessions -- see
+            _load_users(). On failure, second argument is a
+            human-readable error message string.
     """
 
     finished = Signal(bool, object)
@@ -53,6 +54,7 @@ class TicketsDataWorker(QObject):
                 "types": list_ticket_types(),
                 "customers": list_customers(),
                 "devices": list_devices(),
+                "locations": list_locations(),
                 "tickets": list_tickets(),
                 "users": self._load_users(),
             }

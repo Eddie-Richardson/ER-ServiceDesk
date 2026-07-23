@@ -20,7 +20,7 @@ class Asset(Base):
         id: Primary key.
         name: Required asset name.
         sku: Optional SKU identifier.
-        category: Category (e.g. "Laptop", "Furniture").
+        category_id: The AssetCategory this asset belongs to.
         manufacturer: Brand or manufacturer.
         model: Model name/number.
         serial_number: Unique serial number.
@@ -41,7 +41,7 @@ class Asset(Base):
 
     name = Column(String, nullable=False)
     sku = Column(String, nullable=True)
-    category = Column(String, nullable=True)
+    category_id = Column(Integer, ForeignKey("asset_categories.id"), nullable=True)
     manufacturer = Column(String, nullable=True)
     model = Column(String, nullable=True)
     serial_number = Column(String, unique=True, nullable=True)
@@ -73,3 +73,4 @@ class Asset(Base):
     )
 
     location = relationship("Location", back_populates="assets")
+    category = relationship("AssetCategory", back_populates="assets")

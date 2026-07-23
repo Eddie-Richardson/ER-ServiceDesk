@@ -12,6 +12,7 @@ from app.core.logging_config import setup_logging
 
 from app.routes import (
     assets,
+    asset_categories,
     attachments,
     audit_logs,
     auth,
@@ -90,6 +91,7 @@ app.include_router(system_settings.router)
 # Inventory (merged from InventoryHub)
 app.include_router(locations.router)
 app.include_router(assets.router)
+app.include_router(asset_categories.router)
 app.include_router(parts.router)
 app.include_router(ticket_parts.router)
 

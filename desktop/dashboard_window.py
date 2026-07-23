@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 
 from desktop import layout, session
 from desktop.dashboard_worker import DashboardWorker
+from desktop.inventory_window import InventoryWindow
 from desktop.tickets_window import TicketsWindow
 
 NAV_ITEMS = ["Tickets", "Inventory", "Customers", "Users & Roles", "Settings"]
@@ -31,7 +32,7 @@ NAV_ITEMS = ["Tickets", "Inventory", "Customers", "Users & Roles", "Settings"]
 class DashboardWindow(QWidget):
     """Main landing window shown after a successful login."""
 
-    _WINDOW_BACKED_NAV_ITEMS = {"Tickets"}  # extend as more feature windows get built
+    _WINDOW_BACKED_NAV_ITEMS = {"Tickets", "Inventory"}  # extend as more feature windows get built
 
     def __init__(self):
         """
@@ -46,6 +47,7 @@ class DashboardWindow(QWidget):
         self._worker: DashboardWorker | None = None
         self.logout_callback = None  # set by main.py
         self._tickets_window = None  # kept alive while open
+        self._inventory_window = None  # kept alive while open
 
         root_layout = QHBoxLayout()
         root_layout.setContentsMargins(0, 0, 0, 0)
@@ -136,6 +138,10 @@ class DashboardWindow(QWidget):
             self._open_tickets_window()
             return
 
+        if name == "Inventory":
+            self._open_inventory_window()
+            return
+
         QMessageBox.information(
             self, name, f"The {name} window isn't built yet -- coming soon."
         )
@@ -162,6 +168,23 @@ class DashboardWindow(QWidget):
             )
 
         self._tickets_window.show()
+
+    def _open_inventory_window(self):
+        """
+        Opens the Inventory window and keeps its nav button highlighted
+        for exactly as long as the window is actually open, same pattern
+        as _open_tickets_window.
+        """
+        self._inventory_window = InventoryWindow()
+
+        inventory_button = self._nav_buttons.get("Inventory")
+        if inventory_button:
+            inventory_button.setChecked(True)
+            self._inventory_window.window_closed.connect(
+                lambda: inventory_button.setChecked(False)
+            )
+
+        self._inventory_window.show()
 
     def _on_logout(self):
         """

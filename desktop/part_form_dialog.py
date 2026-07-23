@@ -3,24 +3,29 @@
 """
 Dialog for creating a new part or editing an existing one.
 
-Location is the only foreign key here, populated as a dropdown from the
-backend. Supplier stays free text -- supplier names are genuinely
-open-ended and shop-specific, not a small closed set worth a lookup
-table. Quantity and reorder threshold are plain integer fields; a part
-at or below its reorder threshold is what drives the Low Stock view in
-the Inventory window's Parts tab.
+A part can be split across several locations at once (some on the
+shelf, some at a bench), so its stock isn't one Location dropdown and
+one Quantity field -- it's a small editable list, one row per location,
+each with its own quantity. Rows can be added or removed freely; the
+running total (shown live) is what actually gets compared against the
+part's reorder threshold, not any single row.
+
+Supplier stays free text -- supplier names are genuinely open-ended and
+shop-specific, not a small closed set worth a lookup table.
 """
 
 from PySide6.QtCore import QThread
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
     QSpinBox,
     QTextEdit,
     QVBoxLayout,
+    QWidget,
 )
 
 from desktop import layout
@@ -50,22 +55,25 @@ class PartFormDialog(QDialog):
         self.reference_data = reference_data
         self.part = part
         self.saved_part: dict | None = None
+        self.location_rows: list[dict] = []  # each: {"widget", "combo", "spinbox"}
 
         self._thread: QThread | None = None
         self._worker: PartSaveWorker | None = None
 
         self.setWindowTitle("Edit Part" if part else "New Part")
-        self.setFixedWidth(layout.DIALOG_WIDTH + 40)
+        self.setFixedWidth(layout.DIALOG_WIDTH + 100)
 
         self._build_ui()
         if part:
             self._prefill_from_part(part)
+        else:
+            self._add_location_row()  # start with one empty row rather than a blank list
 
     # -----------------------------------------------------------------
     # UI construction
     # -----------------------------------------------------------------
     def _build_ui(self):
-        """Builds every field."""
+        """Builds every field, including the multi-row location editor."""
         outer_layout = QVBoxLayout()
         outer_layout.setContentsMargins(
             layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
@@ -80,10 +88,6 @@ class PartFormDialog(QDialog):
         self.sku_input = QLineEdit()
         self.sku_input.setFixedHeight(layout.INPUT_HEIGHT)
 
-        self.quantity_input = QSpinBox()
-        self.quantity_input.setRange(0, 1_000_000)
-        self.quantity_input.setFixedHeight(layout.INPUT_HEIGHT)
-
         self.reorder_threshold_input = QSpinBox()
         self.reorder_threshold_input.setRange(0, 1_000_000)
         self.reorder_threshold_input.setFixedHeight(layout.INPUT_HEIGHT)
@@ -94,12 +98,6 @@ class PartFormDialog(QDialog):
 
         self.supplier_input = QLineEdit()
         self.supplier_input.setFixedHeight(layout.INPUT_HEIGHT)
-
-        self.location_combo = QComboBox()
-        self.location_combo.setFixedHeight(layout.INPUT_HEIGHT)
-        self.location_combo.addItem("-- None --", userData=None)
-        for location in self.reference_data.get("locations", []):
-            self.location_combo.addItem(location["name"], userData=location["id"])
 
         self.notes_input = QTextEdit()
         self.notes_input.setPlaceholderText("Notes (optional)")
@@ -123,17 +121,21 @@ class PartFormDialog(QDialog):
         for label_text, widget in [
             ("Name", self.name_input),
             ("SKU", self.sku_input),
-            ("Quantity On Hand", self.quantity_input),
-            ("Reorder Threshold", self.reorder_threshold_input),
+            ("Reorder Threshold (total across all locations)", self.reorder_threshold_input),
             ("Unit Cost", self.unit_cost_input),
             ("Supplier", self.supplier_input),
-            ("Location", self.location_combo),
-            ("Notes", self.notes_input),
         ]:
             field_label = QLabel(label_text)
             field_label.setObjectName("subtitle")
             outer_layout.addWidget(field_label)
             outer_layout.addWidget(widget)
+
+        outer_layout.addWidget(self._build_locations_section())
+
+        notes_label = QLabel("Notes")
+        notes_label.setObjectName("subtitle")
+        outer_layout.addWidget(notes_label)
+        outer_layout.addWidget(self.notes_input)
 
         outer_layout.addWidget(self.error_label)
         outer_layout.addSpacing(layout.SPACE_SM)
@@ -142,30 +144,129 @@ class PartFormDialog(QDialog):
 
         self.setLayout(outer_layout)
 
+    def _build_locations_section(self) -> QWidget:
+        """
+        Builds the "Stock by Location" section: a live total, an area
+        that holds one row per location, and an Add Location button.
+
+        Returns:
+            The assembled section as a single QWidget.
+        """
+        section = QWidget()
+        section_layout = QVBoxLayout()
+        section_layout.setContentsMargins(0, 0, 0, 0)
+        section_layout.setSpacing(layout.SPACE_XS)
+
+        section_label = QLabel("Stock by Location")
+        section_label.setObjectName("subtitle")
+        section_layout.addWidget(section_label)
+
+        self.total_label = QLabel("Total: 0")
+        section_layout.addWidget(self.total_label)
+
+        self.locations_container = QWidget()
+        self.locations_container_layout = QVBoxLayout()
+        self.locations_container_layout.setContentsMargins(0, 0, 0, 0)
+        self.locations_container_layout.setSpacing(layout.SPACE_XS)
+        self.locations_container.setLayout(self.locations_container_layout)
+        section_layout.addWidget(self.locations_container)
+
+        add_location_button = QPushButton("+ Add Location")
+        add_location_button.setObjectName("secondary")
+        add_location_button.clicked.connect(lambda: self._add_location_row())
+        section_layout.addWidget(add_location_button)
+
+        section.setLayout(section_layout)
+        return section
+
+    def _add_location_row(self, location_id=None, quantity: int = 0):
+        """
+        Appends one Location + Quantity + Remove row to the locations
+        editor.
+
+        Args:
+            location_id: The location to pre-select, or None to leave
+                the "-- Select Location --" placeholder selected.
+            quantity: The quantity to pre-fill for this row.
+        """
+        row_widget = QWidget()
+        row_layout = QHBoxLayout()
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(layout.SPACE_SM)
+
+        location_combo = QComboBox()
+        location_combo.setFixedHeight(layout.INPUT_HEIGHT)
+        location_combo.addItem("-- Select Location --", userData=None)
+        for loc in self.reference_data.get("locations", []):
+            location_combo.addItem(loc["name"], userData=loc["id"])
+        index = location_combo.findData(location_id)
+        if index >= 0:
+            location_combo.setCurrentIndex(index)
+
+        quantity_input = QSpinBox()
+        quantity_input.setRange(0, 1_000_000)
+        quantity_input.setValue(quantity)
+        quantity_input.setFixedHeight(layout.INPUT_HEIGHT)
+        quantity_input.valueChanged.connect(self._update_total_label)
+
+        remove_button = QPushButton("Remove")
+        remove_button.setObjectName("secondary")
+        remove_button.setFixedHeight(layout.INPUT_HEIGHT)
+
+        row_layout.addWidget(location_combo, stretch=2)
+        row_layout.addWidget(quantity_input, stretch=1)
+        row_layout.addWidget(remove_button)
+        row_widget.setLayout(row_layout)
+
+        row_entry = {"widget": row_widget, "combo": location_combo, "spinbox": quantity_input}
+        remove_button.clicked.connect(lambda: self._remove_location_row(row_entry))
+
+        self.locations_container_layout.addWidget(row_widget)
+        self.location_rows.append(row_entry)
+        self._update_total_label()
+
+    def _remove_location_row(self, row_entry: dict):
+        """
+        Args:
+            row_entry: The row's tracking dict, as stored in self.location_rows.
+        """
+        self.location_rows.remove(row_entry)
+        row_entry["widget"].deleteLater()
+        self._update_total_label()
+
+    def _update_total_label(self):
+        """Recomputes and displays the sum of every row's quantity."""
+        total = sum(row["spinbox"].value() for row in self.location_rows)
+        self.total_label.setText(f"Total: {total}")
+
     # -----------------------------------------------------------------
     # Prefill (edit mode)
     # -----------------------------------------------------------------
     def _prefill_from_part(self, part: dict):
         """
-        Populates every field from an existing part record, for edit mode.
+        Populates every field from an existing part record, including
+        one location row per entry in its current breakdown. If the
+        part has no stock recorded anywhere yet, starts with one empty
+        row rather than leaving the section blank.
 
         Args:
             part: The part dict being edited.
         """
         self.name_input.setText(part.get("name", ""))
         self.sku_input.setText(part.get("sku") or "")
-        self.quantity_input.setValue(part.get("quantity_on_hand", 0))
         self.reorder_threshold_input.setValue(part.get("reorder_threshold", 0))
         self.unit_cost_input.setText(
             "" if part.get("unit_cost") is None else str(part["unit_cost"])
         )
         self.supplier_input.setText(part.get("supplier") or "")
-
-        index = self.location_combo.findData(part.get("location_id"))
-        if index >= 0:
-            self.location_combo.setCurrentIndex(index)
-
         self.notes_input.setPlainText(part.get("notes") or "")
+
+        existing_locations = part.get("locations") or []
+        if existing_locations:
+            for entry in existing_locations:
+                self._add_location_row(entry["location_id"], entry["quantity"])
+        else:
+            self._add_location_row()
 
     # -----------------------------------------------------------------
     # Save
@@ -196,7 +297,9 @@ class PartFormDialog(QDialog):
 
     def _build_payload(self) -> tuple[dict, str]:
         """
-        Validates every required field and assembles the request payload.
+        Validates every required field, including the location rows
+        (each filled-in row needs a location selected, and no location
+        can appear twice), then assembles the request payload.
 
         Returns:
             A (payload, error_message) tuple. error_message is empty if
@@ -214,15 +317,26 @@ class PartFormDialog(QDialog):
             except ValueError:
                 return {}, "Unit cost must be a number, e.g. 12.99."
 
+        locations = []
+        seen_location_ids = set()
+        for row in self.location_rows:
+            location_id = row["combo"].currentData()
+            if location_id is None:
+                continue  # an unfilled placeholder row -- not an error, just skipped
+            if location_id in seen_location_ids:
+                location_name = row["combo"].currentText()
+                return {}, f"'{location_name}' is used in more than one row. Each location can only appear once."
+            seen_location_ids.add(location_id)
+            locations.append({"location_id": location_id, "quantity": row["spinbox"].value()})
+
         payload = {
             "name": name,
             "sku": self.sku_input.text().strip() or None,
-            "quantity_on_hand": self.quantity_input.value(),
             "reorder_threshold": self.reorder_threshold_input.value(),
             "unit_cost": unit_cost,
             "supplier": self.supplier_input.text().strip() or None,
-            "location_id": self.location_combo.currentData(),
             "notes": self.notes_input.toPlainText().strip() or None,
+            "locations": locations,
         }
         return payload, ""
 

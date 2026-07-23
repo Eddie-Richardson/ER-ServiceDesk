@@ -42,7 +42,13 @@ class PartCRUD:
 
     def get_low_stock(self, db: Session):
         """
-        Fetch every part at or below its reorder threshold.
+        Fetch every part whose total quantity (summed across every
+        location it's stored at) is at or below its reorder threshold.
+
+        Computed in Python rather than as a SQL WHERE clause, since
+        quantity_on_hand is a computed property (summing part_locations
+        rows) rather than a real column -- straightforward and correct
+        at the scale of one shop's parts inventory.
 
         Args:
             db: Active database session.
@@ -50,7 +56,7 @@ class PartCRUD:
         Returns:
             A list of Part instances that need reordering.
         """
-        return db.query(Part).filter(Part.quantity_on_hand <= Part.reorder_threshold).all()
+        return [p for p in db.query(Part).all() if p.quantity_on_hand <= p.reorder_threshold]
 
     def create(self, db: Session, obj_in: PartCreate) -> Part:
         """
@@ -58,7 +64,9 @@ class PartCRUD:
 
         Args:
             db: Active database session.
-            obj_in: Validated input data for the new record.
+            obj_in: Validated input data for the new record. Its
+                `locations` field is handled by the service layer, not
+                here -- this only creates the Part row itself.
 
         Returns:
             The newly created, refreshed Part instance.
@@ -74,7 +82,7 @@ class PartCRUD:
                     detail="Part with this SKU already exists",
                 )
 
-        obj = Part(**obj_in.model_dump())
+        obj = Part(**obj_in.model_dump(exclude={"locations"}))
         db.add(obj)
         db.commit()
         db.refresh(obj)
@@ -88,11 +96,13 @@ class PartCRUD:
             db: Active database session.
             db_obj: The existing Part instance to update.
             obj_in: Fields to change; unset fields are left untouched.
+                Its `locations` field is handled by the service layer,
+                not here -- this only updates the Part row's own columns.
 
         Returns:
             The updated, refreshed Part instance.
         """
-        for field, value in obj_in.model_dump(exclude_unset=True).items():
+        for field, value in obj_in.model_dump(exclude_unset=True, exclude={"locations"}).items():
             setattr(db_obj, field, value)
         db.commit()
         db.refresh(db_obj)

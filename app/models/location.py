@@ -28,6 +28,6 @@ class Location(Base):
     description = Column(String, nullable=True)
 
     assets = relationship("Asset", back_populates="location")
-    parts = relationship("Part", back_populates="location")
+    part_locations = relationship("PartLocation", back_populates="location")
     tickets = relationship("Ticket", back_populates="current_location")
     devices = relationship("Device", back_populates="current_location")

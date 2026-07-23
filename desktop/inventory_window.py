@@ -279,8 +279,6 @@ class InventoryWindow(QWidget):
         call to the backend's dedicated low-stock endpoint -- the data
         needed is already in memory from the initial load.
         """
-        locations_by_id = {l["id"]: l["name"] for l in self.reference_data.get("locations", [])}
-
         parts = self.all_parts
         if self.show_low_stock_only:
             parts = [p for p in parts if p["quantity_on_hand"] <= p["reorder_threshold"]]
@@ -294,7 +292,7 @@ class InventoryWindow(QWidget):
                 str(part.get("quantity_on_hand", 0)),
                 str(part.get("reorder_threshold", 0)),
                 part.get("supplier") or "-",
-                locations_by_id.get(part.get("location_id"), "-"),
+                self._format_part_locations(part),
             ]
             for col, value in enumerate(values):
                 item = QTableWidgetItem(value)
@@ -303,6 +301,26 @@ class InventoryWindow(QWidget):
 
         suffix = " (low stock only)" if self.show_low_stock_only else ""
         self.parts_status_label.setText(f"{len(parts)} part(s){suffix}.")
+
+    def _format_part_locations(self, part: dict) -> str:
+        """
+        Formats a part's location breakdown for display in the table --
+        a part can be split across several locations at once, so this
+        is a summary, not a single lookup the way Assets' single
+        location_id was.
+
+        Args:
+            part: The part record, with its "locations" list (each a
+                {"location_id", "location_name", "quantity"} dict).
+
+        Returns:
+            e.g. "Bench 1 (1), Bench 2 (1), Parts Shelf (2)", or "-" if
+            the part has no stock recorded at any location yet.
+        """
+        entries = part.get("locations") or []
+        if not entries:
+            return "-"
+        return ", ".join(f"{e['location_name']} ({e['quantity']})" for e in entries)
 
     def _open_new_part_dialog(self):
         """Opens the part form in create mode; refreshes the list if a part was saved."""

@@ -15,6 +15,7 @@ from app.db.session import SessionLocal
 from app.models.asset import Asset
 from app.models.asset_category import AssetCategory
 from app.models.part import Part
+from app.models.part_location import PartLocation
 from app.models.location import Location
 
 db = SessionLocal()
@@ -74,36 +75,52 @@ db.commit()
 print(f"Created {created_assets} new test asset(s), backfilled sku on {updated_assets} existing one(s).")
 
 sample_parts = [
-    # (name, sku, quantity_on_hand, reorder_threshold, supplier, location_name)
-    ("SSD 500GB", "PART-SSD-500", 3, 5, "Newegg Business", "Parts Shelf"),      # low stock
-    ("SSD 1TB", "PART-SSD-1TB", 12, 5, "Newegg Business", "Parts Shelf"),       # healthy
-    ("RAM 8GB DDR4", "PART-RAM-8GB", 2, 10, "CDW", "Parts Shelf"),              # low stock
-    ("RAM 16GB DDR4", "PART-RAM-16GB", 20, 10, "CDW", "Parts Shelf"),           # healthy
-    ("Laptop Charger 65W", "PART-CHG-65W", 4, 4, "Amazon Business", "Bench 1"), # exactly at threshold, low stock
-    ("HDMI Cable 6ft", "PART-HDMI-6", 30, 5, "Amazon Business", "Bench 2"),     # healthy
+    # (name, sku, reorder_threshold, supplier, [(location_name, quantity), ...])
+    ("SSD 500GB", "PART-SSD-500", 5, "Newegg Business",
+        [("Parts Shelf", 3)]),                                          # low stock: 3 <= 5
+    ("SSD 1TB", "PART-SSD-1TB", 5, "Newegg Business",
+        [("Parts Shelf", 12)]),                                         # healthy
+    ("RAM 8GB DDR4", "PART-RAM-8GB", 10, "CDW",
+        [("Parts Shelf", 2)]),                                          # low stock: 2 <= 10
+    ("RAM 16GB DDR4", "PART-RAM-16GB", 10, "CDW",
+        [("Parts Shelf", 20)]),                                         # healthy
+    ("Laptop Charger 65W", "PART-CHG-65W", 4, "Amazon Business",
+        [("Bench 1", 1), ("Bench 2", 1), ("Parts Shelf", 2)]),          # split across 3 locations, total 4 -- exactly at threshold, low stock
+    ("HDMI Cable 6ft", "PART-HDMI-6", 5, "Amazon Business",
+        [("Bench 2", 30)]),                                             # healthy
 ]
 
 created_parts = 0
-for name, sku, quantity, threshold, supplier, location_name in sample_parts:
-    if db.query(Part).filter_by(name=name).first():
+backfilled_locations = 0
+for name, sku, threshold, supplier, location_breakdown in sample_parts:
+    existing = db.query(Part).filter_by(name=name).first()
+
+    if existing:
+        # Handles the case where this script ran once before Part
+        # switched from a single location_id/quantity_on_hand to the
+        # part_locations breakdown -- an already-existing part with no
+        # location rows yet gets backfilled rather than left empty.
+        if not existing.part_locations:
+            for location_name, quantity in location_breakdown:
+                location = locations.get(location_name)
+                if location:
+                    db.add(PartLocation(part_id=existing.id, location_id=location.id, quantity=quantity))
+            backfilled_locations += 1
         continue
 
-    location = locations.get(location_name)
-    if not location:
-        print(f"Skipping part '{name}' -- missing location seed data ({location_name})")
-        continue
-
-    part = Part(
-        name=name,
-        sku=sku,
-        quantity_on_hand=quantity,
-        reorder_threshold=threshold,
-        supplier=supplier,
-        location_id=location.id,
-    )
+    part = Part(name=name, sku=sku, reorder_threshold=threshold, supplier=supplier)
     db.add(part)
+    db.flush()  # assigns part.id without needing a full commit yet
+
+    for location_name, quantity in location_breakdown:
+        location = locations.get(location_name)
+        if not location:
+            print(f"Skipping a location entry for '{name}' -- missing location seed data ({location_name})")
+            continue
+        db.add(PartLocation(part_id=part.id, location_id=location.id, quantity=quantity))
+
     created_parts += 1
 
 db.commit()
-print(f"Created {created_parts} new test part(s).")
+print(f"Created {created_parts} new test part(s), backfilled locations on {backfilled_locations} existing one(s).")
 db.close()

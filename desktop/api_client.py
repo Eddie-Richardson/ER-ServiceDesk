@@ -314,8 +314,10 @@ def create_part(payload: dict) -> dict:
 
     Args:
         payload: Fields matching the backend's PartCreate schema (name
-            required; sku/quantity_on_hand/reorder_threshold/unit_cost/
-            supplier/location_id/notes all optional).
+            required; sku/reorder_threshold/unit_cost/supplier/notes
+            all optional; locations is an optional list of
+            {"location_id": int, "quantity": int} entries describing
+            the part's initial stock breakdown across locations).
 
     Returns:
         The created part record.

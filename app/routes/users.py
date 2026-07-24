@@ -69,6 +69,22 @@ def update_user(id: int, obj_in: UserUpdate, db: Session = Depends(get_db)):
     """
     return user_service.update(db, id, obj_in)
 
+@router.post("/{id}/reset-password", response_model=User)
+def reset_user_password(id: int, db: Session = Depends(get_db)):
+    """
+    Generate and email a new temporary password for an existing user,
+    forcing them to set their own on next login. The admin never sees
+    or chooses the new password directly.
+
+    Args:
+        id: Primary key of the user whose password is being reset.
+        db: Injected database session.
+
+    Returns:
+        The updated User record.
+    """
+    return user_service.reset_password(db, id)
+
 @router.delete("/{id}")
 def delete_user(id: int, db: Session = Depends(get_db)):
     """

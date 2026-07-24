@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from desktop import layout, session
+from desktop.change_password_dialog import ChangePasswordDialog
 from desktop.login_worker import LoginWorker
 from desktop.settings_manager import get_saved_theme, save_theme
 from desktop.theme import get_stylesheet
@@ -128,11 +129,33 @@ class LoginWindow(QWidget):
 
         self._thread.started.connect(self._worker.run)
         self._worker.finished.connect(self._on_login_finished)
+        self._worker.must_change_password.connect(self._on_must_change_password)
         self._worker.finished.connect(self._thread.quit)
+        self._worker.must_change_password.connect(self._thread.quit)
         self._worker.finished.connect(self._worker.deleteLater)
+        self._worker.must_change_password.connect(self._worker.deleteLater)
         self._thread.finished.connect(self._thread.deleteLater)
 
         self._thread.start()
+
+    def _on_must_change_password(self, email: str):
+        """
+        Handles the case where credentials were valid but the account
+        must set a new password before continuing. Opens
+        ChangePasswordDialog pre-filled with the password already
+        typed; on success, proceeds exactly like a normal login.
+
+        Args:
+            email: The account's email, passed through to the dialog.
+        """
+        self._set_form_enabled(True)
+        self.login_button.setText("Log In")
+
+        current_password = self.password_input.text()
+        dialog = ChangePasswordDialog(email, current_password, parent=self)
+        if dialog.exec():
+            session.set_token(dialog.new_token)
+            self.login_succeeded.emit()
 
     def _on_login_finished(self, success: bool, result: str):
         """

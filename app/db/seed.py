@@ -164,6 +164,33 @@ def seed_data(db: Session):
     db.commit()
 
     # -------------------------------------------------------------------
+    # Default front desk user
+    # -------------------------------------------------------------------
+    # Exists purely for testing that Agent and Front Desk actually see
+    # identical access -- both roles currently grant the same
+    # permissions, distinct only as job-scope labels (see the Roles
+    # section above).
+    front_desk_email = "frontdesk@example.com"
+    front_desk_user = db.query(User).filter_by(email=front_desk_email).first()
+
+    if not front_desk_user:
+        front_desk_user = User(
+            email=front_desk_email,
+            hashed_password=hash_password("frontdesk123"),
+            first_name="Front",
+            last_name="Desk",
+            is_active=True,
+            is_superuser=False,
+        )
+        db.add(front_desk_user)
+        db.commit()
+        db.refresh(front_desk_user)
+
+        db.add(UserRole(user_id=front_desk_user.id, role_id=role_objs["front_desk"].id))
+
+    db.commit()
+
+    # -------------------------------------------------------------------
     # Ticket statuses (high-level workflow state)
     # -------------------------------------------------------------------
     statuses = [

@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 from desktop import layout, session
 from desktop.dashboard_worker import DashboardWorker
 from desktop.customers_window import CustomersWindow
+from desktop.users_roles_window import UsersRolesWindow
 from desktop.inventory_window import InventoryWindow
 from desktop.tickets_window import TicketsWindow
 
@@ -33,7 +34,7 @@ NAV_ITEMS = ["Tickets", "Inventory", "Customers", "Users & Roles", "Settings"]
 class DashboardWindow(QWidget):
     """Main landing window shown after a successful login."""
 
-    _WINDOW_BACKED_NAV_ITEMS = {"Tickets", "Inventory", "Customers"}  # extend as more feature windows get built
+    _WINDOW_BACKED_NAV_ITEMS = {"Tickets", "Inventory", "Customers", "Users & Roles"}  # extend as more feature windows get built
 
     def __init__(self):
         """
@@ -50,6 +51,7 @@ class DashboardWindow(QWidget):
         self._tickets_window = None  # kept alive while open
         self._inventory_window = None  # kept alive while open
         self._customers_window = None  # kept alive while open
+        self._users_roles_window = None  # kept alive while open
 
         root_layout = QHBoxLayout()
         root_layout.setContentsMargins(0, 0, 0, 0)
@@ -115,17 +117,37 @@ class DashboardWindow(QWidget):
 
     def _visible_nav_items(self) -> list[str]:
         """
-        Returns the nav items this session's role should see. "Users &
-        Roles" maps to backend endpoints that are superuser-only
-        (/users, /roles, /permissions, etc.), so it's hidden entirely
-        for regular agents rather than shown and then rejected.
+        Returns the nav items this session's role should see.
+
+        "Users & Roles" and "Settings" both map to superuser-only
+        backend endpoints, so they're hidden entirely for everyone else
+        rather than shown and then rejected. "Tickets", "Customers",
+        and "Inventory" are each gated on their matching permission
+        (tickets.manage / customers.manage / inventory.manage) for the
+        same reason -- showing a nav item that just 403s when clicked
+        is the wrong default, not just for the superuser-only windows.
 
         Returns:
             The subset of NAV_ITEMS this session is allowed to see.
         """
         if session.is_superuser():
             return NAV_ITEMS
-        return [item for item in NAV_ITEMS if item != "Users & Roles"]
+
+        permission_gates = {
+            "Tickets": "tickets.manage",
+            "Customers": "customers.manage",
+            "Inventory": "inventory.manage",
+        }
+
+        visible = []
+        for item in NAV_ITEMS:
+            if item in ("Users & Roles", "Settings"):
+                continue  # superuser-only, never shown otherwise
+            required_permission = permission_gates.get(item)
+            if required_permission and not session.has_permission(required_permission):
+                continue
+            visible.append(item)
+        return visible
 
     def _on_nav_clicked(self, name: str):
         """
@@ -146,6 +168,10 @@ class DashboardWindow(QWidget):
 
         if name == "Customers":
             self._open_customers_window()
+            return
+
+        if name == "Users & Roles":
+            self._open_users_roles_window()
             return
 
         QMessageBox.information(
@@ -208,6 +234,25 @@ class DashboardWindow(QWidget):
             )
 
         self._customers_window.show()
+
+    def _open_users_roles_window(self):
+        """
+        Opens the Users & Roles window and keeps its nav button
+        highlighted for exactly as long as the window is actually open,
+        same pattern as every other feature window. Only ever reachable
+        by superusers -- _visible_nav_items() hides this nav item for
+        everyone else, so no additional check is needed here.
+        """
+        self._users_roles_window = UsersRolesWindow()
+
+        users_roles_button = self._nav_buttons.get("Users & Roles")
+        if users_roles_button:
+            users_roles_button.setChecked(True)
+            self._users_roles_window.window_closed.connect(
+                lambda: users_roles_button.setChecked(False)
+            )
+
+        self._users_roles_window.show()
 
     def _on_logout(self):
         """

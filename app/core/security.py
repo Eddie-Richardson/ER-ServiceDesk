@@ -9,12 +9,49 @@ route that needs to authenticate a request.
 from passlib.context import CryptContext
 from datetime import datetime, timedelta, timezone
 from jose import jwt, JWTError
+import secrets
+import string
 from app.core.config import settings
 
 pwd_context = CryptContext(
     schemes=["bcrypt"],
     deprecated="auto"
 )
+
+# Excludes visually ambiguous characters (0/O, 1/l/I) and characters that
+# occasionally cause friction if a password needs to be typed manually
+# despite being emailed for copy/paste (quotes, backslash).
+_TEMP_PASSWORD_ALPHABET = "".join(
+    c for c in (string.ascii_letters + string.digits + "!@#$%^&*")
+    if c not in "0O1lI\"'\\"
+)
+
+
+def generate_temp_password(length: int = 12) -> str:
+    """
+    Generates a cryptographically random temporary password, used when
+    an admin creates a new account or resets an existing one -- the
+    admin never chooses or sees a real password, only this generated
+    one, which the user is forced to change on first login.
+
+    Args:
+        length: How many characters to generate. 12 comfortably clears
+            any reasonable minimum while staying well under bcrypt's
+            72-byte hashing limit.
+
+    Returns:
+        A random password string, safe to include in an email body.
+    """
+    return "".join(secrets.choice(_TEMP_PASSWORD_ALPHABET) for _ in range(length))
+
+
+MIN_PASSWORD_LENGTH = 8
+# bcrypt silently ignores/errors on anything past 72 bytes -- this is a
+# hard algorithm limit, not a tunable setting. Enforced here so an
+# over-length password gets a clean message instead of a raw exception
+# from deep inside passlib.
+MAX_PASSWORD_LENGTH_BYTES = 72
+
 
 def hash_password(password: str) -> str:
     """
@@ -25,7 +62,17 @@ def hash_password(password: str) -> str:
 
     Returns:
         A salted bcrypt hash suitable for storage.
+
+    Raises:
+        ValueError: If the password is shorter than MIN_PASSWORD_LENGTH
+            or its UTF-8 byte length exceeds bcrypt's MAX_PASSWORD_LENGTH_BYTES
+            limit -- checked here, before bcrypt itself would raise a
+            less helpful error.
     """
+    if len(password) < MIN_PASSWORD_LENGTH:
+        raise ValueError(f"Password must be at least {MIN_PASSWORD_LENGTH} characters.")
+    if len(password.encode("utf-8")) > MAX_PASSWORD_LENGTH_BYTES:
+        raise ValueError(f"Password must be under {MAX_PASSWORD_LENGTH_BYTES} bytes.")
     return pwd_context.hash(password)
 
 def verify_password(plain: str, hashed: str) -> bool:

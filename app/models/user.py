@@ -23,6 +23,11 @@ class User(Base):
         last_name: User's last name.
         is_active: Whether the account can currently log in.
         is_superuser: Whether the account has unrestricted admin access.
+        must_change_password: True whenever the current password was
+            set by an admin (new account, or a password reset) rather
+            than chosen by the user themselves. Login is blocked (no
+            token issued) until they change it via
+            POST /auth/change-password -- see app.routes.auth.
         created_at: Timestamp the record was created.
         updated_at: Timestamp the record was last updated.
     """
@@ -34,6 +39,7 @@ class User(Base):
     last_name = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
+    must_change_password = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)
     roles = relationship("UserRole", back_populates="user")

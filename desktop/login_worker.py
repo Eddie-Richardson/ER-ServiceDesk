@@ -9,7 +9,7 @@ login window. Mirrors the pattern used by BackendStartupWorker.
 
 from PySide6.QtCore import QObject, Signal
 
-from desktop.api_client import LoginError, login
+from desktop.api_client import LoginError, MustChangePasswordError, login
 
 
 class LoginWorker(QObject):
@@ -17,12 +17,18 @@ class LoginWorker(QObject):
     Performs the login request in the background.
 
     Signals:
-        finished(bool, str): Emitted once. First argument is success;
-            second is either the access token (on success) or a
-            human-readable error message (on failure).
+        finished(bool, str): Emitted on a normal outcome. First
+            argument is success; second is either the access token (on
+            success) or a human-readable error message (on failure).
+        must_change_password(str): Emitted instead of `finished` when
+            credentials are valid but the account must set a new
+            password before continuing. Carries the email so the
+            caller can move straight to a password-change screen
+            without asking the person to retype it.
     """
 
     finished = Signal(bool, str)
+    must_change_password = Signal(str)
 
     def __init__(self, email: str, password: str):
         """
@@ -37,11 +43,15 @@ class LoginWorker(QObject):
     def run(self):
         """
         Entry point when this worker is moved to a QThread and started.
-        Attempts login and emits `finished` with the result. Never
-        raises -- failures are reported through the signal instead.
+        Attempts login and emits either `finished` or
+        `must_change_password` with the result. Never raises --
+        failures are reported through a signal instead.
         """
         try:
             token = login(self.email, self.password)
+        except MustChangePasswordError as e:
+            self.must_change_password.emit(e.email)
+            return
         except LoginError as e:
             self.finished.emit(False, str(e))
             return

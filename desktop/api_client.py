@@ -25,6 +25,20 @@ class LoginError(Exception):
     pass
 
 
+class MustChangePasswordError(LoginError):
+    """
+    Raised when credentials are valid but the account's password was
+    set by an admin (a new account, or a Reset Password action) and
+    must be changed before the person can do anything else. Carries
+    the email so the caller can pre-fill the password-change screen
+    without asking the person to retype it.
+    """
+
+    def __init__(self, email: str):
+        self.email = email
+        super().__init__("You must set a new password before continuing.")
+
+
 class ApiError(Exception):
     """
     Raised when an authenticated request fails. The message is written
@@ -145,7 +159,13 @@ def _authed_write(method: str, path: str, payload: dict) -> dict:
     if response.status_code not in (200, 201):
         detail = ""
         try:
-            detail = response.json().get("detail", "")
+            body = response.json()
+            # The backend's real shape is {"error": {"code", "message"}} --
+            # never "detail". This was previously checking for "detail",
+            # which doesn't exist anywhere in this API, so every specific
+            # backend error message silently fell back to the generic
+            # "server returned N" text below instead of ever being shown.
+            detail = body.get("error", {}).get("message", "")
         except ValueError:
             pass
         raise ApiError(detail or f"Request failed (server returned {response.status_code}).")
@@ -192,6 +212,109 @@ def list_users() -> list[dict]:
     only, which needs no call to this function at all.
     """
     return _authed_get("/users/")
+
+
+def list_roles() -> list[dict]:
+    """Returns all roles. Requires a superuser session (backend is superuser-gated)."""
+    return _authed_get("/roles/")
+
+
+def list_user_roles() -> list[dict]:
+    """
+    Returns every user-role assignment in the system (id, user_id,
+    role_id). Not filterable server-side; callers filter by user_id
+    client-side against the already-fetched full list. Requires a
+    superuser session.
+    """
+    return _authed_get("/user_roles/")
+
+
+def create_user(payload: dict) -> dict:
+    """
+    Creates a new user account.
+
+    Args:
+        payload: Fields matching the backend's UserCreate schema
+            (email, first_name, last_name, password required;
+            is_active/is_superuser optional).
+
+    Returns:
+        The created user record.
+    """
+    return _authed_post("/users/", payload)
+
+
+def update_user(user_id: int, payload: dict) -> dict:
+    """
+    Updates an existing user account.
+
+    Args:
+        user_id: The user's id.
+        payload: Fields to update, matching UserUpdate. Password
+            changes never go through this function -- see
+            reset_user_password() for admin-initiated resets.
+
+    Returns:
+        The updated user record.
+    """
+    return _authed_put(f"/users/{user_id}", payload)
+
+
+def reset_user_password(user_id: int) -> dict:
+    """
+    Generates and emails a new temporary password for an existing user,
+    forcing them to set their own on next login. The admin never sees
+    or chooses the new password.
+
+    Args:
+        user_id: The user whose password is being reset.
+
+    Returns:
+        The updated user record.
+    """
+    return _authed_post(f"/users/{user_id}/reset-password", {})
+
+
+def create_user_role(user_id: int, role_id: int) -> dict:
+    """
+    Assigns a role to a user.
+
+    Args:
+        user_id: The user to grant the role to.
+        role_id: The role being granted.
+
+    Returns:
+        The created user-role link record.
+    """
+    return _authed_post("/user_roles/", {"user_id": user_id, "role_id": role_id})
+
+
+def delete_user_role(user_role_id: int):
+    """
+    Removes a role from a user.
+
+    Args:
+        user_role_id: The id of the specific user-role LINK record to
+            remove (not the user's id or the role's id -- the join
+            record's own id, as returned by list_user_roles()).
+    """
+    token = session.current_token()
+    if not token:
+        raise ApiError("No active session. Please log in again.")
+
+    try:
+        response = requests.delete(
+            f"{BASE_URL}/user_roles/{user_role_id}",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10,
+        )
+    except requests.exceptions.RequestException:
+        raise ApiError("Couldn't reach the backend. Make sure it's still running.")
+
+    if response.status_code == 401:
+        raise ApiError("Session expired. Please log in again.")
+    if response.status_code not in (200, 204):
+        raise ApiError(f"Request failed (server returned {response.status_code}).")
 
 
 def create_ticket(payload: dict) -> dict:
@@ -418,8 +541,63 @@ def login(email: str, password: str) -> str:
         raise LoginError(f"Login failed (server returned {response.status_code}).")
 
     data = response.json()
+    if data.get("must_change_password"):
+        raise MustChangePasswordError(email)
+
     token = data.get("access_token")
     if not token:
         raise LoginError("Login succeeded but no access token was returned.")
+
+    return token
+
+
+def change_password(email: str, current_password: str, new_password: str) -> str:
+    """
+    Sets a new password for an account whose login was blocked by
+    must_change_password. Deliberately unauthenticated -- the person
+    calling this has no token yet, since that's exactly the situation
+    this function resolves. Re-verifies current_password server-side.
+
+    Args:
+        email: The account's email.
+        current_password: The temp (or old) password, re-verified
+            server-side before anything changes.
+        new_password: The new password to set.
+
+    Returns:
+        A fresh access token, so the person is logged in immediately
+        after changing their password rather than needing to log in
+        again separately.
+
+    Raises:
+        LoginError: If current_password is wrong, new_password fails
+            validation (too short, or over bcrypt's byte limit), or the
+            backend can't be reached. The message is safe to display
+            as-is.
+    """
+    try:
+        response = requests.post(
+            f"{BASE_URL}/auth/change-password",
+            json={
+                "email": email,
+                "current_password": current_password,
+                "new_password": new_password,
+            },
+            timeout=10,
+        )
+    except requests.exceptions.RequestException:
+        raise LoginError("Couldn't reach the backend. Make sure it's still running.")
+
+    if response.status_code != 200:
+        message = ""
+        try:
+            message = response.json().get("error", {}).get("message", "")
+        except ValueError:
+            pass
+        raise LoginError(message or f"Couldn't change the password (server returned {response.status_code}).")
+
+    token = response.json().get("access_token")
+    if not token:
+        raise LoginError("Password changed but no access token was returned.")
 
     return token

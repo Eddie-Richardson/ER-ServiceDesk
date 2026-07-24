@@ -13,6 +13,7 @@ Flow on launch:
 import sys
 from pathlib import Path
 
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
 from desktop.login_window import LoginWindow
@@ -23,14 +24,22 @@ from desktop.theme import get_stylesheet
 
 # docker-compose.yml lives at the project root, one level up from desktop/.
 COMPOSE_DIR = str(Path(__file__).resolve().parent.parent)
+ICON_PATH = str(Path(__file__).resolve().parent / "assets" / "icon.ico")
 
 
 def main():
     """
-    Builds the QApplication, applies the saved theme, and wires up the
-    startup -> login -> dashboard -> (logout ->) login window flow.
+    Builds the QApplication, applies the saved theme and app icon, and
+    wires up the startup -> login -> dashboard -> (logout ->) login
+    window flow.
     """
     app = QApplication(sys.argv)
+
+    # Setting this on the QApplication (rather than per-window) makes it
+    # the default for every window that doesn't explicitly override it
+    # -- one line covers the title bar icon everywhere, including
+    # windows built after this point in the app's lifecycle.
+    app.setWindowIcon(QIcon(ICON_PATH))
 
     # Apply the saved theme before any window is constructed, so nothing
     # ever flashes unstyled or in the wrong theme on launch.

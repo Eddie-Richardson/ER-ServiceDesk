@@ -22,9 +22,9 @@ class DashboardWorker(QObject):
     Signals:
         finished(bool, object): Emitted once. First argument is success.
             On success, second argument is a list of
-            {"name": str, "color": str | None, "count": int} dicts, one
-            per status, in the order returned by the backend. On failure,
-            second argument is a human-readable error message string.
+            {"name": str, "count": int} dicts, one per status, in the
+            order returned by the backend. On failure, second argument
+            is a human-readable error message string.
     """
 
     finished = Signal(bool, object)
@@ -51,7 +51,6 @@ class DashboardWorker(QObject):
         results = [
             {
                 "name": status["name"],
-                "color": status.get("color"),
                 "count": counts_by_status_id.get(status["id"], 0),
             }
             for status in statuses

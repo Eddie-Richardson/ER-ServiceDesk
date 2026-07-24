@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 from desktop import layout, session
 from desktop.dashboard_worker import DashboardWorker
 from desktop.customers_window import CustomersWindow
+from desktop.settings_window import SettingsWindow
 from desktop.users_roles_window import UsersRolesWindow
 from desktop.inventory_window import InventoryWindow
 from desktop.tickets_window import TicketsWindow
@@ -34,7 +35,7 @@ NAV_ITEMS = ["Tickets", "Inventory", "Customers", "Users & Roles", "Settings"]
 class DashboardWindow(QWidget):
     """Main landing window shown after a successful login."""
 
-    _WINDOW_BACKED_NAV_ITEMS = {"Tickets", "Inventory", "Customers", "Users & Roles"}  # extend as more feature windows get built
+    _WINDOW_BACKED_NAV_ITEMS = {"Tickets", "Inventory", "Customers", "Users & Roles", "Settings"}  # all five nav destinations now built
 
     def __init__(self):
         """
@@ -52,6 +53,7 @@ class DashboardWindow(QWidget):
         self._inventory_window = None  # kept alive while open
         self._customers_window = None  # kept alive while open
         self._users_roles_window = None  # kept alive while open
+        self._settings_window = None  # kept alive while open
 
         root_layout = QHBoxLayout()
         root_layout.setContentsMargins(0, 0, 0, 0)
@@ -174,6 +176,10 @@ class DashboardWindow(QWidget):
             self._open_users_roles_window()
             return
 
+        if name == "Settings":
+            self._open_settings_window()
+            return
+
         QMessageBox.information(
             self, name, f"The {name} window isn't built yet -- coming soon."
         )
@@ -253,6 +259,25 @@ class DashboardWindow(QWidget):
             )
 
         self._users_roles_window.show()
+
+    def _open_settings_window(self):
+        """
+        Opens the Settings window and keeps its nav button highlighted
+        for exactly as long as the window is actually open, same
+        pattern as every other feature window. Only ever reachable by
+        superusers -- _visible_nav_items() hides this nav item for
+        everyone else, so no additional check is needed here.
+        """
+        self._settings_window = SettingsWindow()
+
+        settings_button = self._nav_buttons.get("Settings")
+        if settings_button:
+            settings_button.setChecked(True)
+            self._settings_window.window_closed.connect(
+                lambda: settings_button.setChecked(False)
+            )
+
+        self._settings_window.show()
 
     def _on_logout(self):
         """
@@ -342,7 +367,7 @@ class DashboardWindow(QWidget):
 
         Args:
             success: Whether the fetch succeeded.
-            result: On success, a list of {"name", "color", "count"}
+            result: On success, a list of {"name", "count"}
                 dicts. On failure, a human-readable error message string.
         """
         self._clear_status_area()

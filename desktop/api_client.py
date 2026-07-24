@@ -179,7 +179,7 @@ def list_tickets() -> list[dict]:
 
 
 def list_ticket_statuses() -> list[dict]:
-    """Returns all ticket statuses (id, name, color). Requires an active session."""
+    """Returns all ticket statuses (id, name, description). Requires an active session."""
     return _authed_get("/ticket_statuses/")
 
 
@@ -601,3 +601,165 @@ def change_password(email: str, current_password: str, new_password: str) -> str
         raise LoginError("Password changed but no access token was returned.")
 
     return token
+
+
+# ---------------------------------------------------------------------------
+# Generic lookup-table CRUD (Settings window)
+# ---------------------------------------------------------------------------
+# Locations, Asset Categories, Ticket Categories, Ticket Statuses, and
+# Ticket Types are all the same shape now (name + description) -- rather
+# than five near-identical named function sets, Settings' reusable
+# LookupTab passes its own endpoint path into these generic functions.
+# The existing named list_* functions elsewhere (list_locations() etc.,
+# used by Tickets/Inventory for dropdowns) are untouched by this.
+
+def create_lookup_item(endpoint: str, payload: dict) -> dict:
+    """
+    Creates a new record in a simple name/description lookup table.
+
+    Args:
+        endpoint: The resource path, e.g. "/inventory/locations/".
+        payload: {"name": str, "description": str | None}.
+
+    Returns:
+        The created record.
+    """
+    return _authed_post(endpoint, payload)
+
+
+def update_lookup_item(endpoint: str, item_id: int, payload: dict) -> dict:
+    """
+    Updates an existing record in a simple name/description lookup table.
+
+    Args:
+        endpoint: The resource path, e.g. "/inventory/locations/".
+        item_id: The record's id.
+        payload: Fields to update.
+
+    Returns:
+        The updated record.
+    """
+    return _authed_put(f"{endpoint}{item_id}", payload)
+
+
+def delete_lookup_item(endpoint: str, item_id: int):
+    """
+    Deletes a record from a simple name/description lookup table.
+
+    Args:
+        endpoint: The resource path, e.g. "/inventory/locations/".
+        item_id: The record's id.
+
+    Raises:
+        ApiError: If there's no active session, the backend can't be
+            reached, or the delete fails -- including if the backend
+            rejects it because the record is still referenced elsewhere
+            (e.g. a Location still assigned to existing tickets).
+    """
+    token = session.current_token()
+    if not token:
+        raise ApiError("No active session. Please log in again.")
+
+    try:
+        response = requests.delete(
+            f"{BASE_URL}{endpoint}{item_id}",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10,
+        )
+    except requests.exceptions.RequestException:
+        raise ApiError("Couldn't reach the backend. Make sure it's still running.")
+
+    if response.status_code == 401:
+        raise ApiError("Session expired. Please log in again.")
+    if response.status_code not in (200, 204):
+        message = ""
+        try:
+            message = response.json().get("error", {}).get("message", "")
+        except ValueError:
+            pass
+        raise ApiError(message or f"Delete failed (server returned {response.status_code}).")
+
+
+# ---------------------------------------------------------------------------
+# Roles & Permissions (Settings window)
+# ---------------------------------------------------------------------------
+
+def list_permissions() -> list[dict]:
+    """
+    Returns every permission that exists in the system. Read-only from
+    the desktop app's perspective -- permissions are hardcoded into
+    specific backend routes as the actual enforcement mechanism, so
+    creating a new one through the UI wouldn't gate anything without a
+    developer also wiring it into code. Roles bundle existing
+    permissions together; Settings doesn't let anyone invent new ones.
+    """
+    return _authed_get("/permissions/")
+
+
+def create_role(payload: dict) -> dict:
+    """
+    Creates a new role.
+
+    Args:
+        payload: {"name": str, "description": str | None}.
+
+    Returns:
+        The created role record.
+    """
+    return _authed_post("/roles/", payload)
+
+
+def update_role(role_id: int, payload: dict) -> dict:
+    """
+    Updates an existing role's name/description (not its permissions --
+    see create_role_permission/delete_role_permission for that).
+
+    Args:
+        role_id: The role's id.
+        payload: Fields to update.
+
+    Returns:
+        The updated role record.
+    """
+    return _authed_put(f"/roles/{role_id}", payload)
+
+
+def delete_role(role_id: int):
+    """
+    Deletes a role by id.
+
+    Args:
+        role_id: The role's id.
+
+    Raises:
+        ApiError: If the delete fails, including if users are still
+            assigned this role.
+    """
+    delete_lookup_item("/roles/", role_id)
+
+
+def create_role_permission(role_id: int, permission_id: int) -> dict:
+    """
+    Grants a permission to a role.
+
+    Args:
+        role_id: The role being granted the permission.
+        permission_id: The permission being granted.
+
+    Returns:
+        The created role-permission link record.
+    """
+    return _authed_post("/role_permissions/", {"role_id": role_id, "permission_id": permission_id})
+
+
+def delete_role_permission(role_permission_id: int):
+    """
+    Revokes a permission from a role.
+
+    Args:
+        role_permission_id: The id of the specific role-permission LINK
+            record to remove (not the role's id or the permission's id
+            -- the join record's own id, as returned by the role's
+            role_permissions list).
+    """
+    delete_lookup_item("/role_permissions/", role_permission_id)

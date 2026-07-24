@@ -10,18 +10,16 @@ from app.db.base import Base
 
 class TicketStatus(Base):
     """
-    Represents a possible ticket state (e.g. 'Open', 'In Progress', 'Resolved'), with optional UI color.
+    Represents a possible ticket state (e.g. 'Open', 'In Progress', 'Resolved').
 
     Attributes:
         id: Primary key.
         name: Unique status name.
-        color: Optional color code for UI display.
         description: Optional explanation of what this status means.
     """
     __tablename__ = "ticket_statuses"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
-    color = Column(String, nullable=True)
     description = Column(String, nullable=True)
     tickets = relationship("Ticket", back_populates="status")
     history = relationship("StatusHistory", back_populates="status")

@@ -88,6 +88,21 @@ def seed_data(db: Session):
 
     db.commit()
 
+    # Clean up permissions from an earlier, finer-grained scheme this
+    # project briefly had (e.g. "ticket.create", "attachment.add") --
+    # some of those named actions don't even correspond to a real
+    # desktop feature yet (there's no Attachments UI at all), and none
+    # of them are checked by any route anymore. RolePermission has no
+    # cascade delete, so its rows pointing at a stale permission have
+    # to go first or the permission delete would violate the foreign key.
+    canonical_names = {name for name, _ in permissions}
+    stale_permissions = db.query(Permission).filter(~Permission.name.in_(canonical_names)).all()
+    for stale in stale_permissions:
+        db.query(RolePermission).filter_by(permission_id=stale.id).delete()
+        db.delete(stale)
+    if stale_permissions:
+        db.commit()
+
     # -------------------------------------------------------------------
     # Role -> Permission mapping
     # -------------------------------------------------------------------
@@ -194,20 +209,20 @@ def seed_data(db: Session):
     # Ticket statuses (high-level workflow state)
     # -------------------------------------------------------------------
     statuses = [
-        ("Open", "#3B82F6", "Newly created, not yet started"),
-        ("In Progress", "#F59E0B", "Actively being worked on"),
-        ("Waiting on Parts", "#A855F7", "Blocked pending a parts order"),
-        ("Waiting on Customer", "#6B7280", "Blocked pending customer response"),
-        ("Resolved", "#10B981", "Work complete, pending pickup/close"),
-        ("Closed", "#374151", "Ticket fully closed"),
+        ("Open", "Newly created, not yet started"),
+        ("In Progress", "Actively being worked on"),
+        ("Waiting on Parts", "Blocked pending a parts order"),
+        ("Waiting on Customer", "Blocked pending customer response"),
+        ("Resolved", "Work complete, pending pickup/close"),
+        ("Closed", "Ticket fully closed"),
     ]
     status_objs = {}
-    for name, color, desc in statuses:
+    for name, desc in statuses:
         existing = db.query(TicketStatus).filter_by(name=name).first()
         if existing:
             status_objs[name] = existing
         else:
-            obj = TicketStatus(name=name, color=color, description=desc)
+            obj = TicketStatus(name=name, description=desc)
             db.add(obj)
             status_objs[name] = obj
     db.commit()

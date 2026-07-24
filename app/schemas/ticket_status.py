@@ -9,7 +9,6 @@ from pydantic import BaseModel, ConfigDict
 class TicketStatusBase(BaseModel):
     """Shared fields for TicketStatus across create/read/update."""
     name: str
-    color: str | None = None
     description: str | None = None
 
 class TicketStatusCreate(TicketStatusBase):
@@ -19,7 +18,6 @@ class TicketStatusCreate(TicketStatusBase):
 class TicketStatusUpdate(BaseModel):
     """Schema for partially updating an existing TicketStatus record. All fields optional."""
     name: str | None = None
-    color: str | None = None
     description: str | None = None
 
 class TicketStatus(TicketStatusBase):

@@ -15,6 +15,7 @@ button can stay highlighted only while this window is genuinely open.
 """
 
 from PySide6.QtCore import QThread, Qt, Signal
+from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
@@ -28,9 +29,12 @@ from PySide6.QtWidgets import (
 )
 
 from desktop import layout
+from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.asset_form_dialog import AssetFormDialog
 from desktop.inventory_worker import InventoryDataWorker
 from desktop.part_form_dialog import PartFormDialog
+from desktop.settings_manager import get_saved_theme
+from desktop.theme import DARK, LIGHT, MONO_FONT_FAMILY, get_asset_status_color
 
 ASSET_COLUMN_HEADERS = ["ID", "Name", "Category", "Manufacturer", "Model", "Status", "Location"]
 PART_COLUMN_HEADERS = ["ID", "Name", "SKU", "Qty On Hand", "Reorder At", "Supplier", "Location"]
@@ -46,6 +50,7 @@ class InventoryWindow(QWidget):
         super().__init__()
         self.setWindowTitle("ER-ServiceDesk - Inventory")
         self.resize(820, 520)
+        restore_geometry(self, "InventoryWindow")
 
         self._thread: QThread | None = None
         self._worker: InventoryDataWorker | None = None
@@ -62,6 +67,7 @@ class InventoryWindow(QWidget):
         Args:
             event: The Qt close event, passed through unchanged.
         """
+        save_geometry(self, "InventoryWindow")
         super().closeEvent(event)
         self.window_closed.emit()
 
@@ -228,20 +234,33 @@ class InventoryWindow(QWidget):
         categories_by_id = {c["id"]: c["name"] for c in self.reference_data.get("categories", [])}
         locations_by_id = {l["id"]: l["name"] for l in self.reference_data.get("locations", [])}
 
+        theme_name = get_saved_theme()
+        mono_font = QFont(MONO_FONT_FAMILY)
+        bold_font = QFont()
+        bold_font.setBold(True)
+
         self.assets_table.setRowCount(len(self.all_assets))
         for row, asset in enumerate(self.all_assets):
+            status_name = asset.get("status") or "-"
             values = [
                 str(asset["id"]),
                 asset.get("name", ""),
                 categories_by_id.get(asset.get("category_id"), "-"),
                 asset.get("manufacturer") or "-",
                 asset.get("model") or "-",
-                asset.get("status") or "-",
+                status_name,
                 locations_by_id.get(asset.get("location_id"), "-"),
             ]
             for col, value in enumerate(values):
                 item = QTableWidgetItem(value)
                 item.setData(Qt.ItemDataRole.UserRole, asset)
+
+                if col == 0:  # ID -- a technical identifier, not prose
+                    item.setFont(mono_font)
+                elif col == 5:  # Status -- color-coded so it can be scanned at a glance
+                    item.setFont(bold_font)
+                    item.setForeground(QColor(get_asset_status_color(status_name, theme_name)))
+
                 self.assets_table.setItem(row, col, item)
 
         self.assets_status_label.setText(f"{len(self.all_assets)} asset(s).")
@@ -283,8 +302,15 @@ class InventoryWindow(QWidget):
         if self.show_low_stock_only:
             parts = [p for p in parts if p["quantity_on_hand"] <= p["reorder_threshold"]]
 
+        theme_name = get_saved_theme()
+        mono_font = QFont(MONO_FONT_FAMILY)
+        bold_font = QFont()
+        bold_font.setBold(True)
+        danger_color = DARK["danger"] if theme_name == "dark" else LIGHT["danger"]
+
         self.parts_table.setRowCount(len(parts))
         for row, part in enumerate(parts):
+            is_low_stock = part["quantity_on_hand"] <= part["reorder_threshold"]
             values = [
                 str(part["id"]),
                 part.get("name", ""),
@@ -297,6 +323,13 @@ class InventoryWindow(QWidget):
             for col, value in enumerate(values):
                 item = QTableWidgetItem(value)
                 item.setData(Qt.ItemDataRole.UserRole, part)
+
+                if col in (0, 2):  # ID, SKU -- technical identifiers, not prose
+                    item.setFont(mono_font)
+                elif col == 3 and is_low_stock:  # Qty On Hand -- flag when at/below reorder threshold
+                    item.setFont(bold_font)
+                    item.setForeground(QColor(danger_color))
+
                 self.parts_table.setItem(row, col, item)
 
         suffix = " (low stock only)" if self.show_low_stock_only else ""

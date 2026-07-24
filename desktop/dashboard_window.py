@@ -4,14 +4,12 @@
 Main landing window shown after a successful login.
 
 Provides the sidebar navigation to every feature area and a live summary
-of ticket counts by status on the backend. The individual feature windows
-(Tickets, Inventory, Customers, Users & Roles, Settings) aren't built yet
--- their nav buttons currently show a "not built yet" notice rather than
-pretending to navigate somewhere. Only Logout does real work here,
-alongside the live status counts.
+of ticket counts by status on the backend, with clickable status cards
+that open Tickets pre-filtered.
 """
 
 from PySide6.QtCore import Qt, QThread
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -28,6 +26,9 @@ from desktop.settings_window import SettingsWindow
 from desktop.users_roles_window import UsersRolesWindow
 from desktop.inventory_window import InventoryWindow
 from desktop.tickets_window import TicketsWindow
+from desktop.window_geometry import restore_geometry, save_geometry
+from desktop.settings_manager import get_saved_theme
+from desktop.theme import MONO_FONT_FAMILY, get_status_color
 
 NAV_ITEMS = ["Tickets", "Inventory", "Customers", "Users & Roles", "Settings"]
 
@@ -45,6 +46,7 @@ class DashboardWindow(QWidget):
         super().__init__()
         self.setWindowTitle("ER-ServiceDesk - Dashboard")
         self.resize(760, 480)
+        restore_geometry(self, "DashboardWindow")
 
         self._thread: QThread | None = None
         self._worker: DashboardWorker | None = None
@@ -64,6 +66,14 @@ class DashboardWindow(QWidget):
 
         self.setLayout(root_layout)
         self._load_status_counts()
+
+    def closeEvent(self, event):
+        """
+        Args:
+            event: The Qt close event, passed through unchanged.
+        """
+        save_geometry(self, "DashboardWindow")
+        super().closeEvent(event)
 
     # -----------------------------------------------------------------
     # Sidebar
@@ -316,9 +326,19 @@ class DashboardWindow(QWidget):
         )
         self.content_layout.setSpacing(layout.SPACE_MD)
 
+        header_row = QHBoxLayout()
         title = QLabel("Ticket Overview")
         title.setObjectName("title")
-        self.content_layout.addWidget(title)
+        header_row.addWidget(title)
+        header_row.addStretch()
+
+        refresh_button = QPushButton("Refresh")
+        refresh_button.setObjectName("secondary")
+        refresh_button.setFixedHeight(layout.BUTTON_HEIGHT)
+        refresh_button.clicked.connect(self._load_status_counts)
+        header_row.addWidget(refresh_button)
+
+        self.content_layout.addLayout(header_row)
 
         self.status_area_layout = QVBoxLayout()
         self.status_area_layout.setSpacing(layout.SPACE_SM)
@@ -390,10 +410,16 @@ class DashboardWindow(QWidget):
             self.status_area_layout.addWidget(empty_label)
             return
 
+        theme_name = get_saved_theme()
+        mono_font = QFont(MONO_FONT_FAMILY)
+        mono_font.setBold(True)
+
         for status in result:
             row = QPushButton(f"{status['name']}  \u2014  {status['count']}")
             row.setObjectName("secondary")
             row.setFixedHeight(layout.BUTTON_HEIGHT)
+            row.setFont(mono_font)
+            row.setStyleSheet(f"color: {get_status_color(status['name'], theme_name)};")
             row.clicked.connect(
                 lambda _checked, name=status["name"]: self._on_status_clicked(name)
             )

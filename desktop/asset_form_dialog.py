@@ -22,12 +22,15 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
+    QScrollArea,
     QTextEdit,
     QVBoxLayout,
+    QWidget,
 )
 
 from desktop import layout
 from desktop.asset_save_worker import AssetSaveWorker
+from desktop.window_geometry import restore_geometry, save_geometry
 
 STATUS_OPTIONS = ["Active", "In Repair", "Retired"]
 CONDITION_OPTIONS = ["New", "Good", "Fair", "Damaged"]
@@ -61,23 +64,48 @@ class AssetFormDialog(QDialog):
         self._worker: AssetSaveWorker | None = None
 
         self.setWindowTitle("Edit Asset" if asset else "New Asset")
-        self.setFixedWidth(layout.DIALOG_WIDTH + 80)
+        self.setMinimumWidth(layout.DIALOG_WIDTH + 80)
+        self.resize(layout.DIALOG_WIDTH + 80, 560)
+        restore_geometry(self, "AssetFormDialog")
 
         self._build_ui()
         if asset:
             self._prefill_from_asset(asset)
 
+    def closeEvent(self, event):
+        """
+        Args:
+            event: The Qt close event, passed through unchanged.
+        """
+        save_geometry(self, "AssetFormDialog")
+        super().closeEvent(event)
+
     # -----------------------------------------------------------------
     # UI construction
     # -----------------------------------------------------------------
     def _build_ui(self):
-        """Builds every field."""
+        """
+        Builds every field inside a scroll area, so the dialog can be
+        resized shorter than its full content without cutting anything
+        off. Save/Cancel and the error message stay pinned outside the
+        scroll area at the bottom -- always reachable regardless of
+        scroll position or window height.
+        """
         outer_layout = QVBoxLayout()
-        outer_layout.setContentsMargins(
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.setSpacing(0)
+
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
+
+        content_widget = QWidget()
+        content_layout = QVBoxLayout()
+        content_layout.setContentsMargins(
             layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
             layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
         )
-        outer_layout.setSpacing(layout.SPACE_SM)
+        content_layout.setSpacing(layout.SPACE_SM)
 
         self.name_input = QLineEdit()
         self.name_input.setPlaceholderText("Asset name (required)")
@@ -131,21 +159,6 @@ class AssetFormDialog(QDialog):
         self.notes_input.setPlaceholderText("Notes (optional)")
         self.notes_input.setFixedHeight(80)
 
-        self.error_label = QLabel("")
-        self.error_label.setObjectName("subtitle")
-        self.error_label.setStyleSheet("color: #DC2626;")
-        self.error_label.setWordWrap(True)
-        self.error_label.hide()
-
-        self.save_button = QPushButton("Save Asset")
-        self.save_button.setFixedHeight(layout.BUTTON_HEIGHT)
-        self.save_button.clicked.connect(self._attempt_save)
-
-        cancel_button = QPushButton("Cancel")
-        cancel_button.setObjectName("secondary")
-        cancel_button.setFixedHeight(layout.BUTTON_HEIGHT)
-        cancel_button.clicked.connect(self.reject)
-
         for label_text, widget in [
             ("Name", self.name_input),
             ("SKU", self.sku_input),
@@ -164,13 +177,40 @@ class AssetFormDialog(QDialog):
         ]:
             field_label = QLabel(label_text)
             field_label.setObjectName("subtitle")
-            outer_layout.addWidget(field_label)
-            outer_layout.addWidget(widget)
+            content_layout.addWidget(field_label)
+            content_layout.addWidget(widget)
 
-        outer_layout.addWidget(self.error_label)
-        outer_layout.addSpacing(layout.SPACE_SM)
-        outer_layout.addWidget(self.save_button)
-        outer_layout.addWidget(cancel_button)
+        content_widget.setLayout(content_layout)
+        scroll_area.setWidget(content_widget)
+        outer_layout.addWidget(scroll_area)
+
+        self.error_label = QLabel("")
+        self.error_label.setObjectName("subtitle")
+        self.error_label.setStyleSheet("color: #DC2626;")
+        self.error_label.setWordWrap(True)
+        self.error_label.hide()
+
+        self.save_button = QPushButton("Save Asset")
+        self.save_button.setFixedHeight(layout.BUTTON_HEIGHT)
+        self.save_button.clicked.connect(self._attempt_save)
+
+        cancel_button = QPushButton("Cancel")
+        cancel_button.setObjectName("secondary")
+        cancel_button.setFixedHeight(layout.BUTTON_HEIGHT)
+        cancel_button.clicked.connect(self.reject)
+
+        bottom_bar = QWidget()
+        bottom_layout = QVBoxLayout()
+        bottom_layout.setContentsMargins(
+            layout.WINDOW_MARGIN, layout.SPACE_SM,
+            layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
+        )
+        bottom_layout.setSpacing(layout.SPACE_SM)
+        bottom_layout.addWidget(self.error_label)
+        bottom_layout.addWidget(self.save_button)
+        bottom_layout.addWidget(cancel_button)
+        bottom_bar.setLayout(bottom_layout)
+        outer_layout.addWidget(bottom_bar)
 
         self.setLayout(outer_layout)
 

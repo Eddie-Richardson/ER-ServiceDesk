@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
 )
 
 from desktop import layout
+from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.reset_password_worker import ResetPasswordWorker
 from desktop.user_save_worker import UserSaveWorker
 
@@ -74,11 +75,20 @@ class UserFormDialog(QDialog):
         self._reset_worker: ResetPasswordWorker | None = None
 
         self.setWindowTitle("Edit User" if user else "New User")
-        self.setFixedWidth(layout.DIALOG_WIDTH)
+        self.setMinimumWidth(layout.DIALOG_WIDTH)
+        restore_geometry(self, "UserFormDialog")
 
         self._build_ui()
         if user:
             self._prefill_from_user(user)
+
+    def closeEvent(self, event):
+        """
+        Args:
+            event: The Qt close event, passed through unchanged.
+        """
+        save_geometry(self, "UserFormDialog")
+        super().closeEvent(event)
 
     # -----------------------------------------------------------------
     # UI construction

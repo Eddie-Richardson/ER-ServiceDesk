@@ -34,11 +34,14 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
+    QScrollArea,
     QTextEdit,
     QVBoxLayout,
+    QWidget,
 )
 
 from desktop import layout, session
+from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.ticket_save_worker import TicketSaveWorker
 
 PRIORITY_LEVELS = ["Low", "Medium", "High", "Urgent"]
@@ -76,7 +79,9 @@ class TicketFormDialog(QDialog):
         self._worker: TicketSaveWorker | None = None
 
         self.setWindowTitle("Edit Ticket" if ticket else "New Ticket")
-        self.setFixedWidth(layout.DIALOG_WIDTH + 80)
+        self.setMinimumWidth(layout.DIALOG_WIDTH + 80)
+        self.resize(layout.DIALOG_WIDTH + 80, 600)
+        restore_geometry(self, "TicketFormDialog")
 
         self._build_ui()
         if ticket:
@@ -84,17 +89,41 @@ class TicketFormDialog(QDialog):
         else:
             self._select_default_status()
 
+    def closeEvent(self, event):
+        """
+        Args:
+            event: The Qt close event, passed through unchanged.
+        """
+        save_geometry(self, "TicketFormDialog")
+        super().closeEvent(event)
+
     # -----------------------------------------------------------------
     # UI construction
     # -----------------------------------------------------------------
     def _build_ui(self):
-        """Builds every field and wires up the customer -> device dependency."""
+        """
+        Builds every field and wires up the customer -> device
+        dependency. Fields live inside a scroll area (this dialog has
+        enough fields that its natural unscrolled height, ~860px,
+        exceeds many laptop screens) -- Save/Cancel and the error
+        message stay pinned outside it, always reachable regardless of
+        scroll position or window height.
+        """
         outer_layout = QVBoxLayout()
-        outer_layout.setContentsMargins(
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.setSpacing(0)
+
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
+
+        content_widget = QWidget()
+        content_layout = QVBoxLayout()
+        content_layout.setContentsMargins(
             layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
             layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
         )
-        outer_layout.setSpacing(layout.SPACE_SM)
+        content_layout.setSpacing(layout.SPACE_SM)
 
         self.customer_combo = self._make_searchable_combo()
         for customer in self.reference_data["customers"]:
@@ -168,21 +197,6 @@ class TicketFormDialog(QDialog):
         self.description_input.setPlaceholderText("Details (optional)")
         self.description_input.setFixedHeight(100)
 
-        self.error_label = QLabel("")
-        self.error_label.setObjectName("subtitle")
-        self.error_label.setStyleSheet("color: #DC2626;")
-        self.error_label.setWordWrap(True)
-        self.error_label.hide()
-
-        self.save_button = QPushButton("Save Ticket")
-        self.save_button.setFixedHeight(layout.BUTTON_HEIGHT)
-        self.save_button.clicked.connect(self._attempt_save)
-
-        cancel_button = QPushButton("Cancel")
-        cancel_button.setObjectName("secondary")
-        cancel_button.setFixedHeight(layout.BUTTON_HEIGHT)
-        cancel_button.clicked.connect(self.reject)
-
         for label_text, widget in [
             ("Customer", self.customer_combo),
             ("Device", self.device_combo),
@@ -202,13 +216,40 @@ class TicketFormDialog(QDialog):
             if label_text is not None:
                 field_label = QLabel(label_text)
                 field_label.setObjectName("subtitle")
-                outer_layout.addWidget(field_label)
-            outer_layout.addWidget(widget)
+                content_layout.addWidget(field_label)
+            content_layout.addWidget(widget)
 
-        outer_layout.addWidget(self.error_label)
-        outer_layout.addSpacing(layout.SPACE_SM)
-        outer_layout.addWidget(self.save_button)
-        outer_layout.addWidget(cancel_button)
+        content_widget.setLayout(content_layout)
+        scroll_area.setWidget(content_widget)
+        outer_layout.addWidget(scroll_area)
+
+        self.error_label = QLabel("")
+        self.error_label.setObjectName("subtitle")
+        self.error_label.setStyleSheet("color: #DC2626;")
+        self.error_label.setWordWrap(True)
+        self.error_label.hide()
+
+        self.save_button = QPushButton("Save Ticket")
+        self.save_button.setFixedHeight(layout.BUTTON_HEIGHT)
+        self.save_button.clicked.connect(self._attempt_save)
+
+        cancel_button = QPushButton("Cancel")
+        cancel_button.setObjectName("secondary")
+        cancel_button.setFixedHeight(layout.BUTTON_HEIGHT)
+        cancel_button.clicked.connect(self.reject)
+
+        bottom_bar = QWidget()
+        bottom_layout = QVBoxLayout()
+        bottom_layout.setContentsMargins(
+            layout.WINDOW_MARGIN, layout.SPACE_SM,
+            layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
+        )
+        bottom_layout.setSpacing(layout.SPACE_SM)
+        bottom_layout.addWidget(self.error_label)
+        bottom_layout.addWidget(self.save_button)
+        bottom_layout.addWidget(cancel_button)
+        bottom_bar.setLayout(bottom_layout)
+        outer_layout.addWidget(bottom_bar)
 
         self.setLayout(outer_layout)
         self._on_customer_changed()  # populate devices for whatever customer is initially selected

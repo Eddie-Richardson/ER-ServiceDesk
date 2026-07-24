@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 )
 
 from desktop import layout
+from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.customer_save_worker import CustomerSaveWorker
 from desktop.device_edit_dialog import DeviceEditDialog
 
@@ -63,11 +64,20 @@ class CustomerFormDialog(QDialog):
         self._worker: CustomerSaveWorker | None = None
 
         self.setWindowTitle("Edit Customer" if customer else "New Customer")
-        self.setFixedWidth(layout.DIALOG_WIDTH + 80)
+        self.setMinimumWidth(layout.DIALOG_WIDTH + 80)
+        restore_geometry(self, "CustomerFormDialog")
 
         self._build_ui()
         if customer:
             self._prefill_from_customer(customer)
+
+    def closeEvent(self, event):
+        """
+        Args:
+            event: The Qt close event, passed through unchanged.
+        """
+        save_geometry(self, "CustomerFormDialog")
+        super().closeEvent(event)
 
     # -----------------------------------------------------------------
     # UI construction

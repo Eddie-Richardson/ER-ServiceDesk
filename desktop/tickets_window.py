@@ -30,6 +30,7 @@ that should only stay lit while the window is genuinely open.
 """
 
 from PySide6.QtCore import QThread, Qt, Signal
+from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
@@ -42,9 +43,12 @@ from PySide6.QtWidgets import (
 )
 
 from desktop import layout, session
+from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.multi_select_filter import MultiSelectFilterButton
 from desktop.ticket_form_dialog import PRIORITY_LEVELS, TicketFormDialog
 from desktop.tickets_worker import TicketsDataWorker
+from desktop.settings_manager import get_saved_theme
+from desktop.theme import MONO_FONT_FAMILY, get_priority_color, get_status_color
 
 COLUMN_HEADERS = ["ID", "Title", "Customer", "Category", "Status", "Priority", "Assigned To", "Location"]
 PRIORITY_RANK = {"Urgent": 0, "High": 1, "Medium": 2, "Low": 3}
@@ -68,6 +72,7 @@ class TicketsWindow(QWidget):
         super().__init__()
         self.setWindowTitle("ER-ServiceDesk - Tickets")
         self.resize(860, 520)
+        restore_geometry(self, "TicketsWindow")
 
         self._thread: QThread | None = None
         self._worker: TicketsDataWorker | None = None
@@ -85,6 +90,7 @@ class TicketsWindow(QWidget):
         Args:
             event: The Qt close event, passed through unchanged.
         """
+        save_geometry(self, "TicketsWindow")
         super().closeEvent(event)
         self.window_closed.emit()
 
@@ -376,25 +382,43 @@ class TicketsWindow(QWidget):
         categories_by_id = {c["id"]: c["name"] for c in self.reference_data.get("categories", [])}
         statuses_by_id = {s["id"]: s["name"] for s in self.reference_data.get("statuses", [])}
 
+        theme_name = get_saved_theme()
+        mono_font = QFont(MONO_FONT_FAMILY)
+        bold_font = QFont()
+        bold_font.setBold(True)
+
         for row, ticket in enumerate(tickets):
             customer = customers_by_id.get(ticket["customer_id"])
             customer_label = (
                 f"{customer['first_name']} {customer['last_name']}" if customer else "-"
             )
 
+            status_name = statuses_by_id.get(ticket["status_id"], "-")
+            priority_name = ticket.get("priority", "-")
+
             values = [
                 str(ticket["id"]),
                 ticket.get("title", ""),
                 customer_label,
                 categories_by_id.get(ticket["category_id"], "-"),
-                statuses_by_id.get(ticket["status_id"], "-"),
-                ticket.get("priority", "-"),
+                status_name,
+                priority_name,
                 self._assigned_to_label(ticket.get("assigned_to")),
                 self._location_label(ticket.get("current_location_id")),
             ]
             for col, value in enumerate(values):
                 item = QTableWidgetItem(value)
                 item.setData(Qt.ItemDataRole.UserRole, ticket)
+
+                if col == 0:  # ID -- a technical identifier, not prose
+                    item.setFont(mono_font)
+                elif col == 4:  # Status -- color-coded so it can be scanned at a glance
+                    item.setFont(bold_font)
+                    item.setForeground(QColor(get_status_color(status_name, theme_name)))
+                elif col == 5:  # Priority -- same treatment, urgency should jump out
+                    item.setFont(bold_font)
+                    item.setForeground(QColor(get_priority_color(priority_name, theme_name)))
+
                 self.table.setItem(row, col, item)
 
     # -----------------------------------------------------------------

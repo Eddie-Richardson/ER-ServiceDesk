@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from desktop import layout
+from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.lookup_save_worker import LookupSaveWorker
 
 
@@ -49,11 +50,20 @@ class LookupItemDialog(QDialog):
         self._worker: LookupSaveWorker | None = None
 
         self.setWindowTitle(f"Edit {display_name}" if item else f"New {display_name}")
-        self.setFixedWidth(layout.DIALOG_WIDTH)
+        self.setMinimumWidth(layout.DIALOG_WIDTH)
+        restore_geometry(self, "LookupItemDialog")
 
         self._build_ui()
         if item:
             self._prefill_from_item(item)
+
+    def closeEvent(self, event):
+        """
+        Args:
+            event: The Qt close event, passed through unchanged.
+        """
+        save_geometry(self, "LookupItemDialog")
+        super().closeEvent(event)
 
     # -----------------------------------------------------------------
     # UI construction

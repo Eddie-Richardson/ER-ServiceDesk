@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 )
 
 from desktop import layout
+from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.role_save_worker import RoleSaveWorker
 
 
@@ -60,11 +61,20 @@ class RoleFormDialog(QDialog):
         self._worker: RoleSaveWorker | None = None
 
         self.setWindowTitle("Edit Role" if role else "New Role")
-        self.setFixedWidth(layout.DIALOG_WIDTH)
+        self.setMinimumWidth(layout.DIALOG_WIDTH)
+        restore_geometry(self, "RoleFormDialog")
 
         self._build_ui()
         if role:
             self._prefill_from_role(role)
+
+    def closeEvent(self, event):
+        """
+        Args:
+            event: The Qt close event, passed through unchanged.
+        """
+        save_geometry(self, "RoleFormDialog")
+        super().closeEvent(event)
 
     # -----------------------------------------------------------------
     # UI construction

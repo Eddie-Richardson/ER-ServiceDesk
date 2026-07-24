@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from desktop import layout
+from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.device_save_worker import DeviceSaveWorker
 
 
@@ -48,10 +49,19 @@ class DeviceEditDialog(QDialog):
         self._worker: DeviceSaveWorker | None = None
 
         self.setWindowTitle("Edit Device")
-        self.setFixedWidth(layout.DIALOG_WIDTH)
+        self.setMinimumWidth(layout.DIALOG_WIDTH)
+        restore_geometry(self, "DeviceEditDialog")
 
         self._build_ui()
         self._prefill_from_device(device)
+
+    def closeEvent(self, event):
+        """
+        Args:
+            event: The Qt close event, passed through unchanged.
+        """
+        save_geometry(self, "DeviceEditDialog")
+        super().closeEvent(event)
 
     # -----------------------------------------------------------------
     # UI construction

@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from desktop import layout
+from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.change_password_worker import ChangePasswordWorker
 
 
@@ -50,9 +51,18 @@ class ChangePasswordDialog(QDialog):
         self._worker: ChangePasswordWorker | None = None
 
         self.setWindowTitle("Set New Password")
-        self.setFixedWidth(layout.DIALOG_WIDTH)
+        self.setMinimumWidth(layout.DIALOG_WIDTH)
+        restore_geometry(self, "ChangePasswordDialog")
 
         self._build_ui(current_password)
+
+    def closeEvent(self, event):
+        """
+        Args:
+            event: The Qt close event, passed through unchanged.
+        """
+        save_geometry(self, "ChangePasswordDialog")
+        super().closeEvent(event)
 
     # -----------------------------------------------------------------
     # UI construction

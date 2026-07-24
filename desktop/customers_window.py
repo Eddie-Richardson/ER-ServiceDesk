@@ -15,6 +15,7 @@ genuinely open.
 """
 
 from PySide6.QtCore import QThread, Qt, Signal
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
@@ -28,8 +29,10 @@ from PySide6.QtWidgets import (
 )
 
 from desktop import layout
+from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.customer_form_dialog import CustomerFormDialog
 from desktop.customers_worker import CustomersDataWorker
+from desktop.theme import MONO_FONT_FAMILY
 
 COLUMN_HEADERS = ["Name", "Email", "Phone", "Address"]
 
@@ -44,6 +47,7 @@ class CustomersWindow(QWidget):
         super().__init__()
         self.setWindowTitle("ER-ServiceDesk - Customers")
         self.resize(760, 520)
+        restore_geometry(self, "CustomersWindow")
 
         self._thread: QThread | None = None
         self._worker: CustomersDataWorker | None = None
@@ -59,6 +63,7 @@ class CustomersWindow(QWidget):
         Args:
             event: The Qt close event, passed through unchanged.
         """
+        save_geometry(self, "CustomersWindow")
         super().closeEvent(event)
         self.window_closed.emit()
 
@@ -176,6 +181,8 @@ class CustomersWindow(QWidget):
         Args:
             customers: The customers to display, already filtered.
         """
+        mono_font = QFont(MONO_FONT_FAMILY)
+
         self.table.setRowCount(len(customers))
         for row, customer in enumerate(customers):
             values = [
@@ -187,6 +194,10 @@ class CustomersWindow(QWidget):
             for col, value in enumerate(values):
                 item = QTableWidgetItem(value)
                 item.setData(Qt.ItemDataRole.UserRole, customer)
+
+                if col in (1, 2):  # Email, Phone -- technical contact strings, not prose
+                    item.setFont(mono_font)
+
                 self.table.setItem(row, col, item)
 
     # -----------------------------------------------------------------

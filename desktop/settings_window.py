@@ -30,6 +30,7 @@ from desktop.api_client import (
 )
 from desktop.lookup_tab import LookupTab
 from desktop.roles_tab import RolesTab
+from desktop.window_geometry import restore_geometry, save_geometry
 
 
 class SettingsWindow(QWidget):
@@ -42,6 +43,7 @@ class SettingsWindow(QWidget):
         super().__init__()
         self.setWindowTitle("ER-ServiceDesk - Settings")
         self.resize(760, 560)
+        restore_geometry(self, "SettingsWindow")
 
         self._build_ui()
 
@@ -50,6 +52,7 @@ class SettingsWindow(QWidget):
         Args:
             event: The Qt close event, passed through unchanged.
         """
+        save_geometry(self, "SettingsWindow")
         super().closeEvent(event)
         self.window_closed.emit()
 

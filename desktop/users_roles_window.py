@@ -17,6 +17,7 @@ genuinely open.
 """
 
 from PySide6.QtCore import QThread, Qt, Signal
+from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
@@ -29,8 +30,11 @@ from PySide6.QtWidgets import (
 )
 
 from desktop import layout
+from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.user_form_dialog import UserFormDialog
 from desktop.users_roles_worker import UsersRolesDataWorker
+from desktop.settings_manager import get_saved_theme
+from desktop.theme import DARK, LIGHT, MONO_FONT_FAMILY
 
 COLUMN_HEADERS = ["Name", "Email", "Active", "Superuser", "Roles"]
 
@@ -45,6 +49,7 @@ class UsersRolesWindow(QWidget):
         super().__init__()
         self.setWindowTitle("ER-ServiceDesk - Users & Roles")
         self.resize(760, 520)
+        restore_geometry(self, "UsersRolesWindow")
 
         self._thread: QThread | None = None
         self._worker: UsersRolesDataWorker | None = None
@@ -60,6 +65,7 @@ class UsersRolesWindow(QWidget):
         Args:
             event: The Qt close event, passed through unchanged.
         """
+        save_geometry(self, "UsersRolesWindow")
         super().closeEvent(event)
         self.window_closed.emit()
 
@@ -152,6 +158,12 @@ class UsersRolesWindow(QWidget):
         """Renders every user, including a comma-joined summary of their assigned roles."""
         roles_by_id = {r["id"]: r["name"] for r in self.roles}
 
+        theme_name = get_saved_theme()
+        palette = DARK if theme_name == "dark" else LIGHT
+        mono_font = QFont(MONO_FONT_FAMILY)
+        bold_font = QFont()
+        bold_font.setBold(True)
+
         self.table.setRowCount(len(self.all_users))
         for row, user in enumerate(self.all_users):
             role_names = [
@@ -160,16 +172,29 @@ class UsersRolesWindow(QWidget):
                 if link["user_id"] == user["id"]
             ]
 
+            is_active = bool(user.get("is_active"))
+            is_superuser = bool(user.get("is_superuser"))
+
             values = [
                 f"{user['first_name']} {user['last_name']}",
                 user.get("email", ""),
-                "Yes" if user.get("is_active") else "No",
-                "Yes" if user.get("is_superuser") else "No",
+                "Yes" if is_active else "No",
+                "Yes" if is_superuser else "No",
                 ", ".join(role_names) if role_names else "-",
             ]
             for col, value in enumerate(values):
                 item = QTableWidgetItem(value)
                 item.setData(Qt.ItemDataRole.UserRole, user)
+
+                if col in (1, 4):  # Email, Roles -- technical strings, not prose
+                    item.setFont(mono_font)
+                elif col == 2 and is_active:  # Active -- worth a positive signal when true
+                    item.setFont(bold_font)
+                    item.setForeground(QColor(palette["success"]))
+                elif col == 3 and is_superuser:  # Superuser -- a privileged flag, worth standing out
+                    item.setFont(bold_font)
+                    item.setForeground(QColor(palette["accent"]))
+
                 self.table.setItem(row, col, item)
 
         self.status_label.setText(f"{len(self.all_users)} user(s).")

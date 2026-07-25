@@ -44,6 +44,7 @@ from PySide6.QtWidgets import (
 
 from desktop import layout, session
 from desktop.window_geometry import restore_geometry, save_geometry
+from desktop.lock_gate import LockGate
 from desktop.multi_select_filter import MultiSelectFilterButton
 from desktop.ticket_form_dialog import PRIORITY_LEVELS, TicketFormDialog
 from desktop.tickets_worker import TicketsDataWorker
@@ -81,6 +82,7 @@ class TicketsWindow(QWidget):
         self.initial_status_filter = initial_status_filter
         self.sort_column = DEFAULT_SORT_COLUMN
         self.sort_ascending = True
+        self._lock_gate = LockGate(self)
 
         self._build_ui()
         self._load_data()
@@ -431,12 +433,18 @@ class TicketsWindow(QWidget):
             self._load_data()
 
     def _on_row_double_clicked(self):
-        """Opens the ticket form pre-filled with the double-clicked row's ticket."""
+        """Acquires an edit lock, then opens the ticket form pre-filled with the double-clicked row's ticket."""
         selected_items = self.table.selectedItems()
         if not selected_items:
             return
 
         ticket = selected_items[0].data(Qt.ItemDataRole.UserRole)
-        dialog = TicketFormDialog(self.reference_data, ticket=ticket, parent=self)
-        if dialog.exec():
-            self._load_data()
+
+        def build_dialog():
+            return TicketFormDialog(self.reference_data, ticket=ticket, parent=self)
+
+        def on_closed(dialog):
+            if dialog.result():
+                self._load_data()
+
+        self._lock_gate.attempt_edit("ticket", ticket["id"], build_dialog, on_closed)

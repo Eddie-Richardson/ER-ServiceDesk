@@ -138,6 +138,11 @@ def _build_stylesheet(p: dict) -> str:
         QPushButton#secondary:hover {{
             background-color: {p['surface']};
         }}
+        QPushButton#secondary:checked {{
+            background-color: {p['accent']};
+            color: {p['accent_text']};
+            border: 1px solid {p['accent']};
+        }}
         QPushButton#danger {{
             background-color: transparent;
             color: {p['danger']};
@@ -217,6 +222,29 @@ def _build_stylesheet(p: dict) -> str:
         QPushButton#navButton:checked {{
             background-color: {p['accent']};
             color: {p['accent_text']};
+        }}
+
+        /* ---- Tabs (Inventory, Settings) ---- */
+        QTabWidget::pane {{
+            border: 1px solid {p['border']};
+            border-radius: 8px;
+            top: -1px;
+        }}
+        QTabBar::tab {{
+            background-color: transparent;
+            color: {p['text_muted']};
+            border: none;
+            border-bottom: 2px solid transparent;
+            padding: 8px 16px;
+            margin-right: 4px;
+        }}
+        QTabBar::tab:hover {{
+            color: {p['text']};
+        }}
+        QTabBar::tab:selected {{
+            color: {p['accent']};
+            border-bottom: 2px solid {p['accent']};
+            font-weight: 600;
         }}
     """
 

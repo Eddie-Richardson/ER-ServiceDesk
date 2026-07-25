@@ -9,7 +9,6 @@ relationship() string lookups (e.g. relationship("Quote")) from other
 models. If you add a new model file, add its import here too.
 """
 
-from .attachment import Attachment
 from .audit_log import AuditLog
 from .background_job import BackgroundJob
 from .customer import Customer
@@ -27,6 +26,7 @@ from .note import Note
 from .payment import Payment
 from .permission import Permission
 from .quote import Quote
+from .record_lock import RecordLock
 from .role import Role
 from .role_permission import RolePermission
 from .status_history import StatusHistory

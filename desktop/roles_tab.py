@@ -23,9 +23,10 @@ from PySide6.QtWidgets import (
 )
 
 from desktop import layout
-from desktop.api_client import ApiError, delete_role, list_permissions, list_roles
+from desktop.api_client import list_permissions, list_roles
 from desktop.lookup_save_worker import LookupSaveWorker
 from desktop.lookup_worker import LookupDataWorker
+from desktop.lock_gate import LockGate
 from desktop.role_form_dialog import RoleFormDialog
 
 COLUMN_HEADERS = ["Name", "Description", "Permissions"]
@@ -46,6 +47,7 @@ class RolesTab(QWidget):
         self._permissions_worker: LookupDataWorker | None = None
         self._delete_thread: QThread | None = None
         self._delete_worker: LookupSaveWorker | None = None
+        self._lock_gate = LockGate(self)
 
         self._build_ui()
         self._load_data()
@@ -189,13 +191,19 @@ class RolesTab(QWidget):
             self._load_data()
 
     def _on_row_double_clicked(self):
-        """Opens the role form pre-filled with the double-clicked row's role."""
+        """Acquires an edit lock, then opens the role form pre-filled with the double-clicked row's role."""
         role = self._selected_role()
         if role is None:
             return
-        dialog = RoleFormDialog(role, self.all_permissions, parent=self)
-        if dialog.exec():
-            self._load_data()
+
+        def build_dialog():
+            return RoleFormDialog(role, self.all_permissions, parent=self)
+
+        def on_closed(dialog):
+            if dialog.result():
+                self._load_data()
+
+        self._lock_gate.attempt_edit("role", role["id"], build_dialog, on_closed)
 
     def _selected_role(self) -> dict | None:
         """

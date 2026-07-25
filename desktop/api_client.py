@@ -763,3 +763,99 @@ def delete_role_permission(role_permission_id: int):
             role_permissions list).
     """
     delete_lookup_item("/role_permissions/", role_permission_id)
+
+
+# ---------------------------------------------------------------------------
+# Record locking (check-out style edit locks)
+# ---------------------------------------------------------------------------
+
+class LockConflictError(ApiError):
+    """
+    Raised when a record is already locked by someone else. Carries the
+    human-readable message from the backend (which names who holds it)
+    so it can be shown directly to the user without extra formatting.
+    """
+    pass
+
+
+def acquire_lock(entity_type: str, entity_id: int) -> dict:
+    """
+    Attempts to acquire a check-out lock on a record before opening it
+    for editing.
+
+    Args:
+        entity_type: The kind of record, e.g. "ticket", "customer".
+        entity_id: The record's own primary key.
+
+    Returns:
+        The lock record.
+
+    Raises:
+        LockConflictError: If someone else currently holds a non-stale
+            lock on this record. The message names who.
+        ApiError: For any other failure (session expired, backend
+            unreachable, etc.).
+    """
+    token = session.current_token()
+    if not token:
+        raise ApiError("No active session. Please log in again.")
+
+    try:
+        response = requests.post(
+            f"{BASE_URL}/locks/acquire",
+            json={"entity_type": entity_type, "entity_id": entity_id},
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10,
+        )
+    except requests.exceptions.RequestException:
+        raise ApiError("Couldn't reach the backend. Make sure it's still running.")
+
+    if response.status_code == 401:
+        raise ApiError("Session expired. Please log in again.")
+
+    if response.status_code == 409:
+        message = ""
+        try:
+            message = response.json().get("error", {}).get("message", "")
+        except ValueError:
+            pass
+        raise LockConflictError(message or "This record is currently being edited by someone else.")
+
+    if response.status_code != 200:
+        raise ApiError(f"Couldn't lock the record (server returned {response.status_code}).")
+
+    return response.json()
+
+
+def release_lock(entity_type: str, entity_id: int):
+    """
+    Releases a check-out lock, if the current session holds it.
+
+    Deliberately quiet about most failure modes -- this is called when
+    a dialog is already closing, so there's nothing useful left to show
+    the user if the release itself has a network hiccup. Session-expiry
+    is the one case worth raising, since it's a real, actionable signal.
+
+    Args:
+        entity_type: The kind of record, e.g. "ticket", "customer".
+        entity_id: The record's own primary key.
+
+    Raises:
+        ApiError: Only if the session has expired.
+    """
+    token = session.current_token()
+    if not token:
+        return
+
+    try:
+        response = requests.post(
+            f"{BASE_URL}/locks/release",
+            json={"entity_type": entity_type, "entity_id": entity_id},
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10,
+        )
+    except requests.exceptions.RequestException:
+        return
+
+    if response.status_code == 401:
+        raise ApiError("Session expired. Please log in again.")

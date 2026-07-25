@@ -63,23 +63,23 @@ class SettingsWindow(QWidget):
 
         tabs = QTabWidget()
         tabs.addTab(
-            LookupTab("Location", list_locations, "/inventory/locations/"),
+            LookupTab("Location", list_locations, "/inventory/locations/", "location"),
             "Locations",
         )
         tabs.addTab(
-            LookupTab("Asset Category", list_asset_categories, "/inventory/asset_categories/"),
+            LookupTab("Asset Category", list_asset_categories, "/inventory/asset_categories/", "asset_category"),
             "Asset Categories",
         )
         tabs.addTab(
-            LookupTab("Ticket Category", list_ticket_categories, "/ticket_categories/"),
+            LookupTab("Ticket Category", list_ticket_categories, "/ticket_categories/", "ticket_category"),
             "Ticket Categories",
         )
         tabs.addTab(
-            LookupTab("Ticket Status", list_ticket_statuses, "/ticket_statuses/"),
+            LookupTab("Ticket Status", list_ticket_statuses, "/ticket_statuses/", "ticket_status"),
             "Ticket Statuses",
         )
         tabs.addTab(
-            LookupTab("Ticket Type", list_ticket_types, "/ticket_types/"),
+            LookupTab("Ticket Type", list_ticket_types, "/ticket_types/", "ticket_type"),
             "Ticket Types",
         )
         tabs.addTab(RolesTab(), "Roles")

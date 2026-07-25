@@ -13,7 +13,6 @@ from app.core.logging_config import setup_logging
 from app.routes import (
     assets,
     asset_categories,
-    attachments,
     audit_logs,
     auth,
     background_jobs,
@@ -28,6 +27,7 @@ from app.routes import (
     payments,
     permissions,
     quotes,
+    record_locks,
     role_permissions,
     roles,
     status_histories,
@@ -78,8 +78,8 @@ app.include_router(status_histories.router)
 app.include_router(notes.router)
 app.include_router(messages.router)
 app.include_router(message_templates.router)
-app.include_router(attachments.router)
 app.include_router(quotes.router)
+app.include_router(record_locks.router)
 app.include_router(invoices.router)
 app.include_router(payments.router)
 

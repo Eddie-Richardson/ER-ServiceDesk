@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
 
 from desktop import layout
 from desktop.window_geometry import restore_geometry, save_geometry
+from desktop.lock_gate import LockGate
 from desktop.customer_form_dialog import CustomerFormDialog
 from desktop.customers_worker import CustomersDataWorker
 from desktop.theme import MONO_FONT_FAMILY
@@ -54,6 +55,7 @@ class CustomersWindow(QWidget):
         self.all_customers: list[dict] = []
         self.all_devices: list[dict] = []
         self.locations: list[dict] = []
+        self._lock_gate = LockGate(self)
 
         self._build_ui()
         self._load_data()
@@ -210,12 +212,18 @@ class CustomersWindow(QWidget):
             self._load_data()
 
     def _on_row_double_clicked(self):
-        """Opens the customer form pre-filled with the double-clicked row's customer."""
+        """Acquires an edit lock, then opens the customer form pre-filled with the double-clicked row's customer."""
         selected_items = self.table.selectedItems()
         if not selected_items:
             return
 
         customer = selected_items[0].data(Qt.ItemDataRole.UserRole)
-        dialog = CustomerFormDialog(customer, self.all_devices, self.locations, parent=self)
-        if dialog.exec():
-            self._load_data()
+
+        def build_dialog():
+            return CustomerFormDialog(customer, self.all_devices, self.locations, parent=self)
+
+        def on_closed(dialog):
+            if dialog.result():
+                self._load_data()
+
+        self._lock_gate.attempt_edit("customer", customer["id"], build_dialog, on_closed)

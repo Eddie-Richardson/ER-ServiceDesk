@@ -29,6 +29,7 @@ from desktop import layout
 from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.customer_save_worker import CustomerSaveWorker
 from desktop.device_edit_dialog import DeviceEditDialog
+from desktop.lock_gate import LockGate
 
 DEVICE_COLUMN_HEADERS = ["Type", "Brand", "Model", "Serial Number"]
 
@@ -62,6 +63,7 @@ class CustomerFormDialog(QDialog):
 
         self._thread: QThread | None = None
         self._worker: CustomerSaveWorker | None = None
+        self._lock_gate = LockGate(self)
 
         self.setWindowTitle("Edit Customer" if customer else "New Customer")
         self.setMinimumWidth(layout.DIALOG_WIDTH + 80)
@@ -198,14 +200,19 @@ class CustomerFormDialog(QDialog):
                 self.devices_table.setItem(row, col, item)
 
     def _on_device_row_double_clicked(self):
-        """Opens DeviceEditDialog for the double-clicked device; refreshes the table if saved."""
+        """Acquires an edit lock, then opens DeviceEditDialog for the double-clicked device; refreshes the table if saved."""
         selected_items = self.devices_table.selectedItems()
         if not selected_items:
             return
 
         device = selected_items[0].data(Qt.ItemDataRole.UserRole)
-        dialog = DeviceEditDialog(device, self.locations, parent=self)
-        if dialog.exec():
+
+        def build_dialog():
+            return DeviceEditDialog(device, self.locations, parent=self)
+
+        def on_closed(dialog):
+            if not dialog.result():
+                return
             # Update our in-memory copy so the table reflects the edit
             # immediately, without needing to reload the whole window.
             for i, d in enumerate(self.all_devices):
@@ -213,6 +220,8 @@ class CustomerFormDialog(QDialog):
                     self.all_devices[i] = dialog.saved_device
                     break
             self._populate_devices_table()
+
+        self._lock_gate.attempt_edit("device", device["id"], build_dialog, on_closed)
 
     # -----------------------------------------------------------------
     # Prefill (edit mode)

@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
 
 from desktop import layout
 from desktop.window_geometry import restore_geometry, save_geometry
+from desktop.lock_gate import LockGate
 from desktop.user_form_dialog import UserFormDialog
 from desktop.users_roles_worker import UsersRolesDataWorker
 from desktop.settings_manager import get_saved_theme
@@ -56,6 +57,7 @@ class UsersRolesWindow(QWidget):
         self.all_users: list[dict] = []
         self.roles: list[dict] = []
         self.user_roles: list[dict] = []
+        self._lock_gate = LockGate(self)
 
         self._build_ui()
         self._load_data()
@@ -209,12 +211,18 @@ class UsersRolesWindow(QWidget):
             self._load_data()
 
     def _on_row_double_clicked(self):
-        """Opens the user form pre-filled with the double-clicked row's user."""
+        """Acquires an edit lock, then opens the user form pre-filled with the double-clicked row's user."""
         selected_items = self.table.selectedItems()
         if not selected_items:
             return
 
         user = selected_items[0].data(Qt.ItemDataRole.UserRole)
-        dialog = UserFormDialog(user, self.roles, self.user_roles, parent=self)
-        if dialog.exec():
-            self._load_data()
+
+        def build_dialog():
+            return UserFormDialog(user, self.roles, self.user_roles, parent=self)
+
+        def on_closed(dialog):
+            if dialog.result():
+                self._load_data()
+
+        self._lock_gate.attempt_edit("user", user["id"], build_dialog, on_closed)

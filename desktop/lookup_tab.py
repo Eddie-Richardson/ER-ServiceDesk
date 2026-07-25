@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
 
 from desktop import layout
 from desktop.lookup_item_dialog import LookupItemDialog
+from desktop.lock_gate import LockGate
 from desktop.lookup_save_worker import LookupSaveWorker
 from desktop.lookup_worker import LookupDataWorker
 
@@ -40,7 +41,7 @@ COLUMN_HEADERS = ["Name", "Description"]
 class LookupTab(QWidget):
     """A single Settings tab managing one simple name/description lookup table."""
 
-    def __init__(self, display_name: str, list_func: Callable[[], list[dict]], endpoint: str):
+    def __init__(self, display_name: str, list_func: Callable[[], list[dict]], endpoint: str, entity_type: str):
         """
         Args:
             display_name: Shown in headings and dialogs, e.g. "Location".
@@ -49,17 +50,21 @@ class LookupTab(QWidget):
                 e.g. list_locations.
             endpoint: The resource path for create/update/delete, e.g.
                 "/inventory/locations/".
+            entity_type: Short identifier used for the check-out edit
+                lock, e.g. "location", "asset_category".
         """
         super().__init__()
         self.display_name = display_name
         self.list_func = list_func
         self.endpoint = endpoint
+        self.entity_type = entity_type
         self.all_items: list[dict] = []
 
         self._thread: QThread | None = None
         self._worker: LookupDataWorker | None = None
         self._delete_thread: QThread | None = None
         self._delete_worker: LookupSaveWorker | None = None
+        self._lock_gate = LockGate(self)
 
         self._build_ui()
         self._load_data()
@@ -168,13 +173,19 @@ class LookupTab(QWidget):
             self._load_data()
 
     def _on_row_double_clicked(self):
-        """Opens the item form pre-filled with the double-clicked row's item."""
+        """Acquires an edit lock, then opens the item form pre-filled with the double-clicked row's item."""
         item = self._selected_item()
         if item is None:
             return
-        dialog = LookupItemDialog(self.display_name, self.endpoint, item=item, parent=self)
-        if dialog.exec():
-            self._load_data()
+
+        def build_dialog():
+            return LookupItemDialog(self.display_name, self.endpoint, item=item, parent=self)
+
+        def on_closed(dialog):
+            if dialog.result():
+                self._load_data()
+
+        self._lock_gate.attempt_edit(self.entity_type, item["id"], build_dialog, on_closed)
 
     def _selected_item(self) -> dict | None:
         """

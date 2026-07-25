@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
 
 from desktop import layout
 from desktop.window_geometry import restore_geometry, save_geometry
+from desktop.lock_gate import LockGate
 from desktop.asset_form_dialog import AssetFormDialog
 from desktop.inventory_worker import InventoryDataWorker
 from desktop.part_form_dialog import PartFormDialog
@@ -58,6 +59,7 @@ class InventoryWindow(QWidget):
         self.all_assets: list[dict] = []
         self.all_parts: list[dict] = []
         self.show_low_stock_only = False
+        self._lock_gate = LockGate(self)
 
         self._build_ui()
         self._load_data()
@@ -272,14 +274,20 @@ class InventoryWindow(QWidget):
             self._load_data()
 
     def _on_asset_row_double_clicked(self):
-        """Opens the asset form pre-filled with the double-clicked row's asset."""
+        """Acquires an edit lock, then opens the asset form pre-filled with the double-clicked row's asset."""
         selected_items = self.assets_table.selectedItems()
         if not selected_items:
             return
         asset = selected_items[0].data(Qt.ItemDataRole.UserRole)
-        dialog = AssetFormDialog(self.reference_data, asset=asset, parent=self)
-        if dialog.exec():
-            self._load_data()
+
+        def build_dialog():
+            return AssetFormDialog(self.reference_data, asset=asset, parent=self)
+
+        def on_closed(dialog):
+            if dialog.result():
+                self._load_data()
+
+        self._lock_gate.attempt_edit("asset", asset["id"], build_dialog, on_closed)
 
     # -----------------------------------------------------------------
     # Parts tab
@@ -362,11 +370,17 @@ class InventoryWindow(QWidget):
             self._load_data()
 
     def _on_part_row_double_clicked(self):
-        """Opens the part form pre-filled with the double-clicked row's part."""
+        """Acquires an edit lock, then opens the part form pre-filled with the double-clicked row's part."""
         selected_items = self.parts_table.selectedItems()
         if not selected_items:
             return
         part = selected_items[0].data(Qt.ItemDataRole.UserRole)
-        dialog = PartFormDialog(self.reference_data, part=part, parent=self)
-        if dialog.exec():
-            self._load_data()
+
+        def build_dialog():
+            return PartFormDialog(self.reference_data, part=part, parent=self)
+
+        def on_closed(dialog):
+            if dialog.result():
+                self._load_data()
+
+        self._lock_gate.attempt_edit("part", part["id"], build_dialog, on_closed)

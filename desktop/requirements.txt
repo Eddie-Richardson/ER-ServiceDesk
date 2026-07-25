@@ -2,6 +2,13 @@
 # Dependencies for the PySide6 desktop client only.
 # The FastAPI backend has its own requirements.txt at the project root --
 # these are separate concerns and intentionally not merged.
+#
+# pyinstaller is only needed for building the standalone .exe (see
+# build_exe.ps1 / ER-ServiceDesk.spec at the project root) -- it's not
+# a runtime dependency of the app itself, but lives here rather than a
+# separate file since this is already the established "desktop-only
+# deps" location.
 
 PySide6==6.9.1
 requests==2.34.2
+pyinstaller==6.10.0

@@ -4,8 +4,14 @@
 Entry point for the ER-ServiceDesk desktop application.
 
 Flow on launch:
+  0. If no .env exists yet (a genuinely fresh install), show the Setup
+     Wizard first -- it collects everything needed and writes .env,
+     then hands off to the normal flow below. Never shown again once
+     .env exists.
   1. Show the startup splash screen.
-  2. It starts the Docker backend stack and polls until healthy.
+  2. It starts the Docker backend stack (or, for a Client-mode install,
+     just health-checks the configured remote server) and polls until
+     healthy.
   3. On success, the splash screen closes and the Login window opens.
   4. On failure, the splash screen shows the error with a Retry option.
 """
@@ -18,20 +24,22 @@ from PySide6.QtWidgets import QApplication
 
 from desktop.login_window import LoginWindow
 from desktop.dashboard_window import DashboardWindow
+from desktop.app_paths import get_compose_dir, get_icon_path
 from desktop.settings_manager import get_saved_theme
+from desktop.setup_wizard_window import SetupWizardWindow
 from desktop.startup_window import StartupWindow
 from desktop.theme import get_stylesheet
 
-# docker-compose.yml lives at the project root, one level up from desktop/.
-COMPOSE_DIR = str(Path(__file__).resolve().parent.parent)
-ICON_PATH = str(Path(__file__).resolve().parent / "assets" / "icon.ico")
+COMPOSE_DIR = get_compose_dir()
+ICON_PATH = get_icon_path()
+ENV_PATH = Path(COMPOSE_DIR) / ".env"
 
 
 def main():
     """
     Builds the QApplication, applies the saved theme and app icon, and
-    wires up the startup -> login -> dashboard -> (logout ->) login
-    window flow.
+    wires up the wizard (first run only) -> startup -> login ->
+    dashboard -> (logout ->) login window flow.
     """
     app = QApplication(sys.argv)
 
@@ -45,7 +53,6 @@ def main():
     # ever flashes unstyled or in the wrong theme on launch.
     app.setStyleSheet(get_stylesheet(get_saved_theme()))
 
-    startup_window = StartupWindow(compose_dir=COMPOSE_DIR)
     window_holder = {}  # avoids windows being garbage-collected once referenced only locally
 
     def show_login():
@@ -68,13 +75,32 @@ def main():
         window_holder["dashboard"] = dashboard
         previous_window.close()
 
-    def on_backend_ready():
-        """Called once the backend is confirmed healthy; opens Login and closes the splash screen."""
-        show_login()
-        startup_window.close()
+    def start_normal_flow():
+        """Shows the startup splash screen and, once healthy, the Login window."""
+        startup_window = StartupWindow(compose_dir=COMPOSE_DIR)
 
-    startup_window.backend_ready.connect(on_backend_ready)
-    startup_window.show()
+        def on_backend_ready():
+            """Called once the backend is confirmed healthy; opens Login and closes the splash screen."""
+            show_login()
+            startup_window.close()
+
+        startup_window.backend_ready.connect(on_backend_ready)
+        startup_window.show()
+        window_holder["startup"] = startup_window
+
+    if ENV_PATH.exists():
+        start_normal_flow()
+    else:
+        wizard = SetupWizardWindow(compose_dir=COMPOSE_DIR)
+
+        def on_setup_complete():
+            """Wizard finished successfully -- proceed to the normal startup flow and close it."""
+            start_normal_flow()
+            wizard.close()
+
+        wizard.setup_complete.connect(on_setup_complete)
+        wizard.show()
+        window_holder["wizard"] = wizard
 
     sys.exit(app.exec())
 

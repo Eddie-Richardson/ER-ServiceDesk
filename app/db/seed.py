@@ -20,11 +20,12 @@ from app.models.location import Location
 from app.models.asset_category import AssetCategory
 from app.models.ticket_stage import TicketStage
 from app.models.ticket_type_stage import TicketTypeStage
+from app.models.system_setting import SystemSetting
 
 from app.core.security import hash_password
 
 
-def seed_data(db: Session):
+def seed_data(db: Session, business_name: str | None = None):
     """
     Insert initial roles, permissions, mappings, and default users.
 
@@ -33,6 +34,12 @@ def seed_data(db: Session):
 
     Args:
         db: Active database session.
+        business_name: The shop's display name, written to
+            system_settings if provided and not already set. Only ever
+            written once -- if an admin has already changed it via
+            Settings, seeding again (e.g. after a container restart)
+            must never silently overwrite that with whatever was in
+            .env at first-run time.
     """
 
     # -------------------------------------------------------------------
@@ -342,5 +349,14 @@ def seed_data(db: Session):
         allow("Custom Build", name)
 
     db.commit()
+
+    # -------------------------------------------------------------------
+    # Business name (set once, at first setup, via the Setup Wizard)
+    # -------------------------------------------------------------------
+    if business_name:
+        existing_setting = db.query(SystemSetting).filter_by(key="business_name").first()
+        if not existing_setting:
+            db.add(SystemSetting(key="business_name", value=business_name))
+            db.commit()
 
     print("Seed data inserted successfully.")

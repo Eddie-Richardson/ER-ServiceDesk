@@ -4,9 +4,13 @@
 Splash screen shown while the backend stack is starting up.
 
 Displays a status label and an indeterminate progress bar while
-BackendStartupWorker does its work on a background thread. On success,
-emits backend_ready so main.py can move on to the Login window. On
-failure, shows the error and offers Retry / Quit.
+BackendStartupWorker does its work on a background thread. Reads the
+saved install mode and backend URL to decide whether Docker needs
+starting at all (skipped for Client mode, which has no local Docker)
+and which address to health-check (localhost for Local/Server,
+whatever remote address was configured for Client). On success, emits
+backend_ready so main.py can move on to the Login window. On failure,
+shows the error and offers Retry / Quit.
 """
 
 from PySide6.QtCore import Qt, QThread, Signal
@@ -20,6 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from desktop.backend_manager import BackendStartupWorker
+from desktop.settings_manager import get_backend_url, get_install_mode
 
 
 class StartupWindow(QWidget):
@@ -79,7 +84,13 @@ class StartupWindow(QWidget):
         self.status_label.setText("Starting up...")
 
         self._thread = QThread()
-        self._worker = BackendStartupWorker(compose_dir=self.compose_dir)
+        install_mode = get_install_mode()
+        backend_url = get_backend_url()
+        self._worker = BackendStartupWorker(
+            compose_dir=self.compose_dir,
+            health_url=f"{backend_url}/health",
+            skip_docker=(install_mode == "client"),
+        )
         self._worker.moveToThread(self._thread)
 
         self._thread.started.connect(self._worker.run)

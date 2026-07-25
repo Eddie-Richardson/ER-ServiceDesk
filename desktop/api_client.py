@@ -12,8 +12,30 @@ sharing BASE_URL and the same error-handling shape established below.
 import requests
 
 from desktop import session
+from desktop.settings_manager import get_backend_url
 
-BASE_URL = "http://localhost:8000"
+# Initialized from whatever was last saved (defaults to localhost for a
+# normal Local-mode install). A Client-mode install saves a real network
+# address instead -- see settings_manager.save_backend_url(). Mutable at
+# runtime via set_base_url(), rather than a one-time constant, so the
+# Setup Wizard can change it without restarting the app, and so a
+# Local-to-Server migration can repoint an existing install later.
+BASE_URL = get_backend_url()
+
+
+def set_base_url(url: str):
+    """
+    Changes which backend this client talks to, immediately, for the
+    rest of the running session. Does not persist anything itself --
+    call settings_manager.save_backend_url() separately if the change
+    should survive a restart.
+
+    Args:
+        url: A full base URL, e.g. "http://localhost:8000" or
+            "http://192.168.1.50:8000". No trailing slash.
+    """
+    global BASE_URL
+    BASE_URL = url
 
 
 class LoginError(Exception):

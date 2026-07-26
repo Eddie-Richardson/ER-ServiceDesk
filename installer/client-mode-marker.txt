@@ -1,0 +1,1 @@
+Client mode was selected. If you're seeing this file and NOT local-mode-marker.txt or server-mode-marker.txt, the mode selection screen and conditional file placement are both working correctly.

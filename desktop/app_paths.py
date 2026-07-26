@@ -14,7 +14,7 @@ Once packaged, PyInstaller extracts the app into a temporary directory
 that isn't guaranteed to exist between runs (`sys._MEIPASS`), so
 anything that needs to persist across restarts -- docker-compose.yml,
 the backend source Docker builds from, and the generated .env -- can't
-live there. Those instead live in a fixed, permanent location the WiX
+live there. Those instead live in a fixed, permanent location the Inno
 installer places them in: %LOCALAPPDATA%\\ER-ServiceDesk\\. The icon,
 by contrast, is read-only and never changes after packaging, so it's
 fine for it to live inside PyInstaller's bundle.
@@ -43,7 +43,7 @@ def get_compose_dir() -> str:
     source, and .env.
 
     In dev mode, this is the project root (one level up from desktop/).
-    In a packaged build, this is the fixed, permanent location the WiX
+    In a packaged build, this is the fixed, permanent location the Inno
     installer placed these files in -- %LOCALAPPDATA%\\ER-ServiceDesk\\ --
     since PyInstaller's own extraction directory isn't a safe place for
     anything that needs to persist across app restarts.
@@ -62,10 +62,11 @@ def get_compose_dir() -> str:
 def get_env_backup_dir() -> str:
     """
     Returns the directory holding a backup copy of .env -- the one file
-    among everything WiX installs that's genuinely irreplaceable, since
-    it holds the unique password already baked into the live database
-    and the unique SECRET_KEY signing active sessions. Everything else
-    WiX places (docker-compose.yml, the backend source, the exe itself)
+    among everything the Inno installer installs that's genuinely
+    irreplaceable, since it holds the unique password already baked
+    into the live database and the unique SECRET_KEY signing active
+    sessions. Everything else the installer places (docker-compose.yml,
+    the backend source, the exe itself)
     is identical every install and trivially restored by a repair/
     reinstall, so only .env needs this safety net.
 

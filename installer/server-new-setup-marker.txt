@@ -1,0 +1,1 @@
+Server mode, New Setup was selected. If you're seeing this file and NOT server-migration-target-marker.txt, the Server sub-choice screen is working correctly.

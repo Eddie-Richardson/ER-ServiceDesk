@@ -68,6 +68,13 @@ share/python-wheels/
 !ER-ServiceDesk.spec
 
 # -------------------------------------------------------------------
+# Inno Setup installer build output (compiled binary, not source --
+# setup.iss itself stays tracked, this only excludes what ISCC.exe
+# produces from it)
+# -------------------------------------------------------------------
+installer/*.exe
+
+# -------------------------------------------------------------------
 # Installer logs
 # -------------------------------------------------------------------
 pip-log.txt

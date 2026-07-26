@@ -1,0 +1,5 @@
+If you're reading this, the ER-ServiceDesk Inno Setup installer toolchain works correctly.
+
+This file was placed here by Inno Setup as a proof-of-concept test, before
+any real installer logic (mode selection, file placement, Docker/WSL2
+setup) was built on top of it.

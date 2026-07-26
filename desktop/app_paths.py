@@ -29,6 +29,7 @@ import sys
 from pathlib import Path
 
 APP_DATA_DIR_NAME = "ER-ServiceDesk"
+ENV_BACKUP_DIR_NAME = "ER-ServiceDesk-Backup"
 
 
 def is_frozen() -> bool:
@@ -56,6 +57,30 @@ def get_compose_dir() -> str:
         return str(Path(local_app_data) / APP_DATA_DIR_NAME)
 
     return str(Path(__file__).resolve().parent.parent)
+
+
+def get_env_backup_dir() -> str:
+    """
+    Returns the directory holding a backup copy of .env -- the one file
+    among everything WiX installs that's genuinely irreplaceable, since
+    it holds the unique password already baked into the live database
+    and the unique SECRET_KEY signing active sessions. Everything else
+    WiX places (docker-compose.yml, the backend source, the exe itself)
+    is identical every install and trivially restored by a repair/
+    reinstall, so only .env needs this safety net.
+
+    Deliberately a sibling folder to the main install, not a subfolder
+    inside it -- if the main ER-ServiceDesk folder itself gets deleted
+    (by accident, a bad cleanup tool, antivirus overreach), a backup
+    living inside that same folder would vanish right along with it.
+    """
+    if is_frozen():
+        local_app_data = os.environ.get("LOCALAPPDATA")
+        if not local_app_data:
+            raise RuntimeError("LOCALAPPDATA environment variable not set.")
+        return str(Path(local_app_data) / ENV_BACKUP_DIR_NAME)
+
+    return str(Path(__file__).resolve().parent.parent.parent / ENV_BACKUP_DIR_NAME)
 
 
 def get_icon_path() -> str:

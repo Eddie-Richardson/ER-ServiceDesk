@@ -1,32 +1,20 @@
 ; ER-ServiceDesk-Installer/setup.iss
 ;
-; STEP 5. Steps 1-4 proved the toolchain, mode selection, Server
-; sub-choice, credential collection, secret generation, .env/registry
-; writes, and uninstall cleanup all work end to end -- confirmed on a
-; real machine for every scenario independently.
+; STEP 7. Steps 1-6 are now fully tested end to end on real hardware
+; for all four real scenarios. A real test of Step 6's migration token
+; display caught a genuine bug: WizardForm.FinishedLabel.Caption
+; silently clips long text rather than wrapping it, so the token never
+; appeared at all on first attempt. Fixed with a separate, properly
+; sized TNewMemo control instead -- confirmed working via a second
+; real test, token fully visible and copyable.
 ;
-; This step replaces the placeholder marker files with the real
-; application: the PyInstaller exe (Local + Client), and the backend +
-; Docker files (Local + Server) -- confirmed against the actual
-; project root that Dockerfile's "COPY . ." needs six things present,
-; not three: docker-compose.yml, Dockerfile, requirements.txt,
-; alembic.ini, the alembic/ migrations folder, and app/ itself. An
-; earlier draft of this list was missing requirements.txt and the
-; alembic files entirely, which would have caused a broken build with
-; no migrations to run.
-;
-; It also adds the actual Docker orchestration -- building images,
-; starting containers, running migrations, and seeding the database --
-; via Inno's Exec() function, confirmed directly against jrsoftware.org's
-; official documentation. Migration Target deliberately skips migrations
-; and seeding entirely, since the real, already-migrated data arrives
-; later via pg_restore during the actual migration.
-;
-; One detail here wasn't independently verified against official docs
-; the way everything else was, in the interest of time: the Excludes
-; parameter on the alembic/ and app/ [Files] entries, meant to keep
-; __pycache__ folders out of the bundle. If this causes a build error,
-; that's exactly why -- worth knowing which line to look at first.
+; This step adds Start Menu and optional desktop shortcuts -- neither
+; existed at all before this; the exe was only ever reachable by
+; browsing directly to %LOCALAPPDATA%\ER-ServiceDesk\. {autoprograms}
+; and {autodesktop} confirmed against a real official Inno example
+; script. Not offered for Server, which has no exe installed at all.
+; Desktop icon is opt-in (unchecked by default), Start Menu shortcut
+; is automatic -- standard Inno convention for both.
 ;
 ; Still unverified from this end -- Inno Setup produces a real Windows
 ; executable installer, and there's no way to test that outside a real
@@ -35,7 +23,7 @@
 
 [Setup]
 AppName=ER-ServiceDesk
-AppVersion=1.0.6
+AppVersion=1.0.9
 DefaultDirName={localappdata}\ER-ServiceDesk
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
@@ -61,6 +49,21 @@ Source: "..\alembic.ini"; DestDir: "{app}"; Check: not IsClientMode
 Source: "..\alembic\*"; DestDir: "{app}\alembic"; Flags: recursesubdirs; Excludes: "__pycache__"; Check: not IsClientMode
 Source: "..\app\*"; DestDir: "{app}\app"; Flags: recursesubdirs; Excludes: "__pycache__"; Check: not IsClientMode
 
+[Tasks]
+; Optional desktop icon, unchecked by default (opt-in, not opt-out) --
+; standard Inno convention. Not offered for Server, which has no exe
+; installed at all -- same condition already used for the exe itself
+; in the Files section above.
+Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "Additional icons:"; Check: not IsServerMode
+
+[Icons]
+; {autoprograms}/{autodesktop} automatically resolve correctly for a
+; per-user install (PrivilegesRequired=lowest above) without needing
+; to reason about per-user vs per-machine Start Menu/Desktop paths --
+; confirmed against a real official Inno example script.
+Name: "{autoprograms}\ER-ServiceDesk"; Filename: "{app}\ER-ServiceDesk.exe"; Check: not IsServerMode
+Name: "{autodesktop}\ER-ServiceDesk"; Filename: "{app}\ER-ServiceDesk.exe"; Tasks: desktopicon; Check: not IsServerMode
+
 [Code]
 const
   { Registry values settings_manager.py reads on every launch. A local
@@ -75,6 +78,8 @@ var
   ServerSubChoicePage: TInputOptionWizardPage;
   CredentialsPage: TInputQueryWizardPage;
   ClientAddressPage: TInputQueryWizardPage;
+  MigrationTargetToken: String;
+  MigrationTokenMemo: TNewMemo;
 
 procedure InitializeWizard;
 begin
@@ -199,6 +204,20 @@ begin
       'BUSINESS_NAME=' + CredentialsPage.Values[2] + #13#10;
   end;
 
+  { Migration Target's one-time token, authenticating the later
+    "Migrate to Server" request that actually transfers real data.
+    Shown once on the Finished page (see CurPageChanged below) --
+    persisted here in .env so the future migration-receiving endpoint
+    can read and verify it, since Server has no other way to hold
+    state (no exe, no registry writes). Building that endpoint itself
+    is separate, later work -- this just generates and stores the
+    token, and shows it to the admin. }
+  if IsMigrationTarget() then
+  begin
+    MigrationTargetToken := GenerateRandomString(32);
+    EnvContent := EnvContent + 'MIGRATION_TOKEN=' + MigrationTargetToken + #13#10;
+  end;
+
   SaveStringToFile(ExpandConstant('{app}\.env'), EnvContent, False);
 
   BackupDir := ExpandConstant('{localappdata}\ER-ServiceDesk-Backup');
@@ -281,6 +300,55 @@ begin
       RunDockerSetup;
     end;
     WriteRegistryValues;
+  end;
+end;
+
+{ Displays Migration Target's one-time token on Inno's built-in
+  Finished page.
+
+  A real test showed the first attempt at this -- setting a much
+  longer, multi-paragraph WizardForm.FinishedLabel.Caption -- got
+  silently clipped mid-sentence, with the token never visible at all.
+  FinishedLabel is sized for a short, single message; it doesn't wrap
+  or scroll longer text. Fixed by keeping the label short (matching
+  roughly what the default, unmodified message's length already
+  displayed correctly) and adding a separate, properly-sized TNewMemo
+  control -- the same control class Inno's own built-in Ready page
+  already uses internally, confirmed directly against jrsoftware.org's
+  official Support Classes Reference -- to hold the token itself.
+  ReadOnly, so it can't be edited, but text inside a memo is trivially
+  selectable/copyable, which is genuinely better for a secret token
+  than a plain label would have been anyway.
+
+  Parented to WizardForm.FinishedLabel.Parent rather than a guessed
+  WizardForm.FinishedPage property name -- same actual container
+  either way, but sourced from a property already proven to exist
+  (FinishedLabel itself), not one assumed by naming-convention pattern.
+
+  By this point WriteEnvFiles has already run (during ssPostInstall,
+  which completes before the wizard ever reaches this page), so
+  MigrationTargetToken is already populated. Every other mode gets
+  Inno's normal, unmodified Finished page. }
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  if (CurPageID = wpFinished) and IsMigrationTarget() then
+  begin
+    WizardForm.FinishedLabel.Caption :=
+      'Setup has finished installing ER-ServiceDesk in Migration Target mode.' + #13#10 +
+      'Copy the migration token below now -- it will not be shown again.';
+
+    if MigrationTokenMemo = nil then
+    begin
+      MigrationTokenMemo := TNewMemo.Create(WizardForm);
+      MigrationTokenMemo.Parent := WizardForm.FinishedLabel.Parent;
+      MigrationTokenMemo.Left := WizardForm.FinishedLabel.Left;
+      MigrationTokenMemo.Top := WizardForm.FinishedLabel.Top + WizardForm.FinishedLabel.Height + 16;
+      MigrationTokenMemo.Width := WizardForm.FinishedLabel.Width;
+      MigrationTokenMemo.Height := 40;
+      MigrationTokenMemo.ReadOnly := True;
+    end;
+    MigrationTokenMemo.Lines.Text := MigrationTargetToken;
+    MigrationTokenMemo.Visible := True;
   end;
 end;
 

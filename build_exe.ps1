@@ -18,8 +18,8 @@
 # failed install step is caught and reported immediately, rather than
 # silently continuing to a later, more confusing failure.
 #
-# Output: dist\ERServiceDesk\ERServiceDesk.exe (plus its supporting
-# files in that same folder -- this is what the WiX installer packages).
+# Output: dist\ER-ServiceDesk\ER-ServiceDesk.exe (plus its supporting
+# files in that same folder -- this is what the Inno Setup installer packages).
 
 $ErrorActionPreference = "Stop"
 
@@ -56,9 +56,9 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-Write-Host "Building ERServiceDesk.exe..." -ForegroundColor Cyan
+Write-Host "Building ER-ServiceDesk.exe..." -ForegroundColor Cyan
 python -m PyInstaller ER-ServiceDesk.spec
 Test-LastCommand "PyInstaller build"
 
 Write-Host ""
-Write-Host "Build complete: dist\ERServiceDesk\ERServiceDesk.exe" -ForegroundColor Green
+Write-Host "Build complete: dist\ER-ServiceDesk\ER-ServiceDesk.exe" -ForegroundColor Green

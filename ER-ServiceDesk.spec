@@ -6,7 +6,7 @@
 #     pip install -r desktop/requirements.txt
 #     pyinstaller ER-ServiceDesk.spec
 #
-# Produces dist/ERServiceDesk/ERServiceDesk.exe (onedir build -- see
+# Produces dist/ER-ServiceDesk/ER-ServiceDesk.exe (onedir build -- see
 # note below on why onedir rather than onefile).
 #
 # This only packages desktop/ and its own dependencies (PySide6,
@@ -43,7 +43,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='ERServiceDesk',
+    name='ER-ServiceDesk',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -72,5 +72,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='ERServiceDesk',
+    name='ER-ServiceDesk',
 )

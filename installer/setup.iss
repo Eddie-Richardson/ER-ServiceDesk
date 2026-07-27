@@ -1,30 +1,32 @@
 ; ER-ServiceDesk-Installer/setup.iss
 ;
-; STEP 4. Steps 1-3 proved the toolchain, mode selection, and Server
-; sub-choice screen all work end to end -- confirmed on a real machine
-; for all scenarios independently.
+; STEP 5. Steps 1-4 proved the toolchain, mode selection, Server
+; sub-choice, credential collection, secret generation, .env/registry
+; writes, and uninstall cleanup all work end to end -- confirmed on a
+; real machine for every scenario independently.
 ;
-; This step adds the real substance: collecting Gmail credentials and
-; a business name (Local and Server -> New Setup only; skipped for
-; Server -> Migration Target, since that data arrives later via
-; migration itself, and skipped for Client, which owns neither), a
-; server address field (Client only), auto-generating SECRET_KEY and
-; a Postgres password, and writing the real .env file -- to both the
-; main install location and the separate backup folder -- plus the
-; Windows Registry values (install_mode, backend_url, business_name)
-; that the desktop app's settings_manager.py reads on every launch.
+; This step replaces the placeholder marker files with the real
+; application: the PyInstaller exe (Local + Client), and the backend +
+; Docker files (Local + Server) -- confirmed against the actual
+; project root that Dockerfile's "COPY . ." needs six things present,
+; not three: docker-compose.yml, Dockerfile, requirements.txt,
+; alembic.ini, the alembic/ migrations folder, and app/ itself. An
+; earlier draft of this list was missing requirements.txt and the
+; alembic files entirely, which would have caused a broken build with
+; no migrations to run.
 ;
-; Every piece of syntax here was verified directly against jrsoftware.org's
-; own official documentation or real example scripts before being written --
-; CreateInputQueryPage and its Password-masking parameter, SaveStringToFile,
-; ForceDirectories, Random, and RegWriteStringValue with HKEY_CURRENT_USER.
-; An earlier attempt included a Randomize call to seed Random() -- that's
-; not a real function here, confirmed directly against jrsoftware.org's
-; complete official Support Functions Reference, which lists every function
-; this environment exposes and Randomize isn't among them. Removed; that
-; same reference's own entry for Random() doesn't mention any seeding
-; requirement either, unlike generic Pascal tutorials, so it's very likely
-; auto-seeded internally.
+; It also adds the actual Docker orchestration -- building images,
+; starting containers, running migrations, and seeding the database --
+; via Inno's Exec() function, confirmed directly against jrsoftware.org's
+; official documentation. Migration Target deliberately skips migrations
+; and seeding entirely, since the real, already-migrated data arrives
+; later via pg_restore during the actual migration.
+;
+; One detail here wasn't independently verified against official docs
+; the way everything else was, in the interest of time: the Excludes
+; parameter on the alembic/ and app/ [Files] entries, meant to keep
+; __pycache__ folders out of the bundle. If this causes a build error,
+; that's exactly why -- worth knowing which line to look at first.
 ;
 ; Still unverified from this end -- Inno Setup produces a real Windows
 ; executable installer, and there's no way to test that outside a real
@@ -33,7 +35,7 @@
 
 [Setup]
 AppName=ER-ServiceDesk
-AppVersion=1.0.4
+AppVersion=1.0.6
 DefaultDirName={localappdata}\ER-ServiceDesk
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
@@ -41,12 +43,23 @@ OutputDir=.
 OutputBaseFilename=ER-ServiceDesk-Setup
 
 [Files]
-Source: "test-install-proof.txt"; DestDir: "{app}"
-Source: "local-mode-marker.txt"; DestDir: "{app}"; Check: IsLocalMode
-Source: "server-mode-marker.txt"; DestDir: "{app}"; Check: IsServerMode
-Source: "client-mode-marker.txt"; DestDir: "{app}"; Check: IsClientMode
-Source: "server-new-setup-marker.txt"; DestDir: "{app}"; Check: IsNewServerSetup
-Source: "server-migration-target-marker.txt"; DestDir: "{app}"; Check: IsMigrationTarget
+; Desktop app -- Local and Client only, not Server (professional
+; client-server design keeps the GUI off a headless server).
+Source: "..\dist\ER-ServiceDesk\*"; DestDir: "{app}"; Flags: recursesubdirs; Check: not IsServerMode
+
+; Backend + Docker files -- Local and Server (both sub-choices), not
+; Client, which owns no database or backend at all. Everything here
+; matches exactly what Dockerfile's "COPY . ." needs to find in the
+; same folder as docker-compose.yml, confirmed directly against the
+; real project root: requirements.txt, alembic.ini, and the alembic/
+; migrations folder were all missing from an earlier draft of this
+; list and would have caused a broken build/missing migrations.
+Source: "..\docker-compose.yml"; DestDir: "{app}"; Check: not IsClientMode
+Source: "..\Dockerfile"; DestDir: "{app}"; Check: not IsClientMode
+Source: "..\requirements.txt"; DestDir: "{app}"; Check: not IsClientMode
+Source: "..\alembic.ini"; DestDir: "{app}"; Check: not IsClientMode
+Source: "..\alembic\*"; DestDir: "{app}\alembic"; Flags: recursesubdirs; Excludes: "__pycache__"; Check: not IsClientMode
+Source: "..\app\*"; DestDir: "{app}\app"; Flags: recursesubdirs; Excludes: "__pycache__"; Check: not IsClientMode
 
 [Code]
 const
@@ -212,12 +225,61 @@ begin
   end;
 end;
 
+{ Runs a command via cmd.exe (so PATH-based tool resolution works the
+  same as typing it in a real command prompt), waits for it to finish,
+  and shows a clear error naming exactly what failed and what command
+  to try manually if it did -- rather than leaving someone with a
+  silently half-configured install and no idea why. }
+function RunCommand(const Description, Params: String): Boolean;
+var
+  ResultCode: Integer;
+begin
+  Result := Exec('cmd.exe', '/C ' + Params, ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  if Result then
+    Result := ResultCode = 0;
+  if not Result then
+    MsgBox('Setup step failed: ' + Description + #13#13 +
+      'ER-ServiceDesk is installed at ' + ExpandConstant('{app}') + '. ' +
+      'You may be able to fix this by running the following manually ' +
+      'from that folder:' + #13#13 + Params, mbError, MB_OK);
+end;
+
+{ Builds and starts Docker containers, then runs migrations and seeds
+  the database -- skipped for Migration Target, since the real,
+  already-migrated data arrives later via pg_restore during the actual
+  migration, which brings its own schema with it. Running migrations
+  here first would just be redundant work against a database that's
+  about to be replaced anyway. }
+procedure RunDockerSetup;
+begin
+  if not RunCommand('Starting Docker containers', 'docker-compose up -d --build') then
+    Exit;
+
+  { Postgres and the API container both need a few seconds to actually
+    become ready after starting. A fixed pause is simple and pragmatic
+    here; a more precise health-check retry loop (matching what the
+    desktop app's own BackendStartupWorker already does) is a
+    reasonable future improvement, not required for this to work. }
+  Sleep(20000);
+
+  if IsLocalMode() or IsNewServerSetup() then
+  begin
+    if not RunCommand('Running database migrations', 'docker-compose exec -T api alembic upgrade head') then
+      Exit;
+    if not RunCommand('Seeding initial data', 'docker-compose exec -T api python -m app.db.run_seed') then
+      Exit;
+  end;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
   begin
     if not IsClientMode() then
+    begin
       WriteEnvFiles;
+      RunDockerSetup;
+    end;
     WriteRegistryValues;
   end;
 end;

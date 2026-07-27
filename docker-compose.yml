@@ -15,6 +15,35 @@
 # so they only need to be set in one place -- see .env for the values that
 # POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB resolve to, and make sure
 # DATABASE_URL in .env uses the same password.
+#
+# The explicit "name:" below matters more than it looks like it should.
+# Without it, Docker Compose derives a project name from the containing
+# FOLDER'S NAME, not its full path -- meaning a dev checkout at
+# ...\ER-ServiceDesk\ and an installed copy at
+# ...\AppData\Local\ER-ServiceDesk\ would be treated as the SAME project
+# (same folder name, different parent path) and would silently reuse each
+# other's named volumes, including the Postgres one. That's exactly what
+# happened during real installer testing: a freshly-generated .env
+# password didn't match the password already baked into a volume that
+# had actually been created by a completely different install, because
+# both happened to sit in a folder named "ER-ServiceDesk".
+#
+# Deliberately NOT just "er-servicedesk" -- that's exactly what Compose
+# would derive implicitly from a folder named "ER-ServiceDesk" anyway,
+# which is the exact value already causing the collision above. Naming
+# it that explicitly would have pinned it to the same broken value, not
+# fixed anything. The "-app" suffix is what makes this genuinely
+# distinct from any folder-derived default -- the hyphenated spelling
+# itself is deliberately kept, matching the app's real name, rather
+# than squashed into "erservicedesk" (an earlier, unnecessarily
+# cautious version of this fix did exactly that, and read as an
+# unrecognizable name rather than the actual product).
+#
+# Note: Docker Compose always lowercases project/container names
+# regardless of what's written here -- "ER-ServiceDesk" exactly-cased
+# will never appear in `docker ps` output, that's a Docker constraint,
+# not a choice made here.
+name: er-servicedesk-app
 
 services:
   # -------------------------------------------------------------------------
@@ -22,7 +51,7 @@ services:
   # -------------------------------------------------------------------------
   api:
     build: .
-    container_name: er_api
+    container_name: er-servicedesk-app-api
     ports:
       - "8000:8000"        # Expose API on localhost:8000
     env_file: .env         # Load environment variables
@@ -35,7 +64,7 @@ services:
   # -------------------------------------------------------------------------
   db:
     image: postgres:15
-    container_name: er_postgres
+    container_name: er-servicedesk-app-postgres
     ports:
       - "5432:5432"        # Expose Postgres on localhost:5432 for local
                             # pytest runs and admin tools (psql, DBeaver, etc.)
@@ -51,14 +80,14 @@ services:
   # -------------------------------------------------------------------------
   redis:
     image: redis:7
-    container_name: er_redis
+    container_name: er-servicedesk-app-redis
 
   # -------------------------------------------------------------------------
   # RQ Worker
   # -------------------------------------------------------------------------
   worker:
     build: .
-    container_name: er_worker
+    container_name: er-servicedesk-app-worker
     command: ["python", "app/workers/worker.py"]  # Worker entrypoint
     env_file: .env
     depends_on:

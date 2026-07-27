@@ -15,6 +15,14 @@ containers spin up. Responsible for two things:
 
 This module has no GUI code in it -- it only emits Qt signals. The actual
 splash-screen UI lives in startup_window.py, which listens to these signals.
+
+Every user-facing message here says "Docker" generically, never "Docker
+Desktop" -- this project's actual target is Docker Engine running
+inside WSL2, which has no GUI application at all to "check" or "open".
+A real bug caught this: an earlier version of the timeout message told
+Client-mode users (who have no local Docker whatsoever) to "check
+Docker Desktop" for a remote server that was simply unreachable --
+wrong on two counts at once, confirmed by real testing.
 """
 
 import subprocess
@@ -112,14 +120,14 @@ class BackendStartupWorker(QObject):
             self.finished.emit(
                 False,
                 "Docker was not found on this machine. Please make sure "
-                "Docker Desktop is installed and running, then try again.",
+                "Docker is installed and running, then try again.",
             )
             return False
         except subprocess.TimeoutExpired:
             self.finished.emit(
                 False,
                 "Docker took too long to start the containers (over 3 "
-                "minutes). Please check Docker Desktop is running and try "
+                "minutes). Please make sure Docker is running and try "
                 "again.",
             )
             return False
@@ -161,10 +169,25 @@ class BackendStartupWorker(QObject):
 
             time.sleep(self.poll_interval_seconds)
 
-        self.finished.emit(
-            False,
-            "The backend containers started, but the API never became "
-            "ready in time. Check Docker Desktop to see if a container "
-            "crashed, or try restarting the app.",
-        )
+        # The two failure paths here are genuinely different situations,
+        # not the same problem with a shared cause -- a real test caught
+        # this: Client mode (skip_docker=True) has no local containers at
+        # all, so a message about containers crashing was actively wrong,
+        # on top of also referencing a Docker Desktop GUI that doesn't
+        # exist in this project's target Docker Engine setup either way.
+        if self.skip_docker:
+            self.finished.emit(
+                False,
+                "Could not reach the configured server in time. Check "
+                "that the server address is correct, the server is "
+                "running, and this PC can reach it on the network, then "
+                "try again.",
+            )
+        else:
+            self.finished.emit(
+                False,
+                "The backend containers started, but the API never "
+                "became ready in time. Try running 'docker ps' to check "
+                "container status, or restart the app.",
+            )
         return False

@@ -1,20 +1,35 @@
 ; ER-ServiceDesk-Installer/setup.iss
 ;
-; STEP 7. Steps 1-6 are now fully tested end to end on real hardware
-; for all four real scenarios. A real test of Step 6's migration token
-; display caught a genuine bug: WizardForm.FinishedLabel.Caption
-; silently clips long text rather than wrapping it, so the token never
-; appeared at all on first attempt. Fixed with a separate, properly
-; sized TNewMemo control instead -- confirmed working via a second
-; real test, token fully visible and copyable.
+; STEP 8. Steps 1-7 are now fully tested end to end on real hardware for
+; all four real scenarios, including Start Menu/desktop shortcuts
+; (confirmed created correctly, and correctly removed on uninstall).
 ;
-; This step adds Start Menu and optional desktop shortcuts -- neither
-; existed at all before this; the exe was only ever reachable by
-; browsing directly to %LOCALAPPDATA%\ER-ServiceDesk\. {autoprograms}
-; and {autodesktop} confirmed against a real official Inno example
-; script. Not offered for Server, which has no exe installed at all.
-; Desktop icon is opt-in (unchecked by default), Start Menu shortcut
-; is automatic -- standard Inno convention for both.
+; This step moves the install location from %LOCALAPPDATA% (per-user)
+; to Program Files (machine-wide), and PrivilegesRequired from lowest
+; to admin. This wasn't an arbitrary change -- it resolves a real
+; mismatch: business software is typically installed once by whoever
+; has admin rights, but may be used afterward by a different employee
+; logging into that same PC. A per-user location tied to whichever
+; account happened to run the installer would be invisible to anyone
+; else logging in; Program Files is visible to every account on the
+; machine regardless of who set it up.
+;
+; {autopf} confirmed directly against jrsoftware.org's own official
+; Directory Constants documentation as their explicitly recommended
+; constant for this (auto-resolves correctly based on privilege mode).
+;
+; This required matching changes on the desktop app side too --
+; desktop/app_paths.py now resolves to Program Files instead of
+; LOCALAPPDATA, and desktop/settings_manager.py now splits its
+; registry writes: theme stays per-user (HKEY_CURRENT_USER, a genuine
+; per-person preference), while install_mode/backend_url/business_name
+; move to machine-wide (HKEY_LOCAL_MACHINE, facts about the machine's
+; setup, not about whoever's logged in) -- confirmed via real
+; functional tests on both files, not just reasoned through.
+;
+; The registry writes/deletes below also moved from HKEY_CURRENT_USER
+; to HKEY_LOCAL_MACHINE to match. Writing to HKEY_LOCAL_MACHINE
+; requires admin rights, which this installer now has by design.
 ;
 ; Still unverified from this end -- Inno Setup produces a real Windows
 ; executable installer, and there's no way to test that outside a real
@@ -23,10 +38,26 @@
 
 [Setup]
 AppName=ER-ServiceDesk
-AppVersion=1.0.9
-DefaultDirName={localappdata}\ER-ServiceDesk
+AppVersion=1.1.1
+DefaultDirName={autopf}\ER-ServiceDesk
 DisableProgramGroupPage=yes
-PrivilegesRequired=lowest
+PrivilegesRequired=admin
+; Without this, Inno defaults to 32-bit install mode, and {autopf}
+; resolves to "Program Files (x86)" instead of the real 64-bit
+; "Program Files" -- confirmed as the actual cause of a real bug where
+; the installer reported success but the desktop app (a normal 64-bit
+; PyInstaller build) couldn't find anything, since the two were
+; looking in genuinely different folders.
+;
+; x64compatible, not the older x64 -- confirmed directly against
+; jrsoftware.org's own Architecture Identifiers documentation and
+; their official migration guide: x64compatible matches both real x64
+; Windows and Arm64 Windows 11 (via emulation), while the older x64
+; (deprecated, silently substituted to x64os by the compiler) only
+; matches true x64 hardware. No reason to exclude Arm64 devices for a
+; normal desktop business app -- this isn't a device driver.
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=.
 OutputBaseFilename=ER-ServiceDesk-Setup
 
@@ -57,10 +88,12 @@ Source: "..\app\*"; DestDir: "{app}\app"; Flags: recursesubdirs; Excludes: "__py
 Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "Additional icons:"; Check: not IsServerMode
 
 [Icons]
-; {autoprograms}/{autodesktop} automatically resolve correctly for a
-; per-user install (PrivilegesRequired=lowest above) without needing
-; to reason about per-user vs per-machine Start Menu/Desktop paths --
-; confirmed against a real official Inno example script.
+; {autoprograms}/{autodesktop} automatically resolve to the all-users
+; form now that PrivilegesRequired=admin (rather than the per-user form
+; they'd resolve to under a lowest-privilege install) -- confirmed
+; against a real official Inno example script. This is the actual
+; desired behavior here: every employee logging into a shared PC sees
+; the shortcut, not just whoever happened to run the installer.
 Name: "{autoprograms}\ER-ServiceDesk"; Filename: "{app}\ER-ServiceDesk.exe"; Check: not IsServerMode
 Name: "{autodesktop}\ER-ServiceDesk"; Filename: "{app}\ER-ServiceDesk.exe"; Tasks: desktopicon; Check: not IsServerMode
 
@@ -220,7 +253,7 @@ begin
 
   SaveStringToFile(ExpandConstant('{app}\.env'), EnvContent, False);
 
-  BackupDir := ExpandConstant('{localappdata}\ER-ServiceDesk-Backup');
+  BackupDir := ExpandConstant('{autopf}\ER-ServiceDesk-Backup');
   ForceDirectories(BackupDir);
   SaveStringToFile(BackupDir + '\.env', EnvContent, False);
 end;
@@ -233,14 +266,14 @@ procedure WriteRegistryValues;
 begin
   if IsLocalMode() then
   begin
-    RegWriteStringValue(HKEY_CURRENT_USER, RegPath, 'install_mode', 'local');
-    RegWriteStringValue(HKEY_CURRENT_USER, RegPath, 'backend_url', 'http://localhost:8000');
-    RegWriteStringValue(HKEY_CURRENT_USER, RegPath, 'business_name', CredentialsPage.Values[2]);
+    RegWriteStringValue(HKEY_LOCAL_MACHINE, RegPath, 'install_mode', 'local');
+    RegWriteStringValue(HKEY_LOCAL_MACHINE, RegPath, 'backend_url', 'http://localhost:8000');
+    RegWriteStringValue(HKEY_LOCAL_MACHINE, RegPath, 'business_name', CredentialsPage.Values[2]);
   end
   else if IsClientMode() then
   begin
-    RegWriteStringValue(HKEY_CURRENT_USER, RegPath, 'install_mode', 'client');
-    RegWriteStringValue(HKEY_CURRENT_USER, RegPath, 'backend_url', ClientAddressPage.Values[0]);
+    RegWriteStringValue(HKEY_LOCAL_MACHINE, RegPath, 'install_mode', 'client');
+    RegWriteStringValue(HKEY_LOCAL_MACHINE, RegPath, 'backend_url', ClientAddressPage.Values[0]);
   end;
 end;
 
@@ -371,7 +404,7 @@ procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usPostUninstall then
   begin
-    DelTree(ExpandConstant('{localappdata}\ER-ServiceDesk-Backup'), True, True, True);
-    RegDeleteKeyIncludingSubkeys(HKEY_CURRENT_USER, RegPath);
+    DelTree(ExpandConstant('{autopf}\ER-ServiceDesk-Backup'), True, True, True);
+    RegDeleteKeyIncludingSubkeys(HKEY_LOCAL_MACHINE, RegPath);
   end;
 end;

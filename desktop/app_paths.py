@@ -15,9 +15,19 @@ that isn't guaranteed to exist between runs (`sys._MEIPASS`), so
 anything that needs to persist across restarts -- docker-compose.yml,
 the backend source Docker builds from, and the generated .env -- can't
 live there. Those instead live in a fixed, permanent location the Inno
-installer places them in: %LOCALAPPDATA%\\ER-ServiceDesk\\. The icon,
+installer places them in: Program Files\\ER-ServiceDesk\\. The icon,
 by contrast, is read-only and never changes after packaging, so it's
 fine for it to live inside PyInstaller's bundle.
+
+Program Files, not %LOCALAPPDATA%, deliberately -- this project moved
+away from a per-user install location once the installer started
+requiring admin rights (PrivilegesRequired=admin). The real-world
+scenario driving this: software in a business setting is typically
+installed once by whoever has admin rights, but may be used by a
+different employee logging into that same PC later. A per-user
+location tied to whichever specific account happened to run the
+installer wouldn't be found by anyone else logging in; Program Files
+is visible to every account on the machine regardless of who set it up.
 
 `sys.frozen` is the standard flag PyInstaller sets on `sys` at runtime
 to signal "this is a packaged build" -- checking it is the normal,
@@ -44,17 +54,17 @@ def get_compose_dir() -> str:
 
     In dev mode, this is the project root (one level up from desktop/).
     In a packaged build, this is the fixed, permanent location the Inno
-    installer placed these files in -- %LOCALAPPDATA%\\ER-ServiceDesk\\ --
+    installer placed these files in -- Program Files\\ER-ServiceDesk\\ --
     since PyInstaller's own extraction directory isn't a safe place for
     anything that needs to persist across app restarts.
     """
     if is_frozen():
-        local_app_data = os.environ.get("LOCALAPPDATA")
-        if not local_app_data:
+        program_files = os.environ.get("ProgramFiles")
+        if not program_files:
             # Extremely unlikely on real Windows, but fail loudly rather
             # than silently pointing at a wrong/empty path if it ever happens.
-            raise RuntimeError("LOCALAPPDATA environment variable not set.")
-        return str(Path(local_app_data) / APP_DATA_DIR_NAME)
+            raise RuntimeError("ProgramFiles environment variable not set.")
+        return str(Path(program_files) / APP_DATA_DIR_NAME)
 
     return str(Path(__file__).resolve().parent.parent)
 
@@ -74,12 +84,21 @@ def get_env_backup_dir() -> str:
     inside it -- if the main ER-ServiceDesk folder itself gets deleted
     (by accident, a bad cleanup tool, antivirus overreach), a backup
     living inside that same folder would vanish right along with it.
+
+    Living under Program Files means restoring this backup (see
+    env_recovery.py) requires admin rights, same as installing it did
+    in the first place -- consistent with how this project is actually
+    used: Local is realistically a single shop owner who's already an
+    admin on their own PC, and Server is headless, only ever touched
+    directly by IT/admin staff. Client never has a .env at all, so
+    this restore path never applies to the one case with a genuinely
+    non-admin regular employee.
     """
     if is_frozen():
-        local_app_data = os.environ.get("LOCALAPPDATA")
-        if not local_app_data:
-            raise RuntimeError("LOCALAPPDATA environment variable not set.")
-        return str(Path(local_app_data) / ENV_BACKUP_DIR_NAME)
+        program_files = os.environ.get("ProgramFiles")
+        if not program_files:
+            raise RuntimeError("ProgramFiles environment variable not set.")
+        return str(Path(program_files) / ENV_BACKUP_DIR_NAME)
 
     return str(Path(__file__).resolve().parent.parent.parent / ENV_BACKUP_DIR_NAME)
 

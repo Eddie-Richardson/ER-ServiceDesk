@@ -1,63 +1,41 @@
 ; ER-ServiceDesk-Installer/setup.iss
 ;
-; STEP 9. Steps 1-8 are now fully tested end to end on real hardware
-; for all four real scenarios under the Program Files/admin-privileges
-; architecture, including two real bugs found and fixed through that
-; testing (a 32-bit Program Files path mismatch, and Client mode's
-; .env check incorrectly blocking launch -- the latter fixed in
-; desktop/main.py, not this file).
+; STEP 11. This step closes out the last planned feature before VM
+; testing: Server's .env self-healing at boot. Confirmed a real,
+; important gap while designing this -- docker-compose.yml had NO
+; restart policy on any service at all, meaning even a perfectly
+; healthy .env wouldn't have mattered, since containers simply
+; wouldn't come back up after a reboot regardless. Fixed with
+; restart: unless-stopped on all four services (in docker-compose.yml,
+; not this file) -- Docker's own native mechanism for the common case.
 ;
-; This step adds the single largest, most technically involved piece
-; of the whole installer: automatically installing Docker Engine
-; inside WSL2 (no Docker Desktop, matching this project's actual
-; target architecture) when it isn't already present, including
-; handling a mid-install reboot if enabling WSL2's Windows features
-; requires one -- for Local and Server only; Client never touches any
-; of this, since it has no local Docker at all.
+; That alone isn't sufficient, though: a Docker-native restart of an
+; EXISTING container does not re-read .env at all (the same lesson
+; already learned the hard way earlier in this project), and a restart
+; policy has nothing to restart if the containers were never created
+; in the first place. env_self_healing.ps1 is what actually closes
+; both gaps -- checks/restores .env exactly like desktop/env_recovery.py
+; already does for Local/Client (confirmed against that file's real,
+; current logic before writing this), then explicitly runs
+; docker-compose up -d, registered via a Scheduled Task at every boot,
+; same SYSTEM-privilege pattern already used for every other Scheduled
+; Task in this installer.
 ;
-; Worth being honest and explicit: this is genuinely the least
-; verifiable piece built so far. Every individual technique used here
-; was confirmed against real, authoritative sources before being
-; written -- never guessed -- but the full sequence has never run
-; anywhere, and several of the pieces it depends on (systemd inside
-; WSL2, Docker's TCP exposure, winget, the reboot-resume mechanism
-; itself) genuinely cannot be tested outside a real Windows machine
-; that's never had WSL2 or Docker before. This is exactly what the
-; planned VM test exists to prove, and this piece should be expected
-; to need real iteration once that becomes possible, unlike most of
-; what's been built so far tonight.
+; Both Server sub-choices, not just Migration Target -- unlike
+; migration_listener.ps1, any Server install has .env and needs this
+; resilience.
 ;
-; Key techniques and why each was chosen, all confirmed via real
-; sources rather than assumed:
-;   - PrepareToInstall/RunOnce/InitializeSetup for the reboot-resume
-;     mechanism -- confirmed via jrsoftware's own official example
-;     script demonstrating this exact scenario
-;     (CodePrepareToInstall.iss), not a WiX-style native feature Inno
-;     itself doesn't have.
-;   - "wsl --import" from an official Ubuntu WSL rootfs tarball,
-;     deliberately not "wsl --install -d <distro>" -- confirmed via a
-;     real, currently-open Microsoft WSL GitHub issue that --install
-;     (even with --no-launch) still requires an interactive Unix
-;     username/password prompt on first launch, which would hang an
-;     unattended install indefinitely.
-;   - A systemd override (not daemon.json's "hosts" key alone) to
-;     expose Docker over TCP -- confirmed as the correct approach,
-;     since daemon.json's hosts key alone conflicts with the distro's
-;     own default ExecStart and prevents Docker from starting.
-;   - winget for the Windows-side Docker CLI, rather than a manually
-;     versioned download from download.docker.com/win/static/, which
-;     would require hardcoding a specific version number that goes
-;     stale over time.
+; Verified with PowerShell's own real parser (same tooling already
+; used for migration_listener.ps1) -- confirmed zero syntax errors.
 ;
 ; Still unverified from this end -- Inno Setup produces a real Windows
 ; executable installer, and there's no way to test that outside a real
 ; Windows machine. The real proof is running it and reporting back
 ; exactly what happens.
-; exactly what happens.
 
 [Setup]
 AppName=ER-ServiceDesk
-AppVersion=1.2.2
+AppVersion=1.4.0
 DefaultDirName={autopf}\ER-ServiceDesk
 DisableProgramGroupPage=yes
 PrivilegesRequired=admin
@@ -98,6 +76,21 @@ Source: "..\requirements.txt"; DestDir: "{app}"; Check: not IsClientMode
 Source: "..\alembic.ini"; DestDir: "{app}"; Check: not IsClientMode
 Source: "..\alembic\*"; DestDir: "{app}\alembic"; Flags: recursesubdirs; Excludes: "__pycache__"; Check: not IsClientMode
 Source: "..\app\*"; DestDir: "{app}\app"; Flags: recursesubdirs; Excludes: "__pycache__"; Check: not IsClientMode
+
+; The migration-receiving listener -- Migration Target only, since
+; that's the only path that ever needs to receive an incoming
+; migration. Runs as a standalone process outside Docker entirely
+; (see the file's own header comment for why) -- launched detached at
+; the end of install and registered via a Scheduled Task so it
+; survives a reboot before the real migration arrives, both wired in
+; CurStepChanged below.
+Source: "migration_listener.ps1"; DestDir: "{app}"; Check: IsMigrationTarget
+
+; .env self-healing + container startup at boot -- both Server
+; sub-choices, unlike migration_listener.ps1 above which is Migration
+; Target only. Any Server install has .env and needs this resilience,
+; not just one that's specifically waiting to receive a migration.
+Source: "env_self_healing.ps1"; DestDir: "{app}"; Check: IsServerMode
 
 [Tasks]
 ; Optional desktop icon, unchecked by default (opt-in, not opt-out) --
@@ -704,6 +697,52 @@ begin
   end;
 end;
 
+{ Launches the migration-receiving listener as a detached background
+  process -- Migration Target only, and only after RunDockerSetup
+  above has already started the containers this listener will later
+  need to run docker-compose exec against. Also registers it via a
+  Scheduled Task so it survives a reboot before the real migration
+  actually arrives, which could be minutes or weeks later. Uses
+  ewNoWait for the immediate launch, since this needs to keep running
+  indefinitely in the background rather than block Setup's own
+  completion. }
+procedure StartMigrationListener;
+var
+  ResultCode: Integer;
+begin
+  Exec('powershell.exe',
+    '-ExecutionPolicy Bypass -File "' + ExpandConstant('{app}\migration_listener.ps1') + '"',
+    ExpandConstant('{app}'), SW_HIDE, ewNoWait, ResultCode);
+
+  RunCommandQuiet(
+    'schtasks /create /tn "ER-ServiceDesk-Migration-Listener" /tr "powershell.exe -ExecutionPolicy Bypass -File \"' + ExpandConstant('{app}\migration_listener.ps1') + '\"" /sc onstart /ru SYSTEM /rl HIGHEST /f',
+    ExpandConstant('{tmp}'));
+  { Non-fatal if this specific Scheduled Task registration fails --
+    the listener launched just above is already running for this
+    session regardless; the Task only matters if the server reboots
+    before the real migration happens. }
+end;
+
+{ Registers env_self_healing.ps1 to run at every Windows startup, as
+  SYSTEM (matching every other Scheduled Task this installer creates,
+  for the same reason: only SYSTEM or local Administrators have
+  sufficient privilege for this kind of unattended, boot-time work).
+  Both Server sub-choices, since any Server install has .env and needs
+  this resilience. Deliberately only registers the Task for FUTURE
+  boots -- doesn't also launch it immediately, since RunDockerSetup
+  just above (already run for this same install, moments earlier)
+  already did the equivalent work for the current session; running it
+  again right now would just be redundant. }
+procedure RegisterEnvSelfHealing;
+begin
+  RunCommandQuiet(
+    'schtasks /create /tn "ER-ServiceDesk-Env-Self-Healing" /tr "powershell.exe -ExecutionPolicy Bypass -File \"' + ExpandConstant('{app}\env_self_healing.ps1') + '\"" /sc onstart /ru SYSTEM /rl HIGHEST /f',
+    ExpandConstant('{tmp}'));
+  { Non-fatal if this fails to register -- worth knowing, but a failed
+    registration here doesn't affect the current install session at
+    all, only resilience against a FUTURE reboot. }
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
@@ -712,6 +751,10 @@ begin
     begin
       WriteEnvFiles;
       RunDockerSetup;
+      if IsMigrationTarget() then
+        StartMigrationListener;
+      if IsServerMode() then
+        RegisterEnvSelfHealing;
     end;
     WriteRegistryValues;
   end;

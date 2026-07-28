@@ -161,3 +161,31 @@ def save_business_name(name: str):
         name: The shop's display name.
     """
     _machine_settings().setValue(BUSINESS_NAME_KEY, name)
+
+
+BACKUP_LOCATION_KEY = "deployment/backup_location"
+
+
+def get_backup_location() -> str:
+    """
+    Returns the saved folder where database backups should be written.
+    Empty string if never chosen -- callers should fall back to a
+    sensible suggested default in that case (see database_backup_tab.py).
+
+    Machine-wide (SystemScope), not per-user -- this is a fact about
+    how this installation is set up (where its backups go), the same
+    category as install_mode/backend_url/business_name, not a personal
+    preference like theme.
+    """
+    return _machine_settings().value(BACKUP_LOCATION_KEY, "")
+
+
+def save_backup_location(path: str):
+    """
+    Persists the chosen backup folder. Requires admin rights on
+    Windows, since this is a machine-wide (SystemScope) setting.
+
+    Args:
+        path: A folder path, e.g. "D:\\Backups" or a network location.
+    """
+    _machine_settings().setValue(BACKUP_LOCATION_KEY, path)

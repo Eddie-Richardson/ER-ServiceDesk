@@ -110,9 +110,7 @@ config.ini
 .env.dev
 .env.prod
 .flaskenv
-*.ps1
-# Excluding build file
-!build_exe.ps1
+run_tests.ps1
 
 # -------------------------------------------------------------------
 # Static analysis / linters

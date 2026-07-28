@@ -52,6 +52,11 @@ services:
   api:
     build: .
     container_name: er-servicedesk-app-api
+    restart: unless-stopped   # Automatically comes back up when Docker
+                               # itself restarts (e.g. after a reboot),
+                               # without needing anything to explicitly
+                               # bring it back -- Server has no exe to
+                               # do this for it, unlike Local/Client.
     ports:
       - "8000:8000"        # Expose API on localhost:8000
     env_file: .env         # Load environment variables
@@ -65,6 +70,7 @@ services:
   db:
     image: postgres:15
     container_name: er-servicedesk-app-postgres
+    restart: unless-stopped
     ports:
       - "5432:5432"        # Expose Postgres on localhost:5432 for local
                             # pytest runs and admin tools (psql, DBeaver, etc.)
@@ -81,6 +87,7 @@ services:
   redis:
     image: redis:7
     container_name: er-servicedesk-app-redis
+    restart: unless-stopped
 
   # -------------------------------------------------------------------------
   # RQ Worker
@@ -88,6 +95,7 @@ services:
   worker:
     build: .
     container_name: er-servicedesk-app-worker
+    restart: unless-stopped
     command: ["python", "app/workers/worker.py"]  # Worker entrypoint
     env_file: .env
     depends_on:

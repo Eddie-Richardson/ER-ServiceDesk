@@ -4,11 +4,15 @@
 Settings window: admin-only management of every lookup table used
 throughout the app, plus Roles.
 
-Six tabs: five identically-shaped lookup tables (Locations, Asset
+Eight tabs: five identically-shaped lookup tables (Locations, Asset
 Categories, Ticket Categories, Ticket Statuses, Ticket Types) sharing
-one reusable LookupTab widget, plus Roles (a genuinely different shape
--- permission checkboxes, not a plain description field -- so it gets
-its own RolesTab rather than being forced into the generic pattern).
+one reusable LookupTab widget, Roles (a genuinely different shape --
+permission checkboxes, not a plain description field -- so it gets
+its own RolesTab rather than being forced into the generic pattern),
+and, for Local installs only, Migrate to Server and Database Backup --
+both need a local database to operate on at all, so neither applies to
+Client, and Server never opens this window in the first place (no exe
+is ever installed there).
 
 Superuser-only -- gated by the Dashboard before this window is ever
 opened, same as Users & Roles.
@@ -28,18 +32,21 @@ from desktop.api_client import (
     list_ticket_statuses,
     list_ticket_types,
 )
+from desktop.database_backup_tab import DatabaseBackupTab
 from desktop.lookup_tab import LookupTab
+from desktop.migrate_to_server_tab import MigrateToServerTab
 from desktop.roles_tab import RolesTab
+from desktop.settings_manager import get_install_mode
 from desktop.window_geometry import restore_geometry, save_geometry
 
 
 class SettingsWindow(QWidget):
-    """Standalone window managing every lookup table plus Roles."""
+    """Standalone window managing every lookup table, Roles, and (for Local installs) Migrate to Server and Database Backup."""
 
     window_closed = Signal()
 
     def __init__(self):
-        """Builds all six tabs."""
+        """Builds every tab."""
         super().__init__()
         self.setWindowTitle("ER-ServiceDesk - Settings")
         self.resize(760, 560)
@@ -83,6 +90,16 @@ class SettingsWindow(QWidget):
             "Ticket Types",
         )
         tabs.addTab(RolesTab(), "Roles")
+
+        # Migrate to Server and Database Backup both only make sense
+        # for Local mode -- Client is already pointed at a server (for
+        # Migrate to Server) and has no local database at all (for
+        # either tab). Server mode never opens this window in the
+        # first place (no exe is ever installed there), so no separate
+        # check is needed for that case.
+        if get_install_mode() == "local":
+            tabs.addTab(MigrateToServerTab(), "Migrate to Server")
+            tabs.addTab(DatabaseBackupTab(), "Database Backup")
 
         outer_layout.addWidget(tabs)
         self.setLayout(outer_layout)

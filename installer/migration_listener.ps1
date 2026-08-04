@@ -48,9 +48,17 @@ $InstallDir = $PSScriptRoot
 # already proven working for RunDockerSetup's own docker-compose calls
 # in setup.iss -- setting both explicitly here rather than depending on
 # inheritance at all.
+#
+# DOCKER_HOST points at the Server VM's static IP now, not WSL2's
+# loopback address -- Docker itself runs inside a dedicated Hyper-V VM
+# under this architecture (see create_server_vm.ps1), not WSL2. Every
+# docker/docker-compose call below is otherwise completely unchanged:
+# docker cp, docker-compose exec, and pg_restore all work identically
+# over a remote DOCKER_HOST -- this was the one thing that actually
+# needed to change when Server mode moved off WSL2.
 $WSLInstallDir = Join-Path (Split-Path -Parent $InstallDir) "ER-ServiceDesk-WSL"
 $env:PATH = $env:PATH + ";$WSLInstallDir;$WSLInstallDir\docker"
-$env:DOCKER_HOST = "tcp://[::1]:2375"
+$env:DOCKER_HOST = "tcp://192.168.100.10:2375"
 $EnvPath = Join-Path $InstallDir ".env"
 $ListenPort = 8001
 

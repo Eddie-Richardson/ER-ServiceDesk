@@ -9,10 +9,12 @@ Categories, Ticket Categories, Ticket Statuses, Ticket Types) sharing
 one reusable LookupTab widget, Roles (a genuinely different shape --
 permission checkboxes, not a plain description field -- so it gets
 its own RolesTab rather than being forced into the generic pattern),
-and, for Local installs only, Migrate to Server and Database Backup --
-both need a local database to operate on at all, so neither applies to
-Client, and Server never opens this window in the first place (no exe
-is ever installed there).
+plus mode-specific tabs: Local installs get Migrate to Server and
+Database Backup (both need a local database to operate on, so neither
+applies to Client), and Client installs get Server Resources (needs an
+ongoing connection to a Server, which only Client actually has -- Local
+has no reason to remotely resize itself, and Server never opens this
+window in the first place, since no exe is ever installed there).
 
 Superuser-only -- gated by the Dashboard before this window is ever
 opened, same as Users & Roles.
@@ -36,6 +38,7 @@ from desktop.database_backup_tab import DatabaseBackupTab
 from desktop.lookup_tab import LookupTab
 from desktop.migrate_to_server_tab import MigrateToServerTab
 from desktop.roles_tab import RolesTab
+from desktop.server_resources_tab import ServerResourcesTab
 from desktop.settings_manager import get_install_mode
 from desktop.window_geometry import restore_geometry, save_geometry
 
@@ -100,6 +103,14 @@ class SettingsWindow(QWidget):
         if get_install_mode() == "local":
             tabs.addTab(MigrateToServerTab(), "Migrate to Server")
             tabs.addTab(DatabaseBackupTab(), "Database Backup")
+
+        # Server Resources only makes sense for Client mode -- it's
+        # the one install mode with an ongoing network connection to a
+        # Server to send these commands over at all (the same reason
+        # Migrate to Server is Local-only: each direction only has one
+        # mode that's actually positioned to initiate it).
+        if get_install_mode() == "client":
+            tabs.addTab(ServerResourcesTab(), "Server Resources")
 
         outer_layout.addWidget(tabs)
         self.setLayout(outer_layout)

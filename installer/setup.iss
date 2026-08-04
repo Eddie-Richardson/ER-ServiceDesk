@@ -1,5 +1,66 @@
 ; ER-ServiceDesk-Installer/setup.iss
 ;
+; STEP 21. Server mode moved off WSL2 entirely, onto a dedicated,
+; genuine Hyper-V Linux VM -- Local mode is completely untouched by
+; this, still WSL2, unchanged.
+;
+; Root cause this fixes: extensive real testing (many hours, several
+; separate approaches, all directly tested and ruled out) confirmed
+; wsl.exe fundamentally cannot run reliably with no interactive
+; Windows session present at all -- a real, documented, still-open WSL
+; limitation, not a bug in anything built here. Task Scheduler running
+; server_startup.ps1 as SYSTEM hung wsl.exe indefinitely. An
+; NSSM-wrapped genuine Windows Service (Step 20's own fix) hit a
+; different symptom, "the file cannot be accessed by the system," but
+; the same underlying wall. S4U logon and auto-logon-then-logout were
+; both ruled out too (the former via Microsoft's own docs stating it
+; runs in a non-interactive desktop; the latter via a direct test
+; showing `wsl -l -v` reporting the distro Stopped the moment the
+; session that started it was torn down at logout). Docker Desktop
+; itself is confirmed unsupported on Windows Server entirely, for the
+; same fundamental reason.
+;
+; A genuine Hyper-V VM sidesteps this completely -- confirmed via real
+; research (someone who deliberately rebooted a Hyper-V host and never
+; logged in) that a VM set to AutomaticStartAction Start genuinely
+; boots at host startup with no interactive session required, unlike
+; WSL2. Since the VM runs genuine Linux, the existing Docker setup --
+; docker-compose.yml, the Postgres/Redis/Python images, all already
+; Linux-native -- needs ZERO changes; this only relocates what HOSTS
+; Docker for Server mode.
+;
+; Removed entirely: server_startup.ps1, wsl_port_forward.ps1, and the
+; NSSM Windows Service registration (RegisterServerStartupTask) --
+; every one of these existed only to fight WSL2's login-dependent
+; lifecycle, which no longer applies once the VM boots on its own.
+; docker-compose.yml already has restart: unless-stopped on every
+; service, which is what makes containers coming back up after a VM
+; reboot just work via Docker's own daemon behavior -- no Windows-side
+; orchestration script needed inside the loop at all anymore.
+;
+; New: prepare_vm_image.ps1 (downloads Ubuntu's generic qcow2 cloud
+; image, converts to a shared master VHDX via a standalone qemu-img
+; build) and create_server_vm.ps1 (internal NAT switch with a static
+; VM IP, dynamic per-host resource sizing, a per-install SSH keypair,
+; a cloud-init NoCloud seed ISO built via oscdimg, VM creation and
+; Secure Boot configuration, and a wait-until-genuinely-ready poll over
+; SSH). migration_listener.ps1 needed exactly one change -- its
+; DOCKER_HOST now points at the VM's static IP instead of WSL2's
+; loopback address; docker cp/docker-compose exec/pg_restore all work
+; identically over a remote DOCKER_HOST, so nothing else in that file
+; changed. RunDockerSetup's own docker-compose calls work the same
+; way -- Windows-side docker-compose reads docker-compose.yml locally
+; and streams the build context to the remote daemon over the API
+; connection itself, so no file-transfer step into the VM was ever
+; needed for the app's own source/config, only Docker Engine itself
+; needs to live inside the VM.
+;
+; PrepareToInstall/DetectAndInstallPrerequisites were previously ONE
+; shared code path for both Local and Server -- confirmed via a real
+; repo audit that there was no existing separate "Server's WSL2 path"
+; to swap out cleanly. Genuine new branching (IsLocalMode/IsServerMode)
+; was added rather than assuming an isolated block already existed.
+;
 ; STEP 20. The consolidated server_startup.ps1 (Step 19 area, added
 ; since) still failed to reach WSL2/Docker after a real reboot, with
 ; wsl.exe itself hanging indefinitely -- confirmed directly, over an
@@ -343,6 +404,15 @@ Source: "..\app\*"; DestDir: "{app}\app"; Flags: recursesubdirs; Excludes: "__py
 ; CurStepChanged below.
 Source: "migration_listener.ps1"; DestDir: "{app}"; Check: IsMigrationTarget
 
+; The VM resource-resize listener -- both Server sub-choices, unlike
+; migration_listener.ps1 above which is Migration Target only. An
+; admin might want to resize a New Setup server's resources just as
+; much as a migrated one. Registered as a permanent, always-on
+; Scheduled Task (not a one-time launch the way migration's listener
+; is) -- see StartVmResizeListener below; this one has no natural end,
+; since resizing could happen any number of times after install.
+Source: "vm_resize_listener.ps1"; DestDir: "{app}"; Check: IsServerMode
+
 ; .env self-healing + container startup at boot -- both Server
 ; sub-choices, unlike migration_listener.ps1 above which is Migration
 ; Target only. Any Server install has .env and needs this resilience,
@@ -352,16 +422,19 @@ Source: "migration_listener.ps1"; DestDir: "{app}"; Check: IsMigrationTarget
 ; order as part of one consolidated boot sequence instead of as a
 ; separate, unordered Scheduled Task.
 
-; Bridges Windows' network interface to WSL2's internal address for
-; port 8000 -- both Server sub-choices, since both eventually need to
-; accept real Client connections, the exact scenario this fixes.
-Source: "wsl_port_forward.ps1"; DestDir: "{app}"; Check: IsServerMode
-
-; The consolidated boot-time startup script -- replaces three
-; separate, formerly-unordered Scheduled Tasks (WSL2/Docker keep-alive,
-; port forwarding, .env self-healing) with one script doing everything
-; in guaranteed order. Both Server sub-choices.
-Source: "server_startup.ps1"; DestDir: "{app}"; Check: IsServerMode
+; VM creation scripts -- Server mode's Hyper-V VM replaces WSL2 for
+; Server entirely (see the header comment at the top of this file for
+; the full reasoning). Flags: dontcopy, NOT a normal install -- these
+; need to run during PrepareToInstall, which happens BEFORE Inno's
+; normal file-copy step, so {app} doesn't exist yet at the point
+; they're needed. ExtractTemporaryFile (see CreateServerVM below) is
+; the confirmed, standard Inno mechanism for exactly this: pulling a
+; bundled file out to {tmp} on demand from within Pascal code, rather
+; than waiting for the normal install-time copy. Both Server
+; sub-choices -- New Setup and Migration Target both need a real VM to
+; put Docker in.
+Source: "prepare_vm_image.ps1"; Flags: dontcopy; Check: IsServerMode
+Source: "create_server_vm.ps1"; Flags: dontcopy; Check: IsServerMode
 
 [Tasks]
 ; Optional desktop icon, unchecked by default (opt-in, not opt-out) --
@@ -413,6 +486,24 @@ const
   WSLDistroName = 'ER-ServiceDesk-Docker';
   WSLRootfsUrl = 'https://cloud-images.ubuntu.com/wsl/jammy/current/ubuntu-jammy-wsl-amd64-ubuntu22.04lts.rootfs.tar.gz';
 
+  { Server mode's Hyper-V VM -- see create_server_vm.ps1 for the full
+    reasoning behind each of these. Local mode is completely untouched
+    by any of this; these constants are only ever read from
+    Server-mode code paths (DetectAndInstallServerPrerequisites,
+    CreateServerVM, RunDockerSetup's Server branch).
+
+    VMSubnetPrefixLength/VMNatSubnetCidr describe the same
+    192.168.100.0/24 network two different ways, because
+    New-NetIPAddress and New-NetNat's PowerShell cmdlets each expect
+    that network expressed in a different form -- a prefix length
+    integer for one, full CIDR notation for the other. }
+  VMName = 'ER-ServiceDesk-Server';
+  VMSwitchName = 'ER-ServiceDesk-NAT';
+  VMHostIP = '192.168.100.1';
+  VMStaticIP = '192.168.100.10';
+  VMSubnetPrefixLength = '24';
+  VMNatSubnetCidr = '192.168.100.0/24';
+
 var
   ModePage: TInputOptionWizardPage;
   ServerSubChoicePage: TInputOptionWizardPage;
@@ -448,6 +539,11 @@ var
     named pipe, not TCP, so forcing DOCKER_HOST to a TCP address there
     would break a connection that was already working correctly. }
   UsedWSL2DockerEngine: Boolean;
+  { Same idea as UsedWSL2DockerEngine above, for Server mode's Hyper-V
+    VM instead -- RunDockerSetup checks this to decide whether its own
+    docker-compose calls need DOCKER_HOST forced explicitly at the VM's
+    static IP. Set True inside CreateServerVM once it genuinely runs. }
+  UsedServerVM: Boolean;
 
 { Runs once, before anything else -- including before InitializeWizard
   creates any page. Reads the /restart=1 command-line parameter that
@@ -903,6 +999,56 @@ end;
   individual piece was verified as thoroughly as real research allows,
   but the full sequence has never run anywhere. This is exactly what
   the VM test exists to prove. }
+{ Downloads and places the Windows-side docker.exe/docker-compose.exe
+  CLI tools -- extracted out of InstallDockerInWSL so Server mode's
+  Hyper-V VM path (CreateServerVM below) can call this exact same
+  function instead of duplicating it. Both paths need these tools for
+  the same reason: whatever's actually running Docker (WSL2 for Local,
+  the VM for Server), something on the WINDOWS side still needs
+  docker.exe/docker-compose.exe on PATH to talk to it -- this function
+  doesn't care which.
+
+  Same reasoning as the WSL rootfs download elsewhere in this file --
+  winget isn't reliably present on a fresh Windows Server image,
+  confirmed by a real test, so this is a pinned direct download
+  instead. Docker's static CLI ships as a plain zip (not an
+  installer), extracting to a "docker" subfolder containing docker.exe
+  -- confirmed directly by fetching Docker's own real directory
+  listing as of 2026-07-28, not assumed from an older or cached
+  reference. Worth rechecking periodically, since this won't
+  self-update the way winget would have. }
+function InstallDockerCLIOnWindows(const InstallDir: String): Boolean;
+begin
+  Result := False;
+
+  if not RunCommand('Downloading Windows Docker CLI tools',
+    'curl -f -L -o "' + InstallDir + '\docker-cli.zip" https://download.docker.com/win/static/stable/x86_64/docker-29.5.3.zip', ExpandConstant('{tmp}')) then Exit;
+
+  if not RunCommand('Extracting Windows Docker CLI tools',
+    'powershell -Command "Expand-Archive -Path ''' + InstallDir + '\docker-cli.zip'' -DestinationPath ''' + InstallDir + ''' -Force"', ExpandConstant('{tmp}')) then Exit;
+
+  { A real, caught-before-shipping mistake: Docker's static Windows
+    zip does NOT include compose support at all -- confirmed via
+    multiple real sources after first wrongly assuming the "docker
+    compose" plugin was bundled in. Compose is a genuinely separate
+    project (docker/compose, not docker/docker) with its own releases
+    and its own standalone Windows binary. Downloading that directly
+    and placing it as docker-compose.exe -- the exact name this
+    installer's already-tested code already expects -- is simpler and
+    more correct than the wrapper-batch-file approach this replaces:
+    no uncertainty about percent-sign doubling, no dependency on a
+    plugin that was never actually going to be there. Filename
+    confirmed lowercase via a real HTTP check, not assumed from an
+    older, differently-cased reference some guides still show. }
+  if not RunCommand('Downloading Docker Compose',
+    'curl -f -L -o "' + InstallDir + '\docker-compose.exe" https://github.com/docker/compose/releases/download/v5.3.1/docker-compose-windows-x86_64.exe', ExpandConstant('{tmp}')) then Exit;
+
+  if not RunCommand('Making Docker commands available',
+    'setx /M PATH "%PATH%;' + InstallDir + ';' + InstallDir + '\docker"', ExpandConstant('{tmp}')) then Exit;
+
+  Result := True;
+end;
+
 function InstallDockerInWSL: Boolean;
 var
   InstallDir, TarballPath: String;
@@ -1018,38 +1164,7 @@ begin
   else
     LogStep('Failed to launch the wsl.exe keep-alive process.');
 
-  { Same reasoning as the WSL download above -- winget isn't reliably
-    present on a fresh Server image, confirmed by a real test, so this
-    is a pinned direct download instead. Docker's static CLI ships as
-    a plain zip (not an installer), extracting to a "docker" subfolder
-    containing docker.exe -- confirmed directly by fetching Docker's
-    own real directory listing as of 2026-07-28, not assumed from an
-    older or cached reference. Worth rechecking periodically, since
-    this won't self-update the way winget would have. }
-  if not RunCommand('Downloading Windows Docker CLI tools',
-    'curl -f -L -o "' + InstallDir + '\docker-cli.zip" https://download.docker.com/win/static/stable/x86_64/docker-29.5.3.zip', ExpandConstant('{tmp}')) then Exit;
-
-  if not RunCommand('Extracting Windows Docker CLI tools',
-    'powershell -Command "Expand-Archive -Path ''' + InstallDir + '\docker-cli.zip'' -DestinationPath ''' + InstallDir + ''' -Force"', ExpandConstant('{tmp}')) then Exit;
-
-  { A real, caught-before-shipping mistake: Docker's static Windows
-    zip does NOT include compose support at all -- confirmed via
-    multiple real sources after first wrongly assuming the "docker
-    compose" plugin was bundled in. Compose is a genuinely separate
-    project (docker/compose, not docker/docker) with its own releases
-    and its own standalone Windows binary. Downloading that directly
-    and placing it as docker-compose.exe -- the exact name this
-    installer's already-tested code already expects -- is simpler and
-    more correct than the wrapper-batch-file approach this replaces:
-    no uncertainty about percent-sign doubling, no dependency on a
-    plugin that was never actually going to be there. Filename
-    confirmed lowercase via a real HTTP check, not assumed from an
-    older, differently-cased reference some guides still show. }
-  if not RunCommand('Downloading Docker Compose',
-    'curl -f -L -o "' + InstallDir + '\docker-compose.exe" https://github.com/docker/compose/releases/download/v5.3.1/docker-compose-windows-x86_64.exe', ExpandConstant('{tmp}')) then Exit;
-
-  if not RunCommand('Making Docker commands available',
-    'setx /M PATH "%PATH%;' + InstallDir + ';' + InstallDir + '\docker"', ExpandConstant('{tmp}')) then Exit;
+  if not InstallDockerCLIOnWindows(InstallDir) then Exit;
 
   { A real test proved 127.0.0.1 (IPv4) unreachable here, even though
     Docker itself was genuinely running the whole time -- confirmed
@@ -1178,12 +1293,148 @@ begin
     LogStep('DetectAndInstallPrerequisites: InstallDockerInWSL returned False');
 end;
 
+{ Enables the Hyper-V Windows feature -- Server mode's direct
+  equivalent of InstallWSLFeatures, same 3010-means-restart-required
+  convention. Local mode never calls this; it has no reason to touch
+  Hyper-V at all. }
+function InstallHyperVFeature(var NeedsRestart: Boolean): Boolean;
+var
+  ResultCode: Integer;
+  Launched: Boolean;
+begin
+  NeedsRestart := False;
+  Result := True;
+
+  Launched := Exec('dism.exe', '/online /enable-feature /featurename:Microsoft-Hyper-V /all /norestart', ExpandConstant('{tmp}'), SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  if not Launched then
+  begin
+    Result := False;
+    Exit;
+  end;
+  if ResultCode = 3010 then
+    NeedsRestart := True
+  else if ResultCode <> 0 then
+    Result := False;
+end;
+
+{ Creates (or, on a re-run/resume, confirms) Server mode's dedicated
+  Hyper-V VM -- the direct structural equivalent of InstallDockerInWSL,
+  but the actual work happens in two external PowerShell scripts
+  rather than inline here, since VM creation genuinely needs real
+  scripting (loops, JSON-ish structured decisions, host resource
+  queries) that would be painful to express as a chain of one-line
+  Exec calls the way InstallDockerInWSL's bash commands are.
+
+  ExtractTemporaryFile is the confirmed, standard Inno mechanism for
+  pulling a Flags: dontcopy file out to the temp folder on demand from
+  Pascal code -- needed here specifically because this whole function
+  runs during PrepareToInstall, before Inno's normal file-copy step,
+  so the app folder doesn't exist yet (the same constraint already
+  documented on RunCommandQuiet's WorkingDir parameter elsewhere in
+  this file). }
+function CreateServerVM: Boolean;
+var
+  InstallDir, MasterVhdxPath, ScriptParams: String;
+begin
+  Result := False;
+  InstallDir := ExpandConstant('{autopf}\ER-ServiceDesk-VM');
+  MasterVhdxPath := InstallDir + '\ubuntu-24.04-master.vhdx';
+  LogStep('=== CreateServerVM STARTED, InstallDir=' + InstallDir + ' ===');
+  UsedServerVM := True;
+
+  ExtractTemporaryFile('prepare_vm_image.ps1');
+  ExtractTemporaryFile('create_server_vm.ps1');
+
+  ScriptParams := '-InstallDir "' + InstallDir + '" -MasterVhdxPath "' + MasterVhdxPath + '"';
+  if not RunCommand('Preparing the Server VM image (this can take several minutes the first time)',
+    'powershell.exe -ExecutionPolicy Bypass -File "' + ExpandConstant('{tmp}\prepare_vm_image.ps1') + '" ' + ScriptParams,
+    ExpandConstant('{tmp}')) then Exit;
+
+  ScriptParams := '-InstallDir "' + InstallDir + '"' +
+    ' -VMName "' + VMName + '"' +
+    ' -SwitchName "' + VMSwitchName + '"' +
+    ' -HostIP "' + VMHostIP + '"' +
+    ' -StaticIP "' + VMStaticIP + '"' +
+    ' -SubnetPrefixLength "' + VMSubnetPrefixLength + '"' +
+    ' -NatSubnetCidr "' + VMNatSubnetCidr + '"' +
+    ' -MasterVhdxPath "' + MasterVhdxPath + '"';
+  if not RunCommand('Creating the Server VM (this can take several minutes)',
+    'powershell.exe -ExecutionPolicy Bypass -File "' + ExpandConstant('{tmp}\create_server_vm.ps1') + '" ' + ScriptParams,
+    ExpandConstant('{tmp}')) then Exit;
+
+  { Windows still needs docker.exe/docker-compose.exe on PATH to talk
+    to the VM's Docker daemon -- same tools, same reasoning as the
+    WSL2 path, just pointed at a different DOCKER_HOST (see
+    RunDockerSetup's own Server branch below). }
+  if not InstallDockerCLIOnWindows(InstallDir) then Exit;
+
+  if not RunCommand('Configuring Docker connection to the Server VM',
+    'setx /M DOCKER_HOST tcp://' + VMStaticIP + ':2375', ExpandConstant('{tmp}')) then Exit;
+
+  Result := True;
+end;
+
+{ Server mode's direct equivalent of DetectAndInstallPrerequisites --
+  deliberately does NOT skip ahead if "docker --version" already works
+  on this machine the way the WSL2 version does. Docker Desktop is
+  confirmed unsupported on Windows Server entirely (see the header
+  comment at the top of this file), so there's no equivalent
+  legitimate "Docker already works here for some other real reason"
+  case to skip ahead for on Server the way there is on Local. }
+function DetectAndInstallServerPrerequisites(var NeedsRestart: Boolean): Boolean;
+var
+  RestartedText: String;
+begin
+  if RestartedFromReboot then
+    RestartedText := 'True'
+  else
+    RestartedText := 'False';
+  LogStep('=== DetectAndInstallServerPrerequisites STARTED (RestartedFromReboot=' + RestartedText + ') ===');
+  NeedsRestart := False;
+
+  if not RestartedFromReboot then
+  begin
+    LogStep('DetectAndInstallServerPrerequisites: not yet restarted -- calling InstallHyperVFeature.');
+    if not InstallHyperVFeature(NeedsRestart) then
+    begin
+      LogStep('DetectAndInstallServerPrerequisites: InstallHyperVFeature returned False -- aborting.');
+      Result := False;
+      Exit;
+    end;
+
+    if NeedsRestart then
+    begin
+      { Same reboot-then-resume shape as the WSL2 path -- Hyper-V
+        needs a restart before it's genuinely usable, and the actual
+        VM creation happens on the resumed pass below. }
+      LogStep('DetectAndInstallServerPrerequisites: InstallHyperVFeature says a restart is needed. Stopping here for now.');
+      Result := True;
+      Exit;
+    end;
+
+    LogStep('DetectAndInstallServerPrerequisites: InstallHyperVFeature succeeded, no restart needed -- continuing in this same pass.');
+  end;
+
+  LogStep('DetectAndInstallServerPrerequisites: calling CreateServerVM.');
+  Result := CreateServerVM;
+  if Result then
+    LogStep('DetectAndInstallServerPrerequisites: CreateServerVM returned True')
+  else
+    LogStep('DetectAndInstallServerPrerequisites: CreateServerVM returned False');
+end;
+
 { Real Inno event function, confirmed via the official
   CodePrepareToInstall.iss example -- runs after the wizard pages but
   before any files get copied, specifically designed for "install
   prerequisites, and handle a mid-install reboot if one turns out to
   be necessary." Skipped entirely for Client mode, which never touches
-  Docker/WSL2 at all. }
+  Docker/WSL2/Hyper-V at all.
+
+  Local and Server used to share this same call (both went through
+  DetectAndInstallPrerequisites) -- confirmed via a real repo audit
+  that there was never actually a separate, isolated "Server's WSL2
+  path" to swap out cleanly for the Hyper-V VM rework. This branch is
+  genuinely new, not a restoration of something that already existed. }
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
   LogStep('=== PrepareToInstall STARTED ===');
@@ -1196,25 +1447,51 @@ begin
     Exit;
   end;
 
-  LogStep('PrepareToInstall: not Client mode, calling DetectAndInstallPrerequisites.');
-  if not DetectAndInstallPrerequisites(NeedsRestart) then
+  if IsLocalMode() then
   begin
-    Result := 'Setup could not prepare Docker/WSL2 on this machine. ' +
-      'Please check that this PC meets the system requirements ' +
-      '(Windows 10/11, Windows Server 2022, or Windows Server 2025 ' +
-      'with Desktop Experience) and try again.';
-    Exit;
-  end;
+    LogStep('PrepareToInstall: Local mode, calling DetectAndInstallPrerequisites (WSL2).');
+    if not DetectAndInstallPrerequisites(NeedsRestart) then
+    begin
+      Result := 'Setup could not prepare Docker/WSL2 on this machine. ' +
+        'Please check that this PC meets the system requirements ' +
+        '(Windows 10/11, Windows Server 2022, or Windows Server 2025 ' +
+        'with Desktop Experience) and try again.';
+      Exit;
+    end;
 
-  if NeedsRestart then
+    if NeedsRestart then
+    begin
+      LogStep('PrepareToInstall: NeedsRestart is True (WSL2), calling CreateRunOnceEntry and returning a non-empty Result.');
+      CreateRunOnceEntry;
+      Result := 'A required Windows feature (WSL2) was just enabled and ' +
+        'needs a restart before Setup can continue.' + #13#13 +
+        'After restarting, Setup will automatically resume on its own ' +
+        '-- you do not need to run it again yourself.';
+      Exit;
+    end;
+  end
+  else if IsServerMode() then
   begin
-    LogStep('PrepareToInstall: NeedsRestart is True, calling CreateRunOnceEntry and returning a non-empty Result.');
-    CreateRunOnceEntry;
-    Result := 'A required Windows feature (WSL2) was just enabled and ' +
-      'needs a restart before Setup can continue.' + #13#13 +
-      'After restarting, Setup will automatically resume on its own ' +
-      '-- you do not need to run it again yourself.';
-    Exit;
+    LogStep('PrepareToInstall: Server mode, calling DetectAndInstallServerPrerequisites (Hyper-V VM).');
+    if not DetectAndInstallServerPrerequisites(NeedsRestart) then
+    begin
+      Result := 'Setup could not prepare the Server VM on this machine. ' +
+        'Please check that this PC meets the system requirements ' +
+        '(Windows 10/11, Windows Server 2022, or Windows Server 2025 ' +
+        'with Desktop Experience, and Hyper-V support) and try again.';
+      Exit;
+    end;
+
+    if NeedsRestart then
+    begin
+      LogStep('PrepareToInstall: NeedsRestart is True (Hyper-V), calling CreateRunOnceEntry and returning a non-empty Result.');
+      CreateRunOnceEntry;
+      Result := 'A required Windows feature (Hyper-V) was just enabled and ' +
+        'needs a restart before Setup can continue.' + #13#13 +
+        'After restarting, Setup will automatically resume on its own ' +
+        '-- you do not need to run it again yourself.';
+      Exit;
+    end;
   end;
 
   Result := '';
@@ -1242,15 +1519,38 @@ end;
   pipe connection instead. }
 procedure RunDockerSetup;
 var
-  EnvPrefix, WSLDir: String;
+  EnvPrefix, WSLDir, VMDir: String;
   MigrationSucceeded: Boolean;
   MigrationAttempt: Integer;
 begin
+  { Three real cases, not two -- Setup.exe's own process never picks
+    up setx's PATH/DOCKER_HOST changes made earlier in this same run
+    (setx only affects future processes, confirmed by real testing),
+    so every docker-compose call from Setup.exe itself needs the
+    right values forced explicitly, but which values depends on which
+    of these three situations this install actually is:
+
+    1. UsedWSL2DockerEngine (Local mode) -- force PATH/DOCKER_HOST at
+       WSL2's loopback address, exactly as before.
+    2. UsedServerVM (Server mode's new Hyper-V VM) -- force PATH at
+       the VM install dir, DOCKER_HOST at the VM's static IP instead.
+    3. Neither -- a machine that already had a working Docker for some
+       other real reason (Docker Desktop on Local, confirmed still the
+       only legitimate case for this, since Server never gets a pass
+       on installing its own real Docker the way Local can). Forcing
+       DOCKER_HOST unconditionally here would break a Docker Desktop
+       connection that already works correctly via its own named
+       pipe, not TCP -- so this case forces nothing at all. }
   EnvPrefix := '';
   if UsedWSL2DockerEngine then
   begin
     WSLDir := ExpandConstant('{autopf}\ER-ServiceDesk-WSL');
     EnvPrefix := 'set PATH=%PATH%;' + WSLDir + ';' + WSLDir + '\docker && set DOCKER_HOST=tcp://[::1]:2375 && ';
+  end
+  else if UsedServerVM then
+  begin
+    VMDir := ExpandConstant('{autopf}\ER-ServiceDesk-VM');
+    EnvPrefix := 'set PATH=%PATH%;' + VMDir + ';' + VMDir + '\docker && set DOCKER_HOST=tcp://' + VMStaticIP + ':2375 && ';
   end;
 
   if not RunCommand('Starting Docker containers', EnvPrefix + 'docker-compose up -d --build', ExpandConstant('{app}')) then
@@ -1361,163 +1661,42 @@ begin
   if IsMigrationTarget() then
     RunCommand('Configuring firewall for migration',
       'netsh advfirewall firewall add rule name="ER-ServiceDesk Migration Listener" dir=in action=allow protocol=TCP localport=8001', ExpandConstant('{tmp}'));
+
+  { Both Server sub-choices, not just Migration Target -- unlike port
+    8001, resizing is a feature every Server install has, not just one
+    specifically waiting to receive a migration. }
+  RunCommand('Configuring firewall for server resource management',
+    'netsh advfirewall firewall add rule name="ER-ServiceDesk VM Resize Listener" dir=in action=allow protocol=TCP localport=8002', ExpandConstant('{tmp}'));
 end;
 
-{ Bridges Windows' own network interface to WSL2's internal address
-  for port 8000 -- a real client-server test proved a genuine, real
-  limitation: Docker containers running inside WSL2 are only reachable
-  from the Windows host itself, never from another physical machine
-  on the network, confirmed via multiple real, authoritative sources,
-  not something fixable from inside the distro at all. Explains
-  exactly why the migration listener (port 8001, a plain PowerShell
-  script running directly on Windows, never touching WSL2) worked
-  correctly from another machine the whole time, while the API (port
-  8000, inside a container, inside WSL2) never did, despite an
-  identical, confirmed-correct firewall rule for its own port.
+{ Launches the VM resource-resize listener as a detached background
+  process, and registers it via a Scheduled Task so it survives a
+  reboot -- the same two-part launch pattern StartMigrationListener
+  uses, but for a listener with no natural end (an admin could resize
+  the VM any number of times after install, unlike migration's
+  one-shot job), so there's no equivalent "only Migration Target needs
+  this" restriction -- both Server sub-choices get it.
 
-  Runs immediately for this install session only -- the WSL2 distro's
-  internal IP is only known once it's actually up, so this has to come
-  after RunDockerSetup. Future-boot coverage for this same step is now
-  handled by server_startup.ps1's own Step 3 instead of a separate
-  Scheduled Task here -- see RegisterServerStartupTask below. }
-procedure SetupWslPortForward;
-begin
-  RunCommandQuiet('powershell.exe -ExecutionPolicy Bypass -File "' + ExpandConstant('{app}\wsl_port_forward.ps1') + '"', ExpandConstant('{tmp}'));
-  { Non-fatal if this fails for the current session -- worth knowing,
-    but server_startup.ps1's own Step 3 covers this correctly on the
-    next boot regardless. }
-end;
-
-{ Registers the ONE Scheduled Task that replaces three separate,
-  formerly-unordered ones (WSL2/Docker keep-alive, port forwarding,
-  .env self-healing) -- a real test showed those three, all set to
-  fire "at startup" with no real dependency mechanism between them in
-  Windows Task Scheduler, could race each other: .env self-healing's
-  own docker-compose up -d running before WSL2/Docker were actually
-  ready, confirmed directly via a real "connection actively refused"
-  error meaning Docker itself hadn't come up in time. server_startup.ps1
-  now does all of this in one script, in guaranteed order, waiting for
-  each step to genuinely be ready before moving to the next. }
-{ Installs a genuine Windows Service (via NSSM, a real, widely-used,
-  public-domain third-party tool) to run server_startup.ps1 at boot --
-  replaces the Scheduled Task entirely, not just fixing it.
-
-  A real test proved the actual root cause was never about ordering or
-  timing at all: wsl.exe itself hung indefinitely (confirmed directly,
-  over an hour on a single command that returned instantly when run
-  manually) when invoked via Task Scheduler specifically, on a machine
-  with no one logged in. Confirmed as a real, documented, still-open
-  limitation on Microsoft's own WSL GitHub repo -- multiple separate
-  issues there describe this exact same symptom, including one
-  literally titled "Using wsl2 in Production on Windows Server 2025"
-  describing this identical scenario.
-
-  A genuine Windows Service is a structurally different mechanism, not
-  another variant of the same one -- services run in their own,
-  dedicated system session specifically designed for unattended
-  background operation, never built around an interactive user session
-  existing at all, unlike Task Scheduler. A real, working precedent
-  exists for wrapping wsl.exe this exact way.
-
-  Uses the 2.24-101 prerelease build specifically, not the older
-  2.24 stable release -- confirmed directly from NSSM's own official
-  download page: "Users of Windows 10 Creators Update or newer should
-  use prerelease build 2.24-101 or any newer build to avoid an issue
-  with services failing to start," and every target OS here is well
-  past that point. }
-{ A real test showed a 2-second pause after nssm install wasn't
-  reliably enough before the first nssm set command that follows it --
-  the exact same command succeeded correctly when run manually, moments
-  later, confirming its own syntax was never the problem, just timing.
-  Rather than guess at a longer fixed pause (the same mistake, just
-  bigger), retries silently for a while with a real delay between
-  attempts, then makes one final, visible attempt to surface the real
-  error if it still genuinely fails -- the same retry-with-delay
-  pattern already proven working for the database migration step
-  earlier in this same file. Reused here for all three nssm set
-  commands below, not just the first, since they're all equally
-  susceptible to the same underlying timing issue. }
-function RunCommandWithRetry(const Description, Params, WorkingDir: String; MaxAttempts, DelayMs: Integer): Boolean;
+  Depends on CreateServerVM having already run (during PrepareToInstall,
+  before this point) -- the VM, its static IP, and the per-install SSH
+  keypair all need to already exist for this listener's disk-resize
+  path to have anything to SSH into. }
+procedure StartVmResizeListener;
 var
-  Attempt: Integer;
+  VMDir, SshKeyPath, ScriptPath, ScriptArgs: String;
+  ResultCode: Integer;
 begin
-  Result := False;
-  for Attempt := 1 to MaxAttempts do
-  begin
-    Result := RunCommandSilent(Params, WorkingDir);
-    if Result then
-      Exit;
-    Sleep(DelayMs);
-  end;
-  Result := RunCommand(Description, Params, WorkingDir);
-end;
+  VMDir := ExpandConstant('{autopf}\ER-ServiceDesk-VM');
+  SshKeyPath := VMDir + '\ssh\id_ed25519';
+  ScriptPath := ExpandConstant('{app}\vm_resize_listener.ps1');
+  ScriptArgs := '-InstallDir "' + VMDir + '" -VMName "' + VMName + '" -StaticIP "' + VMStaticIP + '" -SshKeyPath "' + SshKeyPath + '"';
 
-procedure RegisterServerStartupTask;
-var
-  NssmDir, NssmExe, AppDir: String;
-begin
-  NssmDir := ExpandConstant('{app}\nssm');
-  { win32, not win64 -- a real test showed the win64 binary inside
-    this specific zip never actually extracted correctly (a genuine
-    0-byte file with today's date, not the archive's own 2017
-    timestamp the way win32's copy correctly had), while win32
-    extracted fine. Confirmed directly from NSSM's own official docs
-    that running the 32-bit version on 64-bit Windows is a normal,
-    supported scenario, not a workaround. }
-  NssmExe := NssmDir + '\nssm-2.24-101-g897c7ad\win32\nssm.exe';
-  AppDir := ExpandConstant('{app}');
+  Exec('powershell.exe',
+    '-ExecutionPolicy Bypass -File "' + ScriptPath + '" ' + ScriptArgs,
+    ExpandConstant('{app}'), SW_HIDE, ewNoWait, ResultCode);
 
-  if not RunCommand('Downloading service manager',
-    'curl -f -L -o "' + ExpandConstant('{app}\nssm.zip') + '" https://nssm.cc/ci/nssm-2.24-101-g897c7ad.zip', ExpandConstant('{tmp}')) then Exit;
-
-  if not RunCommand('Extracting service manager',
-    'powershell -Command "Expand-Archive -Path ''' + ExpandConstant('{app}\nssm.zip') + ''' -DestinationPath ''' + NssmDir + ''' -Force"', ExpandConstant('{tmp}')) then Exit;
-
-  if not RunCommand('Installing server startup service',
-    '"' + '"' + NssmExe + '" install ER-ServiceDesk-Startup powershell.exe' + '"', ExpandConstant('{tmp}')) then Exit;
-
-  { A real test proved the exact same "set AppDirectory" command below
-    succeeds correctly when run manually, moments after install --
-    confirming its own syntax and content are correct, just a real
-    timing gap right after nssm install reports success. A fixed
-    2-second pause here wasn't reliably enough either, on its own --
-    RunCommandWithRetry below handles this properly instead.
-
-    A real test also proved something else, genuinely different and
-    more fundamental: the exact same command, run manually WITHOUT an
-    extra, outer pair of quotes wrapping the whole thing, actually
-    failed outright -- cmd.exe mangled it completely, treating
-    "C:\Program" alone as the entire command to run, cutting off at
-    the first space. Every command below now wraps the whole thing in
-    one more, outer pair of quotes, matching the exact form confirmed
-    working -- the standard, documented cmd.exe pattern for a quoted
-    executable path (itself containing spaces) followed by further
-    quoted arguments later in the same line. }
-
-  { A real test showed the original approach here -- embedding the
-    full, space-containing script path with escaped inner quotes
-    directly in AppParameters -- failing outright. Sets the service's
-    own working directory explicitly instead, confirmed directly via
-    NSSM's own documentation that a service defaults to the directory
-    containing the PROGRAM (here, powershell.exe, in System32) rather
-    than the script's own folder -- so this can't just be left unset.
-    With AppDirectory set correctly, the script itself can be
-    referenced by its plain filename alone, with no spaces and no
-    nested quoting needed at all. }
-  if not RunCommandWithRetry('Configuring server startup service working directory',
-    '"' + '"' + NssmExe + '" set ER-ServiceDesk-Startup AppDirectory "' + AppDir + '"' + '"', ExpandConstant('{tmp}'), 6, 5000) then Exit;
-
-  if not RunCommandWithRetry('Configuring server startup service arguments',
-    '"' + '"' + NssmExe + '" set ER-ServiceDesk-Startup AppParameters "-ExecutionPolicy Bypass -File server_startup.ps1"' + '"', ExpandConstant('{tmp}'), 6, 5000) then Exit;
-
-  if not RunCommandWithRetry('Setting server startup service to start automatically',
-    '"' + '"' + NssmExe + '" set ER-ServiceDesk-Startup Start SERVICE_AUTO_START' + '"', ExpandConstant('{tmp}'), 6, 5000) then Exit;
-
-  RunCommandQuiet('"' + '"' + NssmExe + '" start ER-ServiceDesk-Startup' + '"', ExpandConstant('{tmp}'));
-  { Non-fatal if starting it right now fails -- the service is already
-    correctly registered to auto-start on the next real boot either
-    way, which is what actually matters; this is just a bonus for the
-    current session. }
+  RunCommand('Registering VM resize listener to survive a reboot',
+    'schtasks /create /tn "ER-ServiceDesk-VM-Resize-Listener" /tr "powershell.exe -ExecutionPolicy Bypass -File \"' + ScriptPath + '\" ' + ScriptArgs + '" /sc onstart /ru SYSTEM /rl HIGHEST /f', ExpandConstant('{tmp}'));
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
@@ -1532,9 +1711,18 @@ begin
         StartMigrationListener;
       if IsServerMode() then
       begin
+        { SetupWslPortForward and RegisterServerStartupTask are both
+          gone -- the VM's own static IP (set up as part of
+          CreateServerVM, during PrepareToInstall, before this point)
+          replaces the old per-boot WSL2 IP-forwarding dance entirely,
+          and AutomaticStartAction Start + Docker's own restart:
+          unless-stopped replace the whole reason a Windows Service
+          existed to babysit anything at boot. Only the firewall rule
+          is still genuinely needed here -- that's about Windows'
+          OWN inbound traffic, unrelated to what's hosting Docker
+          behind it. }
         ConfigureFirewallRules;
-        SetupWslPortForward;
-        RegisterServerStartupTask;
+        StartVmResizeListener;
       end;
     end;
     WriteRegistryValues;

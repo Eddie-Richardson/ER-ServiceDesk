@@ -35,7 +35,7 @@ from desktop.login_window import LoginWindow
 from desktop.dashboard_window import DashboardWindow
 from desktop.app_paths import get_compose_dir, get_env_backup_dir, get_icon_path
 from desktop.env_recovery import ensure_env_available
-from desktop.settings_manager import get_saved_theme, get_install_mode
+from desktop.settings_manager import get_saved_theme, get_install_mode, save_backend_url, save_install_mode
 from desktop.startup_window import StartupWindow
 from desktop.theme import get_stylesheet
 
@@ -51,6 +51,28 @@ def main():
     if needed), and wires up the startup -> login -> dashboard ->
     (logout ->) login window flow.
     """
+    # Hidden entry point, no GUI at all -- just writes the client-mode
+    # registry values and exits. install_mode/backend_url are
+    # SystemScope (HKEY_LOCAL_MACHINE) settings, which require admin
+    # rights to write, confirmed directly in settings_manager.py's own
+    # docstrings -- but this app never runs elevated day to day, by
+    # design, so regular non-admin employees can use it too. A real
+    # test proved this was silently breaking the one moment it
+    # actually needed elevation: completing a Local-to-Server
+    # migration, which switches this PC to Client mode. Rather than
+    # require the whole app to run elevated, migrate_to_server_tab.py
+    # re-launches this same exe with this flag via PowerShell's
+    # Start-Process -Verb RunAs -Wait, triggering a real UAC prompt for
+    # just this one privileged write, then waits for it to finish.
+    if len(sys.argv) >= 3 and sys.argv[1] == "--set-client-mode":
+        backend_url = sys.argv[2]
+        try:
+            save_install_mode("client")
+            save_backend_url(backend_url)
+            sys.exit(0)
+        except Exception:
+            sys.exit(1)
+
     app = QApplication(sys.argv)
 
     # Setting this on the QApplication (rather than per-window) makes it

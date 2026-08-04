@@ -98,7 +98,25 @@ class BackendStartupWorker(QObject):
 
     def _start_compose_stack(self) -> bool:
         """
-        Runs `docker compose up -d`.
+        Runs `docker-compose up -d`.
+
+        Hyphenated form, matching exactly what the installer's own
+        RunDockerSetup already uses -- confirmed working there on both
+        Docker Desktop (this project's own dev machine, tested
+        repeatedly throughout this whole project) and the newer
+        WSL2/Docker Engine installs this installer now also supports.
+        The modern space-separated `docker compose` form was tried
+        first, but real testing on a fresh WSL2/Docker Engine install
+        showed it fails there: Docker's CLI plugin system needs
+        `compose` registered as a proper plugin to recognize it as a
+        subcommand at all, which the installer's own standalone
+        docker-compose.exe binary doesn't do just by being on PATH --
+        it produced a confusing "unknown shorthand flag: 'd' in -d"
+        error, since without a registered plugin, "compose" isn't
+        recognized as a valid subcommand at all. The hyphenated form
+        avoids that whole plugin-registration question entirely, and
+        is the one actually proven to work on every real environment
+        this project targets.
 
         Returns:
             True on success, False on failure (after emitting the
@@ -108,7 +126,7 @@ class BackendStartupWorker(QObject):
 
         try:
             result = subprocess.run(
-                ["docker", "compose", "up", "-d"],
+                ["docker-compose", "up", "-d"],
                 cwd=self.compose_dir,
                 capture_output=True,
                 text=True,

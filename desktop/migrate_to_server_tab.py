@@ -21,6 +21,8 @@ install and switching this PC to Client mode.
 import os
 import shutil
 import subprocess
+import sys
+from datetime import datetime
 
 from PySide6.QtCore import QThread
 from PySide6.QtWidgets import (
@@ -35,7 +37,6 @@ from PySide6.QtWidgets import (
 
 from desktop.app_paths import get_compose_dir, get_env_backup_dir
 from desktop.migrate_to_server_worker import MigrateToServerWorker
-from desktop.settings_manager import save_backend_url, save_install_mode
 
 
 class MigrateToServerTab(QWidget):
@@ -176,17 +177,46 @@ class MigrateToServerTab(QWidget):
         switches this PC's registry values to Client mode pointed at
         the server.
 
-        Every step here is best-effort -- a failure partway through
-        (e.g. a locked file) shouldn't prevent the mode switch, which
-        is the one step that actually matters for this PC to stop
-        acting as a Local install going forward.
+        Every cleanup step here is best-effort -- a failure partway
+        through (e.g. a locked file) shouldn't prevent the mode
+        switch, which is the one step that actually matters for this
+        PC to stop acting as a Local install going forward. Logged
+        directly (not silently swallowed) though -- a real test showed
+        this whole method reporting success while every step inside it
+        had actually failed, with genuinely no way to tell afterward.
+
+        The mode switch itself is handled differently from the rest:
+        install_mode/backend_url are SystemScope (HKEY_LOCAL_MACHINE)
+        settings, confirmed directly in settings_manager.py's own
+        docstrings to require admin rights to write -- but this app
+        never runs elevated day to day, by design, so regular
+        non-admin employees can use it too. A real test proved this
+        was silently breaking the one moment it actually needed
+        elevation: the write here never actually persisted, so
+        restarting the app kept showing it as Local, still pointed at
+        localhost, with no error shown anywhere. Fixed by re-launching
+        this same exe with a hidden flag via PowerShell's
+        Start-Process -Verb RunAs -Wait, triggering a real UAC prompt
+        for just this one privileged write, then waiting for it to
+        finish and confirming it actually succeeded before telling the
+        admin the switch is done.
         """
+        debug_log_path = os.path.join(os.environ.get("TEMP", "."), "er-servicedesk-teardown-debug-log.txt")
+
+        def debug_log(message: str):
+            with open(debug_log_path, "a", encoding="utf-8") as log_file:
+                log_file.write(f"{datetime.now().isoformat()} - {message}\n")
+
+        debug_log("=== _teardown_and_switch_to_client starting ===")
         compose_dir = get_compose_dir()
 
         try:
-            subprocess.run(["docker-compose", "down", "-v"], cwd=compose_dir, timeout=60)
-        except Exception:
-            pass
+            result = subprocess.run(
+                ["docker-compose", "down", "-v"], cwd=compose_dir, shell=True, timeout=60
+            )
+            debug_log(f"docker-compose down -v: returncode={result.returncode}")
+        except Exception as exc:
+            debug_log(f"docker-compose down -v FAILED: {type(exc).__name__}: {exc}")
 
         for item in ("docker-compose.yml", "Dockerfile", "requirements.txt", "alembic.ini", "app", "alembic", ".env"):
             item_path = os.path.join(compose_dir, item)
@@ -195,17 +225,45 @@ class MigrateToServerTab(QWidget):
                     shutil.rmtree(item_path, ignore_errors=True)
                 else:
                     os.remove(item_path)
-            except Exception:
-                pass
+                debug_log(f"Removed {item_path}")
+            except Exception as exc:
+                debug_log(f"Failed to remove {item_path}: {type(exc).__name__}: {exc}")
 
         try:
             shutil.rmtree(get_env_backup_dir(), ignore_errors=True)
-        except Exception:
-            pass
+            debug_log(f"Removed env backup dir: {get_env_backup_dir()}")
+        except Exception as exc:
+            debug_log(f"Failed to remove env backup dir: {type(exc).__name__}: {exc}")
 
         address = self.address_input.text().strip()
-        save_install_mode("client")
-        save_backend_url(f"http://{address}:8000")
+        backend_url = f"http://{address}:8000"
+        exe_path = sys.executable
+        ps_command = (
+            f'$p = Start-Process -FilePath "{exe_path}" '
+            f'-ArgumentList "--set-client-mode", "{backend_url}" '
+            f'-Verb RunAs -Wait -PassThru; '
+            f'exit $p.ExitCode'
+        )
+        debug_log(f"Launching elevated for registry write: exe_path={exe_path!r}, backend_url={backend_url!r}")
+
+        try:
+            elevated_result = subprocess.run(["powershell", "-Command", ps_command], timeout=120)
+            debug_log(f"Elevated registry write: returncode={elevated_result.returncode}")
+        except Exception as exc:
+            debug_log(f"Elevated registry write FAILED to launch: {type(exc).__name__}: {exc}")
+            elevated_result = None
+
+        if elevated_result is None or elevated_result.returncode != 0:
+            QMessageBox.critical(
+                self,
+                "Mode Switch Failed",
+                "Local files and Docker were cleaned up, but switching "
+                "this PC to Client mode failed -- either the "
+                "administrator prompt was cancelled, or the write "
+                "itself failed. This PC is not yet in Client mode. You "
+                "can retry the switch from Settings once ready.",
+            )
+            return
 
         QMessageBox.information(
             self,

@@ -38,6 +38,19 @@
 $ErrorActionPreference = "Stop"
 
 $InstallDir = $PSScriptRoot
+
+# A real migration test proved this script's own docker/docker-compose
+# calls below fail with "'docker' is not recognized" -- this runs as a
+# Scheduled Task under the SYSTEM account, and SYSTEM's environment was
+# already established before this installer's own setx /M PATH/
+# DOCKER_HOST calls ran, so it never picks up those changes the same
+# way a genuinely new login session would. Same root cause, same fix
+# already proven working for RunDockerSetup's own docker-compose calls
+# in setup.iss -- setting both explicitly here rather than depending on
+# inheritance at all.
+$WSLInstallDir = Join-Path (Split-Path -Parent $InstallDir) "ER-ServiceDesk-WSL"
+$env:PATH = $env:PATH + ";$WSLInstallDir;$WSLInstallDir\docker"
+$env:DOCKER_HOST = "tcp://[::1]:2375"
 $EnvPath = Join-Path $InstallDir ".env"
 $ListenPort = 8001
 
@@ -87,7 +100,17 @@ while ($Listener.IsListening) {
         # needing to implement multipart parsing from scratch in
         # plain PowerShell. The real .env values travel as separate
         # HTTP headers instead, since they're all short strings.
-        $DumpPath = Join-Path $env:TEMP "er-servicedesk-migration.dump"
+        #
+        # Written directly inside the install folder, not $env:TEMP --
+        # a real check confirmed $env:TEMP resolves completely
+        # differently for SYSTEM (the account this script actually
+        # runs as, via the Scheduled Task) than for an interactive
+        # session, meaning every manual check of the file so far was
+        # looking at the wrong, unrelated location entirely. This
+        # fixed, unambiguous path also means it's always findable at
+        # the same place for any future troubleshooting, regardless of
+        # which account context is running the script.
+        $DumpPath = Join-Path $InstallDir "migration_upload.dump"
         $FileStream = [System.IO.File]::Create($DumpPath)
         $Request.InputStream.CopyTo($FileStream)
         $FileStream.Close()

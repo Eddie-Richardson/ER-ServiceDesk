@@ -96,7 +96,7 @@ services:
     build: .
     container_name: er-servicedesk-app-worker
     restart: unless-stopped
-    command: ["python", "app/workers/worker.py"]  # Worker entrypoint
+    command: ["python", "-m", "app.workers.worker"]  # Worker entrypoint -- module form, matching worker.py's own documented usage. A real crash traced to a genuine bug: running it as a direct script instead put app/workers/ at the front of the import path, letting this project's own app/workers/queue.py shadow Python's stdlib queue module, breaking redis's own internal import of it.
     env_file: .env
     depends_on:
       - redis

@@ -1,5 +1,237 @@
 ; ER-ServiceDesk-Installer/setup.iss
 ;
+; STEP 20. The consolidated server_startup.ps1 (Step 19 area, added
+; since) still failed to reach WSL2/Docker after a real reboot, with
+; wsl.exe itself hanging indefinitely -- confirmed directly, over an
+; hour on a single command that returned instantly when run manually.
+; Root cause confirmed as a real, documented, still-open limitation on
+; Microsoft's own WSL GitHub repo: wsl.exe genuinely does not work
+; correctly with no interactive user session present at all,
+; regardless of which account runs it, including SYSTEM -- multiple
+; separate real issues there describe this exact same symptom.
+;
+; Task Scheduler itself was the actual problem, not anything about
+; this project's own scripts or their ordering. Fixed by replacing the
+; Scheduled Task entirely with a genuine Windows Service instead (via
+; NSSM, a real, widely-used, public-domain third-party tool) --
+; services run in their own dedicated system session specifically
+; designed for unattended background operation, never built around an
+; interactive session existing at all, unlike Task Scheduler. A real,
+; working precedent exists for wrapping wsl.exe this exact way. See
+; RegisterServerStartupTask for the full reasoning and NSSM's own
+; official documentation confirming the specific build used here.
+;
+; STEP 19. First real migration test surfaced two real bugs, both
+; fixed:
+;
+; (1) The migration timed out reaching the server at all -- confirmed
+; via a real test that the listener itself was genuinely running and
+; correctly listening the whole time, pointing squarely at Windows
+; Firewall blocking unsolicited inbound connections by default on a
+; fresh Server install. Fixed by opening port 8000 (the API, needed by
+; every Server install for Client connections -- untested until now,
+; would very likely have hit the same wall on the next test too) and
+; port 8001 (the migration listener, Migration Target only, since New
+; Setup never runs it at all).
+;
+; (2) Once reachable, the server rejected the migration with
+; "'docker' is not recognized" -- the exact same stale-environment
+; problem already fixed once for RunDockerSetup's own docker-compose
+; calls, just surfacing in a new place: migration_listener.ps1 and
+; env_self_healing.ps1 both run as a Scheduled Task under the SYSTEM
+; account, whose environment was already established before this
+; installer's own setx /M PATH/DOCKER_HOST calls ran, so neither
+; script reliably found docker-compose.exe or reached the daemon.
+; Fixed the same way, in both files (see their own header comments):
+; PATH and DOCKER_HOST set explicitly at the top of each script,
+; rather than depending on inheritance.
+;
+; STEP 18. Step 17's nohup-based keep-alive fix was itself wrong,
+; worth saying plainly. A real test showed Docker still unreachable
+; well after that step reported success. Confirmed via real sources
+; this is a known, documented WSL2 limitation, not a mistake in that
+; command's own syntax: nohup backgrounding a process reliably keeps a
+; distro alive when typed inside an already-open WSL session, but not
+; when launched via the wsl command from Windows, which is what this
+; installer has to do. What reliably works instead, per the same
+; sources: a genuine Windows-side wsl.exe process left running,
+; attached to the distro the same way a real interactive terminal
+; does. Fixed both the immediate, same-session version (a direct Exec
+; call with ewNoWait, since this process is designed to run forever
+; and RunCommand would wait for it) and the Scheduled Task's script
+; content (Start-Process, for the same detached-but-running effect).
+;
+; STEP 17. The full WSL2/Docker Engine chain -- WSL package, Ubuntu
+; import, Docker Engine, TCP config, both CLI tools -- completed
+; successfully end to end for the first time after Step 16's fix. The
+; next real failure was the very last step: docker-compose unable to
+; reach Docker at all, connection actively refused.
+;
+; Root cause, confirmed via multiple sources including a Microsoft
+; engineer's own explanation on the official WSL repo: WSL2
+; automatically shuts an entire distro down about 15 seconds after
+; nothing is actively keeping it "in use" -- confirmed this happens
+; even with an active, running systemd service inside it, via a real,
+; still-open GitHub issue showing exactly that. The existing
+; keep-Docker-running-after-reboot Scheduled Task started the distro,
+; ran a command that exited immediately, and did nothing to prevent
+; this. A real test's own timestamps confirmed this was happening
+; within the same install session, not just across reboots -- over 20
+; seconds elapsed between the last command touching the distro
+; directly and docker-compose actually being attempted.
+;
+; Fixed two ways: the Scheduled Task now starts a genuine, permanent
+; background process (nohup sleep infinity &, the same fix Microsoft's
+; own WSL team suggests for this exact scenario) instead of a one-shot
+; no-op, for future boots; and the same command now also runs
+; immediately during install itself, since the Task alone only fires
+; at the next boot and does nothing for the rest of this same session,
+; where RunDockerSetup still needs Docker reachable moments later.
+;
+; STEP 16. Step 15's nested-virtualization theory was also disproven
+; by a real test -- same failure, identical, even after enabling it
+; and retesting clean. Worth being honest that two well-documented
+; theories in a row both turned out wrong before finding the real
+; cause here.
+;
+; The actual root cause, found via Windows' own Hyper-V compute event
+; log rather than another documentation-pattern-matched guess: the
+; log showed the WSL2 virtual machine itself being created
+; successfully (every step logged result 0x00000000), only failing at
+; the exact moment it tried to read the downloaded Ubuntu rootfs file
+; -- "bsdtar: Error opening archive: Unrecognized archive format".
+; That file turned out to be a 286-byte plain Apache 404 HTML page,
+; not a real archive at all. Ubuntu had both renamed the file and is
+; actively moving WSL image publication to a different domain
+; entirely (cdimages.ubuntu.com, per their own notice) since this URL
+; was first confirmed -- an external change, not anything wrong with
+; this file's own logic.
+;
+; This also surfaced a real, general gap worth fixing everywhere, not
+; just here: curl does not fail on HTTP error codes by default, so a
+; 404 response gets silently saved and treated as a successful
+; download. Added -f to every curl call in this file so any future
+; broken URL fails immediately and clearly at the download step,
+; instead of surfacing as a confusing failure much later inside WSL2
+; itself, the way this one did.
+;
+; STEP 15. Step 14's fix was wrong -- worth saying plainly rather than
+; quietly overwriting it. That step assumed the MSI wasn't correctly
+; installing WSL's separate MSIX "glue package" internally, based on
+; real Microsoft documentation saying the MSI is supposed to do this
+; automatically. A real test disproved that directly: explicitly
+; installing the same package failed with "the provided package is
+; already installed" -- confirming the MSI's own internal step really
+; was working correctly the whole time. That fix has been removed.
+;
+; The real cause turned out to be something structural to how this is
+; being tested, not a bug in this file at all: WSL2 needs to create
+; its own internal Hyper-V-based virtual machine, and testing is
+; happening inside Hyper-V VMs themselves -- confirmed via Microsoft's
+; own official WSL FAQ and their own official nested-virtualization
+; documentation that this specific scenario requires nested
+; virtualization to be explicitly enabled per-VM, which is not on by
+; default. Critically, this has to be run on the physical Hyper-V
+; host, with the target VM powered off -- something this installer,
+; running inside the guest, has no visibility into or control over at
+; all. If this is the real explanation, it's a real machine setting
+; needed to test this in a VM, not something a real customer on a
+; real physical machine would ever encounter.
+;
+; STEP 14. The reboot-resume mechanism worked correctly for the first
+; time on real hardware after Step 13's fix -- confirmed via a real
+; log showing the restart prompt, an actual reboot, and Setup
+; correctly resuming on its own. That surfaced the next real bug in
+; the chain: wsl --import consistently failing with a generic
+; "Unspecified error", even after the WSL package MSI reported
+; success.
+;
+; Root cause, confirmed via Microsoft's own WSL project documentation
+; plus a real test ruling out the more obvious explanation: WSL ships
+; as two separate pieces, an MSI and a separate MSIX "glue package"
+; that Store-integration features like --import depend on. The MSI is
+; supposed to install that glue package automatically as one of its
+; own internal steps -- but something about running it quietly on
+; this environment appears to silently skip that step, even though
+; the overall MSI install reports success either way. Ruled out first:
+; this is not a Windows Update / OS patch-level issue -- a fully
+; updated, rebooted Server 2022 machine hit the exact same failure.
+; Confirmed instead by wsl --version and wsl --update both working
+; correctly (the CLI genuinely is the modern package), while --import
+; specifically still failed -- consistent with the glue package being
+; the one missing piece, not the CLI itself.
+;
+; Fixed by installing that same glue package explicitly, so it's a
+; step this installer fully controls and can verify, rather than an
+; invisible side effect of the MSI's own internal behavior.
+;
+; STEP 13. Added per-step logging throughout PrepareToInstall and
+; everything it calls, writing to a persistent log file in Program
+; Files -- built specifically because a real test hit a wall real
+; diagnostics couldn't get past on their own. That log then revealed
+; the actual bug directly: InstallWSLFeatures correctly determined a
+; restart was needed, but Setup never actually paused for it --
+; execution went straight into the rest of the install as if nothing
+; had been requested at all.
+;
+; Root cause, confirmed via two independent real developer accounts
+; describing this exact same scenario, not guessed: NeedsRestart is
+; silently ignored by Inno's own engine unless PrepareToInstall's
+; returned Result string is ALSO non-empty. The official example this
+; whole mechanism was built against confirms the same pattern -- it
+; always pairs NeedsRestart := True with a real, non-empty Result. An
+; earlier fix (consolidating two redundant on-screen messages into
+; one) emptied out Result at exactly that point, not realizing doing
+; so would silently disable the whole restart mechanism -- confirmed
+; as the actual cause by the real log showing this stopped happening
+; at exactly that same point in the change history.
+;
+; Fixed by restoring real text to Result when NeedsRestart is True,
+; and moving the short yes/no question into the Messages section
+; instead -- keeping the one-clean-message goal from before, without
+; breaking the mechanism that goal depended on.
+;
+; STEP 12. Real VM testing surfaced two genuine bugs in the WSL2/
+; Docker Engine work (Steps 9-10), both fixed here:
+;
+; (1) InstallWSLFeatures only checked DISM's exit code, never Exec's
+; own launch-success return value -- every other command in this file
+; goes through RunCommand/RunCommandSilent, which correctly check
+; both, but these two DISM calls predated that pattern. A real test
+; showed exactly the symptom this would cause: no restart prompt at
+; all, features silently never actually enabled. Fixed to match the
+; established pattern, confirmed via a real test showing DISM actually
+; ran and enabled both features correctly afterward.
+;
+; (2) A real test then failed at "wsl --import" with "Windows
+; Subsystem for Linux must be updated to the latest version to
+; proceed" -- confirmed the WSL Windows features and the WSL package
+; itself are two separate things. Attempted a winget-based fix first,
+; which then failed differently: winget itself isn't reliably present
+; on a fresh Windows Server image, confirmed directly via a real test
+; ("winget" not recognized), not assumed. Both winget-dependent steps
+; (the WSL package, the Docker CLI) were replaced with pinned direct
+; downloads instead -- deliberately pinned rather than tracking
+; "latest" automatically, since GitHub's own "always latest" URL trick
+; only works when a release's filename doesn't embed its own version
+; number, and both of these do. Every pinned URL was confirmed to
+; actually resolve via a real HTTP check before being hardcoded, not
+; assumed from documentation or an older cached reference -- worth
+; rechecking these periodically, since unlike winget none of them
+; self-update.
+;
+; While building the Docker CLI replacement, caught a second real
+; mistake before it shipped: Docker's static Windows zip does NOT
+; include compose support at all (confirmed via multiple real
+; sources), contradicting an earlier assumption that it did. The
+; originally-planned docker-compose.bat wrapper (forwarding to "docker
+; compose") would have failed too, since that plugin was never
+; actually going to be there either. Fixed by downloading Docker
+; Compose's own real, separate standalone Windows binary directly
+; (docker/compose is a genuinely different project from docker/docker)
+; and placing it as docker-compose.exe -- simpler and more correct
+; than the wrapper approach it replaces.
+;
 ; STEP 11. This step closes out the last planned feature before VM
 ; testing: Server's .env self-healing at boot. Confirmed a real,
 ; important gap while designing this -- docker-compose.yml had NO
@@ -35,7 +267,7 @@
 
 [Setup]
 AppName=ER-ServiceDesk
-AppVersion=1.4.0
+AppVersion=1.18.1
 DefaultDirName={autopf}\ER-ServiceDesk
 DisableProgramGroupPage=yes
 PrivilegesRequired=admin
@@ -57,6 +289,31 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=.
 OutputBaseFilename=ER-ServiceDesk-Setup
+; A real test proved a genuine bug: setx correctly writes DOCKER_HOST/
+; PATH to the registry (confirmed directly, by reading the actual
+; machine-wide environment variable back), but the actual app,
+; launched later via Explorer, never picked the new values up -- since
+; setx only updates the registry, not any already-running process's
+; environment, and Explorer itself doesn't reload its own environment
+; just because something else changed the registry. This is Inno's
+; own purpose-built directive for exactly this: notifies running
+; applications (notably Explorer) to reload their environment
+; variables from the registry the moment install finishes, so
+; anything launched afterward -- even without a reboot -- correctly
+; sees the new values, confirmed directly against Inno's own official
+; documentation for this directive.
+ChangesEnvironment=yes
+
+[Messages]
+; Inno's own built-in text here says "run Setup again" -- wrong for
+; this installer, which auto-resumes via RunOnce. The full explanation
+; now lives in PrepareToInstall's own Result message instead (see
+; the Code section) -- a real, confirmed Inno quirk means NeedsRestart is
+; silently ignored unless Result is non-empty, so that text can't be
+; empty the way an earlier attempt at avoiding duplicate messages
+; assumed. Keeping this one short avoids going back to two stacked
+; messages saying the same thing.
+PrepareToInstallNeedsRestart=Would you like to restart now?
 
 [Files]
 ; Desktop app -- Local and Client only, not Server (professional
@@ -90,7 +347,21 @@ Source: "migration_listener.ps1"; DestDir: "{app}"; Check: IsMigrationTarget
 ; sub-choices, unlike migration_listener.ps1 above which is Migration
 ; Target only. Any Server install has .env and needs this resilience,
 ; not just one that's specifically waiting to receive a migration.
-Source: "env_self_healing.ps1"; DestDir: "{app}"; Check: IsServerMode
+; env_self_healing.ps1 has been removed -- its logic is now fully
+; replicated by server_startup.ps1's own Step 4, run in guaranteed
+; order as part of one consolidated boot sequence instead of as a
+; separate, unordered Scheduled Task.
+
+; Bridges Windows' network interface to WSL2's internal address for
+; port 8000 -- both Server sub-choices, since both eventually need to
+; accept real Client connections, the exact scenario this fixes.
+Source: "wsl_port_forward.ps1"; DestDir: "{app}"; Check: IsServerMode
+
+; The consolidated boot-time startup script -- replaces three
+; separate, formerly-unordered Scheduled Tasks (WSL2/Docker keep-alive,
+; port forwarding, .env self-healing) with one script doing everything
+; in guaranteed order. Both Server sub-choices.
+Source: "server_startup.ps1"; DestDir: "{app}"; Check: IsServerMode
 
 [Tasks]
 ; Optional desktop icon, unchecked by default (opt-in, not opt-out) --
@@ -122,9 +393,25 @@ const
     right after a function header, before begin) aren't supported by
     this Pascal Script dialect -- confirmed by two separate real
     compile failures tonight, this being the second -- so these live
-    here as global constants instead, same fix as RegPath above. }
+    here as global constants instead, same fix as RegPath above.
+
+    WSLRootfsUrl's filename changed since this was first confirmed --
+    a real test showed a 286-byte plain 404 HTML page being silently
+    downloaded and treated as success (curl doesn't fail on HTTP error
+    codes by default, now fixed -- see RunCommand's own -f flag added
+    to every curl call in this file), which only surfaced much later
+    as a confusing "Unrecognized archive format" failure inside WSL2
+    itself, well after the real cause. Confirmed directly against
+    Ubuntu's own live server as of 2026-07-29: the file itself is
+    genuinely still there, just renamed
+    (ubuntu-jammy-wsl-amd64-ubuntu22.04lts.rootfs.tar.gz, not
+    ubuntu-jammy-wsl-amd64-wsl.rootfs.tar.gz). Worth knowing this
+    domain is also actively being deprecated in favor of
+    cdimages.ubuntu.com per Ubuntu's own notice on this same page --
+    this fix keeps things working now, but may need to move to that
+    new domain entirely at some point in the future. }
   WSLDistroName = 'ER-ServiceDesk-Docker';
-  WSLRootfsUrl = 'https://cloud-images.ubuntu.com/wsl/jammy/current/ubuntu-jammy-wsl-amd64-wsl.rootfs.tar.gz';
+  WSLRootfsUrl = 'https://cloud-images.ubuntu.com/wsl/jammy/current/ubuntu-jammy-wsl-amd64-ubuntu22.04lts.rootfs.tar.gz';
 
 var
   ModePage: TInputOptionWizardPage;
@@ -148,6 +435,19 @@ var
   ResumedGmailAddress: String;
   ResumedGmailPassword: String;
   ResumedBusinessName: String;
+  { Set True inside InstallDockerInWSL once it genuinely runs --
+    RunDockerSetup checks this to decide whether to explicitly force
+    PATH/DOCKER_HOST for its own docker-compose calls. Needed
+    conditionally, not always: a real test proved Setup.exe's own
+    process never picks up setx's PATH/DOCKER_HOST changes made
+    earlier in the same run (setx only affects future processes), so
+    docker-compose calls from Setup.exe itself need those values
+    forced explicitly. But forcing them unconditionally would be wrong
+    on a machine that already has Docker Desktop (skipping this whole
+    WSL2 path entirely) -- Docker Desktop typically connects via a
+    named pipe, not TCP, so forcing DOCKER_HOST to a TCP address there
+    would break a connection that was already working correctly. }
+  UsedWSL2DockerEngine: Boolean;
 
 { Runs once, before anything else -- including before InitializeWizard
   creates any page. Reads the /restart=1 command-line parameter that
@@ -247,14 +547,29 @@ end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
-  { On a resumed run, every one of our custom pages gets skipped
+  { On a resumed run, every one of our OWN custom pages gets skipped
     unconditionally -- the person already answered these before the
     reboot, and InitializeWizard above already silently restored those
     answers into the same page objects. They should never see the
-    wizard a second time. }
+    wizard a second time.
+
+    A real, reproducible bug: this used to return True for EVERY
+    PageID whenever RestartedFromReboot was True, not just our own
+    custom ones -- which meant Inno's own built-in Finished page (and
+    any other built-in page) got silently skipped too, on every single
+    resumed run. That's every fresh install that needed WSL2
+    installed, meaning Setup just closed at the very end with no
+    Finished page, no completion message, and (for Migration Target)
+    no chance to ever see the migration token, even though it was
+    correctly generated the whole time -- confirmed directly, not
+    assumed: the token was genuinely sitting in .env, the page
+    displaying it just never appeared at all. Fixed by only treating
+    our own four custom pages as skippable on resume; any other
+    PageID (a built-in Inno page) is never affected by resume state. }
   if RestartedFromReboot then
   begin
-    Result := True;
+    Result := (PageID = ModePage.ID) or (PageID = ServerSubChoicePage.ID) or
+      (PageID = CredentialsPage.ID) or (PageID = ClientAddressPage.ID);
     Exit;
   end;
 
@@ -351,8 +666,41 @@ begin
   else if IsClientMode() then
   begin
     RegWriteStringValue(HKEY_LOCAL_MACHINE, RegPath, 'install_mode', 'client');
-    RegWriteStringValue(HKEY_LOCAL_MACHINE, RegPath, 'backend_url', ClientAddressPage.Values[0]);
+    { A real test found a genuine bug: the field only ever asks for a
+      bare IP address, but the raw text was being saved exactly as
+      typed, with nothing added -- producing an invalid URL missing
+      both the scheme and port entirely, which every part of the app
+      that uses this value would silently fail against. http:// and
+      :8000 are fixed defaults that never change here, so they're
+      added automatically now rather than depending on someone typing
+      a complete URL into a field that only ever asked for an IP. }
+    RegWriteStringValue(HKEY_LOCAL_MACHINE, RegPath, 'backend_url', 'http://' + ClientAddressPage.Values[0] + ':8000');
   end;
+end;
+
+{ Writes a timestamped line to a persistent log file directly in
+  Program Files -- deliberately not inside the app install folder or
+  the WSL install folder, since neither exists yet when this is first
+  called from PrepareToInstall, and deliberately not the temp folder
+  either, since that may not even be the same folder after the
+  reboot-resume relaunch. Program Files itself always exists and this
+  installer already runs as admin, so writing directly into it works
+  reliably from the very first line of PrepareToInstall onward.
+
+  Built specifically because real testing hit a wall real diagnostics
+  couldn't get past: a step failed with no earlier error shown, and no
+  way to tell how far the install actually got before that happened.
+  Every command this installer runs now gets recorded here -- attempt
+  and result -- so the next failure shows exactly where it stopped,
+  without needing another round of guessing. }
+procedure LogStep(const Message: String);
+var
+  LogPath: String;
+  Timestamp: String;
+begin
+  LogPath := ExpandConstant('{autopf}\ER-ServiceDesk-Install-Log.txt');
+  Timestamp := GetDateTimeString('yyyy-mm-dd hh:nn:ss', '-', ':');
+  SaveStringToFile(LogPath, Timestamp + ' - ' + Message + #13#10, True);
 end;
 
 { Same as RunCommand, but never shows an error dialog -- for the rare
@@ -378,8 +726,14 @@ end;
 procedure RunCommandQuiet(const Params, WorkingDir: String);
 var
   ResultCode: Integer;
+  Launched: Boolean;
 begin
-  Exec('cmd.exe', '/C ' + Params, WorkingDir, SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  LogStep('RunCommandQuiet attempting: ' + Params);
+  Launched := Exec('cmd.exe', '/C ' + Params, WorkingDir, SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  if Launched then
+    LogStep('RunCommandQuiet finished, exit code ' + IntToStr(ResultCode) + ': ' + Params)
+  else
+    LogStep('RunCommandQuiet FAILED TO LAUNCH: ' + Params);
 end;
 
 { Same as RunCommand, but never shows an error dialog AND returns the
@@ -392,10 +746,17 @@ end;
 function RunCommandSilent(const Params, WorkingDir: String): Boolean;
 var
   ResultCode: Integer;
+  ResultText: String;
 begin
+  LogStep('RunCommandSilent attempting: ' + Params);
   Result := Exec('cmd.exe', '/C ' + Params, WorkingDir, SW_HIDE, ewWaitUntilTerminated, ResultCode);
   if Result then
     Result := ResultCode = 0;
+  if Result then
+    ResultText := 'True'
+  else
+    ResultText := 'False';
+  LogStep('RunCommandSilent result: ' + ResultText + ' (exit code ' + IntToStr(ResultCode) + '): ' + Params);
 end;
 
 { Runs a command via cmd.exe (so PATH-based tool resolution works the
@@ -406,10 +767,17 @@ end;
 function RunCommand(const Description, Params, WorkingDir: String): Boolean;
 var
   ResultCode: Integer;
+  ResultText: String;
 begin
+  LogStep('RunCommand attempting [' + Description + ']: ' + Params);
   Result := Exec('cmd.exe', '/C ' + Params, WorkingDir, SW_HIDE, ewWaitUntilTerminated, ResultCode);
   if Result then
     Result := ResultCode = 0;
+  if Result then
+    ResultText := 'True'
+  else
+    ResultText := 'False';
+  LogStep('RunCommand result for [' + Description + ']: ' + ResultText + ' (exit code ' + IntToStr(ResultCode) + ')');
   if not Result then
     MsgBox('Setup step failed: ' + Description + #13#13 +
       'ER-ServiceDesk is installed at ' + ExpandConstant('{app}') + '. ' +
@@ -459,15 +827,38 @@ end;
   needs. Exit code 3010 is a well-established, standard Windows
   convention meaning "succeeded, but a restart is required before this
   takes effect" -- as opposed to 0, meaning success with nothing
-  further needed (e.g. the feature was already enabled). }
+  further needed (e.g. the feature was already enabled).
+
+  A real test caught a genuine bug here: this used to check only
+  ResultCode, never Exec's own launch-success return value -- every
+  other command in this whole file goes through RunCommand or
+  RunCommandSilent, which both correctly check both things, but these
+  two calls predated that pattern and were never brought in line with
+  it. If dism.exe ever failed to actually launch at all, ResultCode
+  would be left holding whatever leftover, meaningless value happened
+  to already be in that variable -- not a real result -- and this
+  function would silently continue as if DISM had succeeded, never
+  setting NeedsRestart, never reporting failure. That's consistent
+  with exactly what a real test showed: no restart prompt at all, and
+  the rest of the install proceeding as if WSL2 were already active
+  when it genuinely wasn't. Also now passing the temp folder as the
+  working directory instead of an empty string, matching every other Exec()
+  call in this file -- an invalid working directory is a separate,
+  already-confirmed way for Exec() to fail to launch at all. }
 function InstallWSLFeatures(var NeedsRestart: Boolean): Boolean;
 var
   ResultCode: Integer;
+  Launched: Boolean;
 begin
   NeedsRestart := False;
   Result := True;
 
-  Exec('dism.exe', '/online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Launched := Exec('dism.exe', '/online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart', ExpandConstant('{tmp}'), SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  if not Launched then
+  begin
+    Result := False;
+    Exit;
+  end;
   if ResultCode = 3010 then
     NeedsRestart := True
   else if ResultCode <> 0 then
@@ -476,7 +867,12 @@ begin
     Exit;
   end;
 
-  Exec('dism.exe', '/online /enable-feature /featurename:VirtualMachinePlatform /all /norestart', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Launched := Exec('dism.exe', '/online /enable-feature /featurename:VirtualMachinePlatform /all /norestart', ExpandConstant('{tmp}'), SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  if not Launched then
+  begin
+    Result := False;
+    Exit;
+  end;
   if ResultCode = 3010 then
     NeedsRestart := True
   else if ResultCode <> 0 then
@@ -510,10 +906,14 @@ end;
 function InstallDockerInWSL: Boolean;
 var
   InstallDir, TarballPath: String;
+  KeepAliveResultCode: Integer;
+  KeepAliveLaunched: Boolean;
 begin
   Result := False;
   InstallDir := ExpandConstant('{autopf}\ER-ServiceDesk-WSL');
   TarballPath := InstallDir + '\ubuntu-rootfs.tar.gz';
+  LogStep('=== InstallDockerInWSL STARTED, InstallDir=' + InstallDir + ' ===');
+  UsedWSL2DockerEngine := True;
 
   RunCommandQuiet('mkdir "' + InstallDir + '"', ExpandConstant('{tmp}'));
   { Failing here because the folder already exists from a prior
@@ -521,8 +921,39 @@ begin
     fatal. }
 
   if not RunCommand('Downloading Ubuntu for WSL (this can take a few minutes)',
-    'curl -L -o "' + TarballPath + '" ' + WSLRootfsUrl, ExpandConstant('{tmp}')) then Exit;
+    'curl -f -L -o "' + TarballPath + '" ' + WSLRootfsUrl, ExpandConstant('{tmp}')) then Exit;
 
+  { The WSL2 Windows features (DISM, above) and the WSL2 package
+    itself are two separate things -- confirmed by a real test that
+    failed here specifically with "Windows Subsystem for Linux must
+    be updated to the latest version to proceed." Originally used
+    winget for this, but a real test showed winget itself isn't
+    reliably present on a fresh Windows Server image -- confirmed
+    directly, not assumed. Pinned to a specific version instead of
+    tracking "latest" automatically, since GitHub's own "always
+    latest" URL trick only works when a release's filename doesn't
+    change between versions, and this one does (each release embeds
+    its own version number in the filename). This URL was confirmed
+    to actually resolve (a real HTTP 200, correct filename in the
+    response) as of 2026-07-28 -- worth rechecking periodically, since
+    unlike winget this won't self-update. }
+  if not RunCommand('Downloading Windows Subsystem for Linux',
+    'curl -f -L -o "' + InstallDir + '\wsl-package.msi" https://github.com/microsoft/WSL/releases/download/2.7.8/wsl.2.7.8.0.x64.msi', ExpandConstant('{tmp}')) then Exit;
+
+  if not RunCommand('Installing Windows Subsystem for Linux',
+    'msiexec /i "' + InstallDir + '\wsl-package.msi" /quiet /norestart', ExpandConstant('{tmp}')) then Exit;
+
+  { A real test showed the MSI above completing successfully
+    (exit code 0) while wsl --import still failed every time with a
+    generic "Unspecified error". Explicitly installing the MSIX glue
+    package here was tried as a fix, based on real documentation that
+    the MSI is supposed to install it automatically -- but a real
+    test proved that theory wrong: it failed with "the provided
+    package is already installed", confirming the MSI's own internal
+    step genuinely was working correctly all along. That fix has been
+    removed. The real cause turned out to be something else entirely
+    -- see the header comment at the top of this file for what
+    actually explained it. }
   if not RunCommand('Importing Ubuntu into WSL2',
     'wsl --import ' + WSLDistroName + ' "' + InstallDir + '" "' + TarballPath + '"', ExpandConstant('{tmp}')) then Exit;
 
@@ -544,47 +975,145 @@ begin
     and a TCP listener. Editing daemon.json's "hosts" key instead, on
     its own, conflicts with the unit file's own -H flag and prevents
     Docker from starting at all -- confirmed as a real, known issue,
-    not a guess. }
+    not a guess.
+
+    Binds to 0.0.0.0, not 127.0.0.1 -- a real test proved 127.0.0.1
+    wrong here, and it cost real time chasing the wrong theory (WSL2
+    auto-shutdown) before this was found. Confirmed via multiple real
+    sources: a service bound to loopback inside WSL2 is not reliably
+    reachable from Windows even with WSL2's own localhost forwarding
+    active -- one source put it as "forwarding into a brick wall."
+    Windows' own DOCKER_HOST below correctly stays 127.0.0.1, since
+    that's Windows' own localhost, which WSL2 forwards into the distro
+    specifically when the service inside is listening on all
+    interfaces, not the other way around. }
   if not RunCommand('Configuring Docker to be reachable from Windows',
-    'wsl -d ' + WSLDistroName + ' -u root -e bash -c "mkdir -p /etc/systemd/system/docker.service.d && printf ''[Service]\nExecStart=\nExecStart=/usr/bin/dockerd -H unix:///var/run/docker.sock -H tcp://127.0.0.1:2375\n'' > /etc/systemd/system/docker.service.d/override.conf"', ExpandConstant('{tmp}')) then Exit;
+    'wsl -d ' + WSLDistroName + ' -u root -e bash -c "mkdir -p /etc/systemd/system/docker.service.d && printf ''[Service]\nExecStart=\nExecStart=/usr/bin/dockerd -H unix:///var/run/docker.sock -H tcp://0.0.0.0:2375\n'' > /etc/systemd/system/docker.service.d/override.conf"', ExpandConstant('{tmp}')) then Exit;
 
   if not RunCommand('Starting Docker',
     'wsl -d ' + WSLDistroName + ' -u root -e bash -c "systemctl daemon-reload && systemctl enable docker && systemctl restart docker"', ExpandConstant('{tmp}')) then Exit;
 
-  if not RunCommand('Installing Windows Docker CLI tools',
-    'winget install --id Docker.DockerCli --accept-package-agreements --accept-source-agreements', ExpandConstant('{tmp}')) then Exit;
+  { Keeps this same distro alive for the REST of this install run --
+    the Scheduled Task below only fires at the NEXT boot, which does
+    nothing for what happens between here and RunDockerSetup's own
+    docker-compose call, still to come in this same session.
 
-  { Non-critical, best-effort convenience wrapper -- rather than
-    assume exactly which binary shape winget's Docker.DockerCli
-    package provides, this creates a plain docker-compose.bat
-    forwarding to "docker compose" (the modern plugin form, reliably
-    installed on the WSL side by the get.docker.com script above), so
-    this installer's already-tested code -- which calls the older
-    hyphenated "docker-compose" command throughout -- keeps working
-    regardless of exactly what winget installed. One genuine
-    uncertainty here, unlike everything else in this function: whether
-    a single %* or doubled %%* is correct depends on whether percent
-    expansion happens when this runs directly via cmd.exe /C (as
-    opposed to from inside an already-executing .bat file, where
-    doubling is definitely required) -- used single %* here as the
-    more likely correct form for this direct-invocation context, but
-    this is genuinely the one line in this whole function I'm least
-    certain about, and it's deliberately non-fatal if wrong. }
-  RunCommandQuiet('(echo @echo off & echo docker compose %*) > "' + InstallDir + '\docker-compose.bat"', ExpandConstant('{tmp}'));
-  { Non-fatal if this specific convenience wrapper fails to write --
-    "docker compose" (space form) may still work directly. }
+    A real test showed the nohup-based version of this step (an
+    earlier attempt) did not actually work -- Docker was still
+    unreachable well after it reported success. Confirmed via real
+    sources this is a known, documented WSL2 limitation, not a mistake
+    in that command's own syntax: nohup backgrounding a process
+    reliably keeps a distro alive when typed inside an already-open
+    WSL session, but does not reliably work when launched via the wsl
+    command from Windows, which is what this installer has to do.
+    What reliably works instead, per the same sources: keeping an
+    actual Windows-side wsl.exe process running and attached to the
+    distro, the same way a real interactive terminal does. This
+    launches wsl.exe directly (not through RunCommand, which would
+    wait for it to finish -- it's designed to run forever) and lets it
+    keep running in the background for the rest of this install. }
+  KeepAliveLaunched := Exec('wsl.exe', '-d ' + WSLDistroName + ' -u root -e sleep infinity', ExpandConstant('{tmp}'), SW_HIDE, ewNoWait, KeepAliveResultCode);
+  if KeepAliveLaunched then
+    LogStep('Launched wsl.exe -e sleep infinity to keep the distro alive for this session.')
+  else
+    LogStep('Failed to launch the wsl.exe keep-alive process.');
 
-  if not RunCommand('Making the docker-compose command available',
-    'setx /M PATH "%PATH%;' + InstallDir + '"', ExpandConstant('{tmp}')) then Exit;
+  { Same reasoning as the WSL download above -- winget isn't reliably
+    present on a fresh Server image, confirmed by a real test, so this
+    is a pinned direct download instead. Docker's static CLI ships as
+    a plain zip (not an installer), extracting to a "docker" subfolder
+    containing docker.exe -- confirmed directly by fetching Docker's
+    own real directory listing as of 2026-07-28, not assumed from an
+    older or cached reference. Worth rechecking periodically, since
+    this won't self-update the way winget would have. }
+  if not RunCommand('Downloading Windows Docker CLI tools',
+    'curl -f -L -o "' + InstallDir + '\docker-cli.zip" https://download.docker.com/win/static/stable/x86_64/docker-29.5.3.zip', ExpandConstant('{tmp}')) then Exit;
 
+  if not RunCommand('Extracting Windows Docker CLI tools',
+    'powershell -Command "Expand-Archive -Path ''' + InstallDir + '\docker-cli.zip'' -DestinationPath ''' + InstallDir + ''' -Force"', ExpandConstant('{tmp}')) then Exit;
+
+  { A real, caught-before-shipping mistake: Docker's static Windows
+    zip does NOT include compose support at all -- confirmed via
+    multiple real sources after first wrongly assuming the "docker
+    compose" plugin was bundled in. Compose is a genuinely separate
+    project (docker/compose, not docker/docker) with its own releases
+    and its own standalone Windows binary. Downloading that directly
+    and placing it as docker-compose.exe -- the exact name this
+    installer's already-tested code already expects -- is simpler and
+    more correct than the wrapper-batch-file approach this replaces:
+    no uncertainty about percent-sign doubling, no dependency on a
+    plugin that was never actually going to be there. Filename
+    confirmed lowercase via a real HTTP check, not assumed from an
+    older, differently-cased reference some guides still show. }
+  if not RunCommand('Downloading Docker Compose',
+    'curl -f -L -o "' + InstallDir + '\docker-compose.exe" https://github.com/docker/compose/releases/download/v5.3.1/docker-compose-windows-x86_64.exe', ExpandConstant('{tmp}')) then Exit;
+
+  if not RunCommand('Making Docker commands available',
+    'setx /M PATH "%PATH%;' + InstallDir + ';' + InstallDir + '\docker"', ExpandConstant('{tmp}')) then Exit;
+
+  { A real test proved 127.0.0.1 (IPv4) unreachable here, even though
+    Docker itself was genuinely running the whole time -- confirmed
+    directly: dockerd's own log showed it listening on the IPv6
+    wildcard address specifically (port 2375), with no corresponding
+    IPv4-specific listen line at all, and a manual connection over
+    IPv6 loopback succeeded immediately where IPv4 was refused. Why
+    dockerd's 0.0.0.0 flag (unambiguously an IPv4 address) resulted in an IPv6-only bind isn't fully
+    understood -- worth being honest about that gap rather than
+    claiming more certainty than the evidence supports -- but the fix
+    itself is directly confirmed, not theoretical. }
   if not RunCommand('Configuring Docker connection',
-    'setx /M DOCKER_HOST tcp://127.0.0.1:2375', ExpandConstant('{tmp}')) then Exit;
+    'setx /M DOCKER_HOST tcp://[::1]:2375', ExpandConstant('{tmp}')) then Exit;
 
   { Without this, the WSL distro (and Docker inside it) would not be
     running again after the next reboot -- WSL distros don't auto-start
-    on their own. }
-  if not RunCommand('Setting up automatic Docker startup',
-    'schtasks /create /tn "ER-ServiceDesk-WSL-Docker-Startup" /tr "wsl -d ' + WSLDistroName + ' -u root -e /bin/true" /sc onstart /ru SYSTEM /rl HIGHEST /f', ExpandConstant('{tmp}')) then Exit;
+    on their own.
+
+    A real test showed Docker unreachable moments after a successful
+    install, with the connection actively refused. Root cause,
+    confirmed via multiple sources including a Microsoft engineer's
+    own explanation on the official WSL repo: WSL2 automatically shuts
+    an entire distro down about 15 seconds after nothing is actively
+    keeping it "in use" -- and critically, this happens even with an
+    active, running systemd service inside it, confirmed by a real,
+    still-open GitHub issue showing exactly that. The previous
+    -e /bin/true here started the distro, did nothing, and exited
+    immediately -- doing nothing to prevent that shutdown. Fixed by
+    starting a genuine, permanent background process instead
+    (nohup sleep infinity &), the same fix Microsoft's own WSL team
+    suggests for this exact scenario -- this keeps WSL2 considering
+    the distro "in use" indefinitely, rather than relying on a
+    one-shot command that's already finished by the time anything
+    would need Docker to actually be running.
+
+    A real test then proved the nohup-inside-Linux approach above
+    itself did not work -- Docker was still unreachable well after
+    that step reported success. Confirmed via real sources this is a
+    known, documented WSL2 limitation: nohup backgrounding reliably
+    keeps a distro alive when typed inside an already-open WSL
+    session, but not when launched via the wsl command from Windows.
+    What reliably works instead: a genuine Windows-side wsl.exe
+    process left running, detached via Start-Process so it survives
+    after this script itself exits -- the same fix as the immediate,
+    same-session version of this above.
+
+    A real test also proved embedding a command directly in schtasks'
+    own /tr argument was fragile -- cmd.exe's parsing of shell
+    metacharacters (&, >) nested inside escaped quotes turned out to
+    be inconsistent even with a byte-verified-correct string. Fixed by
+    writing a small, real script file instead and pointing schtasks at
+    that simple path, with no special characters in the /tr argument
+    at all -- the same pattern already proven working for
+    migration_listener.ps1's own Scheduled Task.
+
+    That separate Scheduled Task has since been replaced entirely by
+    server_startup.ps1's own Step 1 -- a real test showed three
+    separate, unordered "at startup" tasks (this one, port forwarding,
+    and .env self-healing) could race each other, since Windows Task
+    Scheduler has no real dependency mechanism between them. One
+    consolidated script now handles the whole boot sequence in
+    guaranteed order instead. This immediate, current-session keep-alive
+    below is unrelated to that boot-time ordering problem and stays
+    exactly as before. }
 
   Result := True;
 end;
@@ -597,19 +1126,29 @@ end;
   via PrepareToInstall/CreateRunOnceEntry below) and then, once those
   features are confirmed active, install Docker Engine inside WSL2. }
 function DetectAndInstallPrerequisites(var NeedsRestart: Boolean): Boolean;
+var
+  RestartedText: String;
 begin
+  if RestartedFromReboot then
+    RestartedText := 'True'
+  else
+    RestartedText := 'False';
+  LogStep('=== DetectAndInstallPrerequisites STARTED (RestartedFromReboot=' + RestartedText + ') ===');
   NeedsRestart := False;
 
   if RunCommandSilent('docker --version', ExpandConstant('{tmp}')) then
   begin
+    LogStep('DetectAndInstallPrerequisites: docker already works, skipping WSL/Docker Engine setup entirely.');
     Result := True;
     Exit;
   end;
 
   if not RestartedFromReboot then
   begin
+    LogStep('DetectAndInstallPrerequisites: docker not found, not yet restarted -- calling InstallWSLFeatures.');
     if not InstallWSLFeatures(NeedsRestart) then
     begin
+      LogStep('DetectAndInstallPrerequisites: InstallWSLFeatures returned False -- aborting.');
       Result := False;
       Exit;
     end;
@@ -620,6 +1159,7 @@ begin
         before they're active -- stop here for now. The actual WSL2
         distro + Docker Engine installation happens on the resumed
         pass below, once those features are genuinely active. }
+      LogStep('DetectAndInstallPrerequisites: InstallWSLFeatures says a restart is needed. Stopping here for now.');
       Result := True;
       Exit;
     end;
@@ -627,9 +1167,15 @@ begin
     { Features were already active, or got enabled without needing a
       restart -- fall through and continue in this same pass, no
       reboot needed. }
+    LogStep('DetectAndInstallPrerequisites: InstallWSLFeatures succeeded, no restart needed -- continuing in this same pass.');
   end;
 
+  LogStep('DetectAndInstallPrerequisites: calling InstallDockerInWSL.');
   Result := InstallDockerInWSL;
+  if Result then
+    LogStep('DetectAndInstallPrerequisites: InstallDockerInWSL returned True')
+  else
+    LogStep('DetectAndInstallPrerequisites: InstallDockerInWSL returned False');
 end;
 
 { Real Inno event function, confirmed via the official
@@ -640,14 +1186,17 @@ end;
   Docker/WSL2 at all. }
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
+  LogStep('=== PrepareToInstall STARTED ===');
   NeedsRestart := False;
 
   if IsClientMode() then
   begin
+    LogStep('PrepareToInstall: Client mode detected, skipping WSL/Docker setup entirely.');
     Result := '';
     Exit;
   end;
 
+  LogStep('PrepareToInstall: not Client mode, calling DetectAndInstallPrerequisites.');
   if not DetectAndInstallPrerequisites(NeedsRestart) then
   begin
     Result := 'Setup could not prepare Docker/WSL2 on this machine. ' +
@@ -659,11 +1208,12 @@ begin
 
   if NeedsRestart then
   begin
+    LogStep('PrepareToInstall: NeedsRestart is True, calling CreateRunOnceEntry and returning a non-empty Result.');
     CreateRunOnceEntry;
     Result := 'A required Windows feature (WSL2) was just enabled and ' +
       'needs a restart before Setup can continue.' + #13#13 +
-      'After restarting, Setup will automatically continue -- you do ' +
-      'not need to run it again yourself.';
+      'After restarting, Setup will automatically resume on its own ' +
+      '-- you do not need to run it again yourself.';
     Exit;
   end;
 
@@ -675,24 +1225,68 @@ end;
   already-migrated data arrives later via pg_restore during the actual
   migration, which brings its own schema with it. Running migrations
   here first would just be redundant work against a database that's
-  about to be replaced anyway. }
+  about to be replaced anyway.
+
+  A real test proved Setup.exe's own process never actually sees the
+  PATH/DOCKER_HOST changes InstallDockerInWSL made via setx earlier in
+  this same run -- setx only affects processes started afterward, and
+  Setup.exe has been running continuously since before those calls.
+  Manually running the identical command in a fresh terminal worked
+  immediately; from Setup.exe itself it failed every time. Fixed by
+  explicitly forcing both values within the same command line that
+  runs docker-compose, sidestepping the stale-inherited-environment
+  problem entirely rather than depending on inheritance at all -- but
+  only when UsedWSL2DockerEngine is actually True, since forcing
+  DOCKER_HOST to a TCP address unconditionally would break a machine
+  that already has Docker Desktop working correctly via its own named
+  pipe connection instead. }
 procedure RunDockerSetup;
+var
+  EnvPrefix, WSLDir: String;
+  MigrationSucceeded: Boolean;
+  MigrationAttempt: Integer;
 begin
-  if not RunCommand('Starting Docker containers', 'docker-compose up -d --build', ExpandConstant('{app}')) then
+  EnvPrefix := '';
+  if UsedWSL2DockerEngine then
+  begin
+    WSLDir := ExpandConstant('{autopf}\ER-ServiceDesk-WSL');
+    EnvPrefix := 'set PATH=%PATH%;' + WSLDir + ';' + WSLDir + '\docker && set DOCKER_HOST=tcp://[::1]:2375 && ';
+  end;
+
+  if not RunCommand('Starting Docker containers', EnvPrefix + 'docker-compose up -d --build', ExpandConstant('{app}')) then
     Exit;
 
   { Postgres and the API container both need a few seconds to actually
-    become ready after starting. A fixed pause is simple and pragmatic
-    here; a more precise health-check retry loop (matching what the
-    desktop app's own BackendStartupWorker already does) is a
-    reasonable future improvement, not required for this to work. }
+    become ready after starting. This initial pause covers the common
+    case; the retry loop below covers the rest. }
   Sleep(20000);
 
   if IsLocalMode() or IsNewServerSetup() then
   begin
-    if not RunCommand('Running database migrations', 'docker-compose exec -T api alembic upgrade head', ExpandConstant('{app}')) then
-      Exit;
-    if not RunCommand('Seeding initial data', 'docker-compose exec -T api python -m app.db.run_seed', ExpandConstant('{app}')) then
+    { A real, recurring failure showed a single fixed wait wasn't
+      always enough -- Postgres occasionally takes longer than 20
+      seconds to become ready to accept connections, and this used to
+      try the migration exactly once, failing outright if that one
+      attempt happened to land too early. Retries for up to another
+      60 seconds (6 attempts, 10 seconds apart) before giving up for
+      real, matching the same retry-with-delay pattern already used
+      for the migration worker's own server health check. }
+    MigrationSucceeded := False;
+    for MigrationAttempt := 1 to 6 do
+    begin
+      MigrationSucceeded := RunCommandSilent(EnvPrefix + 'docker-compose exec -T api alembic upgrade head', ExpandConstant('{app}'));
+      if MigrationSucceeded then
+        Break;
+      Sleep(10000);
+    end;
+
+    if not MigrationSucceeded then
+    begin
+      if not RunCommand('Running database migrations', EnvPrefix + 'docker-compose exec -T api alembic upgrade head', ExpandConstant('{app}')) then
+        Exit;
+    end;
+
+    if not RunCommand('Seeding initial data', EnvPrefix + 'docker-compose exec -T api python -m app.db.run_seed', ExpandConstant('{app}')) then
       Exit;
   end;
 end;
@@ -714,13 +1308,17 @@ begin
     '-ExecutionPolicy Bypass -File "' + ExpandConstant('{app}\migration_listener.ps1') + '"',
     ExpandConstant('{app}'), SW_HIDE, ewNoWait, ResultCode);
 
-  RunCommandQuiet(
-    'schtasks /create /tn "ER-ServiceDesk-Migration-Listener" /tr "powershell.exe -ExecutionPolicy Bypass -File \"' + ExpandConstant('{app}\migration_listener.ps1') + '\"" /sc onstart /ru SYSTEM /rl HIGHEST /f',
-    ExpandConstant('{tmp}'));
-  { Non-fatal if this specific Scheduled Task registration fails --
-    the listener launched just above is already running for this
-    session regardless; the Task only matters if the server reboots
-    before the real migration happens. }
+  if not RunCommand('Registering migration listener to survive a reboot',
+    'schtasks /create /tn "ER-ServiceDesk-Migration-Listener" /tr "powershell.exe -ExecutionPolicy Bypass -File \"' + ExpandConstant('{app}\migration_listener.ps1') + '\"" /sc onstart /ru SYSTEM /rl HIGHEST /f', ExpandConstant('{tmp}')) then Exit;
+  { A real test showed a different Scheduled Task registration using
+    this same "quiet" pattern had been silently failing the whole
+    time -- the task never actually existed at all, confirmed directly
+    via schtasks /query returning "cannot find the file specified."
+    Rebooting a server while genuinely waiting for a migration was
+    never actually tested until that point, so this exact same,
+    previously-invisible failure mode could plausibly have been
+    happening here too, undetected. Made visible now for the same
+    reason. }
 end;
 
 { Registers env_self_healing.ps1 to run at every Windows startup, as
@@ -733,14 +1331,193 @@ end;
   just above (already run for this same install, moments earlier)
   already did the equivalent work for the current session; running it
   again right now would just be redundant. }
-procedure RegisterEnvSelfHealing;
+{ RegisterEnvSelfHealing has been removed -- its Scheduled Task is
+  fully replaced by server_startup.ps1's own Step 4, which replicates
+  the exact same .env recovery logic, now running in guaranteed order
+  as part of one consolidated boot sequence instead of as a separate,
+  unordered "at startup" task. See SetupServerStartup below. }
+
+{ Opens the Windows Firewall for whatever this Server install actually
+  needs to receive from other machines -- a real migration attempt
+  timed out (not refused, genuinely no response at all) against a
+  fresh Server 2022 install, confirmed via a real test that the
+  listener itself was running and correctly listening the whole time,
+  pointing squarely at the firewall blocking unsolicited inbound
+  connections by default, which fresh Windows Server installs do.
+
+  Port 8000 (the API) for every Server install, since Client mode
+  always needs to reach it -- this was never tested before now, and
+  would very likely have hit the exact same wall on the very next
+  test (a real Client actually connecting) if left unfixed here too.
+  Port 8001 (the migration listener) only for Migration Target
+  specifically, since New Setup never runs that listener at all --
+  opening it there would just be unnecessary exposed surface with no
+  real benefit. }
+procedure ConfigureFirewallRules;
 begin
-  RunCommandQuiet(
-    'schtasks /create /tn "ER-ServiceDesk-Env-Self-Healing" /tr "powershell.exe -ExecutionPolicy Bypass -File \"' + ExpandConstant('{app}\env_self_healing.ps1') + '\"" /sc onstart /ru SYSTEM /rl HIGHEST /f',
-    ExpandConstant('{tmp}'));
-  { Non-fatal if this fails to register -- worth knowing, but a failed
-    registration here doesn't affect the current install session at
-    all, only resilience against a FUTURE reboot. }
+  if not RunCommand('Configuring firewall for remote connections',
+    'netsh advfirewall firewall add rule name="ER-ServiceDesk API" dir=in action=allow protocol=TCP localport=8000', ExpandConstant('{tmp}')) then Exit;
+
+  if IsMigrationTarget() then
+    RunCommand('Configuring firewall for migration',
+      'netsh advfirewall firewall add rule name="ER-ServiceDesk Migration Listener" dir=in action=allow protocol=TCP localport=8001', ExpandConstant('{tmp}'));
+end;
+
+{ Bridges Windows' own network interface to WSL2's internal address
+  for port 8000 -- a real client-server test proved a genuine, real
+  limitation: Docker containers running inside WSL2 are only reachable
+  from the Windows host itself, never from another physical machine
+  on the network, confirmed via multiple real, authoritative sources,
+  not something fixable from inside the distro at all. Explains
+  exactly why the migration listener (port 8001, a plain PowerShell
+  script running directly on Windows, never touching WSL2) worked
+  correctly from another machine the whole time, while the API (port
+  8000, inside a container, inside WSL2) never did, despite an
+  identical, confirmed-correct firewall rule for its own port.
+
+  Runs immediately for this install session only -- the WSL2 distro's
+  internal IP is only known once it's actually up, so this has to come
+  after RunDockerSetup. Future-boot coverage for this same step is now
+  handled by server_startup.ps1's own Step 3 instead of a separate
+  Scheduled Task here -- see RegisterServerStartupTask below. }
+procedure SetupWslPortForward;
+begin
+  RunCommandQuiet('powershell.exe -ExecutionPolicy Bypass -File "' + ExpandConstant('{app}\wsl_port_forward.ps1') + '"', ExpandConstant('{tmp}'));
+  { Non-fatal if this fails for the current session -- worth knowing,
+    but server_startup.ps1's own Step 3 covers this correctly on the
+    next boot regardless. }
+end;
+
+{ Registers the ONE Scheduled Task that replaces three separate,
+  formerly-unordered ones (WSL2/Docker keep-alive, port forwarding,
+  .env self-healing) -- a real test showed those three, all set to
+  fire "at startup" with no real dependency mechanism between them in
+  Windows Task Scheduler, could race each other: .env self-healing's
+  own docker-compose up -d running before WSL2/Docker were actually
+  ready, confirmed directly via a real "connection actively refused"
+  error meaning Docker itself hadn't come up in time. server_startup.ps1
+  now does all of this in one script, in guaranteed order, waiting for
+  each step to genuinely be ready before moving to the next. }
+{ Installs a genuine Windows Service (via NSSM, a real, widely-used,
+  public-domain third-party tool) to run server_startup.ps1 at boot --
+  replaces the Scheduled Task entirely, not just fixing it.
+
+  A real test proved the actual root cause was never about ordering or
+  timing at all: wsl.exe itself hung indefinitely (confirmed directly,
+  over an hour on a single command that returned instantly when run
+  manually) when invoked via Task Scheduler specifically, on a machine
+  with no one logged in. Confirmed as a real, documented, still-open
+  limitation on Microsoft's own WSL GitHub repo -- multiple separate
+  issues there describe this exact same symptom, including one
+  literally titled "Using wsl2 in Production on Windows Server 2025"
+  describing this identical scenario.
+
+  A genuine Windows Service is a structurally different mechanism, not
+  another variant of the same one -- services run in their own,
+  dedicated system session specifically designed for unattended
+  background operation, never built around an interactive user session
+  existing at all, unlike Task Scheduler. A real, working precedent
+  exists for wrapping wsl.exe this exact way.
+
+  Uses the 2.24-101 prerelease build specifically, not the older
+  2.24 stable release -- confirmed directly from NSSM's own official
+  download page: "Users of Windows 10 Creators Update or newer should
+  use prerelease build 2.24-101 or any newer build to avoid an issue
+  with services failing to start," and every target OS here is well
+  past that point. }
+{ A real test showed a 2-second pause after nssm install wasn't
+  reliably enough before the first nssm set command that follows it --
+  the exact same command succeeded correctly when run manually, moments
+  later, confirming its own syntax was never the problem, just timing.
+  Rather than guess at a longer fixed pause (the same mistake, just
+  bigger), retries silently for a while with a real delay between
+  attempts, then makes one final, visible attempt to surface the real
+  error if it still genuinely fails -- the same retry-with-delay
+  pattern already proven working for the database migration step
+  earlier in this same file. Reused here for all three nssm set
+  commands below, not just the first, since they're all equally
+  susceptible to the same underlying timing issue. }
+function RunCommandWithRetry(const Description, Params, WorkingDir: String; MaxAttempts, DelayMs: Integer): Boolean;
+var
+  Attempt: Integer;
+begin
+  Result := False;
+  for Attempt := 1 to MaxAttempts do
+  begin
+    Result := RunCommandSilent(Params, WorkingDir);
+    if Result then
+      Exit;
+    Sleep(DelayMs);
+  end;
+  Result := RunCommand(Description, Params, WorkingDir);
+end;
+
+procedure RegisterServerStartupTask;
+var
+  NssmDir, NssmExe, AppDir: String;
+begin
+  NssmDir := ExpandConstant('{app}\nssm');
+  { win32, not win64 -- a real test showed the win64 binary inside
+    this specific zip never actually extracted correctly (a genuine
+    0-byte file with today's date, not the archive's own 2017
+    timestamp the way win32's copy correctly had), while win32
+    extracted fine. Confirmed directly from NSSM's own official docs
+    that running the 32-bit version on 64-bit Windows is a normal,
+    supported scenario, not a workaround. }
+  NssmExe := NssmDir + '\nssm-2.24-101-g897c7ad\win32\nssm.exe';
+  AppDir := ExpandConstant('{app}');
+
+  if not RunCommand('Downloading service manager',
+    'curl -f -L -o "' + ExpandConstant('{app}\nssm.zip') + '" https://nssm.cc/ci/nssm-2.24-101-g897c7ad.zip', ExpandConstant('{tmp}')) then Exit;
+
+  if not RunCommand('Extracting service manager',
+    'powershell -Command "Expand-Archive -Path ''' + ExpandConstant('{app}\nssm.zip') + ''' -DestinationPath ''' + NssmDir + ''' -Force"', ExpandConstant('{tmp}')) then Exit;
+
+  if not RunCommand('Installing server startup service',
+    '"' + '"' + NssmExe + '" install ER-ServiceDesk-Startup powershell.exe' + '"', ExpandConstant('{tmp}')) then Exit;
+
+  { A real test proved the exact same "set AppDirectory" command below
+    succeeds correctly when run manually, moments after install --
+    confirming its own syntax and content are correct, just a real
+    timing gap right after nssm install reports success. A fixed
+    2-second pause here wasn't reliably enough either, on its own --
+    RunCommandWithRetry below handles this properly instead.
+
+    A real test also proved something else, genuinely different and
+    more fundamental: the exact same command, run manually WITHOUT an
+    extra, outer pair of quotes wrapping the whole thing, actually
+    failed outright -- cmd.exe mangled it completely, treating
+    "C:\Program" alone as the entire command to run, cutting off at
+    the first space. Every command below now wraps the whole thing in
+    one more, outer pair of quotes, matching the exact form confirmed
+    working -- the standard, documented cmd.exe pattern for a quoted
+    executable path (itself containing spaces) followed by further
+    quoted arguments later in the same line. }
+
+  { A real test showed the original approach here -- embedding the
+    full, space-containing script path with escaped inner quotes
+    directly in AppParameters -- failing outright. Sets the service's
+    own working directory explicitly instead, confirmed directly via
+    NSSM's own documentation that a service defaults to the directory
+    containing the PROGRAM (here, powershell.exe, in System32) rather
+    than the script's own folder -- so this can't just be left unset.
+    With AppDirectory set correctly, the script itself can be
+    referenced by its plain filename alone, with no spaces and no
+    nested quoting needed at all. }
+  if not RunCommandWithRetry('Configuring server startup service working directory',
+    '"' + '"' + NssmExe + '" set ER-ServiceDesk-Startup AppDirectory "' + AppDir + '"' + '"', ExpandConstant('{tmp}'), 6, 5000) then Exit;
+
+  if not RunCommandWithRetry('Configuring server startup service arguments',
+    '"' + '"' + NssmExe + '" set ER-ServiceDesk-Startup AppParameters "-ExecutionPolicy Bypass -File server_startup.ps1"' + '"', ExpandConstant('{tmp}'), 6, 5000) then Exit;
+
+  if not RunCommandWithRetry('Setting server startup service to start automatically',
+    '"' + '"' + NssmExe + '" set ER-ServiceDesk-Startup Start SERVICE_AUTO_START' + '"', ExpandConstant('{tmp}'), 6, 5000) then Exit;
+
+  RunCommandQuiet('"' + '"' + NssmExe + '" start ER-ServiceDesk-Startup' + '"', ExpandConstant('{tmp}'));
+  { Non-fatal if starting it right now fails -- the service is already
+    correctly registered to auto-start on the next real boot either
+    way, which is what actually matters; this is just a bonus for the
+    current session. }
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
@@ -754,7 +1531,11 @@ begin
       if IsMigrationTarget() then
         StartMigrationListener;
       if IsServerMode() then
-        RegisterEnvSelfHealing;
+      begin
+        ConfigureFirewallRules;
+        SetupWslPortForward;
+        RegisterServerStartupTask;
+      end;
     end;
     WriteRegistryValues;
   end;

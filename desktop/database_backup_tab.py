@@ -16,6 +16,8 @@ throughout this app (StartupWindow, MigrateToServerTab).
 """
 
 import os
+import subprocess
+import sys
 
 from PySide6.QtCore import QThread
 from PySide6.QtWidgets import (
@@ -23,13 +25,14 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
 from desktop.database_backup_worker import DatabaseBackupWorker
-from desktop.settings_manager import get_backup_location, save_backup_location
+from desktop.settings_manager import get_backup_location
 
 # A reasonable starting point before the admin has chosen anything --
 # not the recommended final choice (see the on-screen note about disk
@@ -89,7 +92,7 @@ class DatabaseBackupTab(QWidget):
         chosen = QFileDialog.getExistingDirectory(self, "Choose Backup Location", self.location_display.text())
         if chosen:
             self.location_display.setText(chosen)
-            save_backup_location(chosen)
+            self._save_backup_location_elevated(chosen)
 
     def _on_backup_clicked(self):
         """Starts the backup worker on a background thread."""
@@ -101,9 +104,12 @@ class DatabaseBackupTab(QWidget):
         # Persist the current value even if it was only ever the
         # suggested default and never explicitly chosen through the
         # picker -- once they've actually used it, it's their real
-        # choice going forward, remembered the same way theme and
-        # window geometry already are.
-        save_backup_location(destination)
+        # choice going forward. Only actually triggers an elevated
+        # write (and the UAC prompt that comes with it) if this value
+        # genuinely isn't already saved -- otherwise every single
+        # backup click would prompt for elevation again for no reason.
+        if destination != get_backup_location():
+            self._save_backup_location_elevated(destination)
 
         self.backup_button.setEnabled(False)
         self.status_label.setText("Starting backup...")
@@ -120,6 +126,46 @@ class DatabaseBackupTab(QWidget):
         self._thread.finished.connect(self._thread.deleteLater)
 
         self._thread.start()
+
+    def _save_backup_location_elevated(self, path: str):
+        """
+        Persists the chosen backup folder via an elevated relaunch of
+        this same exe -- backup_location is a SystemScope
+        (HKEY_LOCAL_MACHINE) setting, requiring admin rights to write,
+        confirmed directly in settings_manager.py's own docstring. This
+        app never runs elevated day to day, by design, so a plain
+        settings_manager.save_backup_location() call here would
+        silently fail to persist for the normal, non-admin case -- the
+        exact same bug already caught once for install_mode/
+        backend_url and fixed there with this same
+        Start-Process -Verb RunAs -Wait pattern
+        (migrate_to_server_tab.py's teardown-and-switch-to-Client).
+
+        Args:
+            path: The folder path to persist as the saved backup location.
+        """
+        exe_path = sys.executable
+        ps_command = (
+            f'$p = Start-Process -FilePath "{exe_path}" '
+            f'-ArgumentList "--set-backup-location", "{path}" '
+            f'-Verb RunAs -Wait -PassThru; '
+            f'exit $p.ExitCode'
+        )
+
+        try:
+            result = subprocess.run(["powershell", "-Command", ps_command], timeout=120)
+        except Exception:
+            result = None
+
+        if result is None or result.returncode != 0:
+            QMessageBox.warning(
+                self,
+                "Location Not Saved",
+                "This backup location will be used for this backup, but "
+                "could not be saved as the default -- either the "
+                "administrator prompt was cancelled, or the write "
+                "itself failed. You'll need to choose it again next time.",
+            )
 
     def _on_backup_finished(self, success: bool, message: str):
         """

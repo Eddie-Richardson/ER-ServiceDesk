@@ -35,7 +35,13 @@ from desktop.login_window import LoginWindow
 from desktop.dashboard_window import DashboardWindow
 from desktop.app_paths import get_compose_dir, get_env_backup_dir, get_icon_path
 from desktop.env_recovery import ensure_env_available
-from desktop.settings_manager import get_saved_theme, get_install_mode, save_backend_url, save_install_mode
+from desktop.settings_manager import (
+    get_saved_theme,
+    get_install_mode,
+    save_backend_url,
+    save_backup_location,
+    save_install_mode,
+)
 from desktop.startup_window import StartupWindow
 from desktop.theme import get_stylesheet
 
@@ -69,6 +75,20 @@ def main():
         try:
             save_install_mode("client")
             save_backend_url(backend_url)
+            sys.exit(0)
+        except Exception:
+            sys.exit(1)
+
+    # Same pattern and same reason as --set-client-mode above --
+    # backup_location is also a SystemScope (HKEY_LOCAL_MACHINE)
+    # setting, requiring admin rights to write, but the app never runs
+    # elevated day to day. database_backup_tab.py re-launches this same
+    # exe with this flag via Start-Process -Verb RunAs -Wait to perform
+    # just this one privileged write.
+    if len(sys.argv) >= 3 and sys.argv[1] == "--set-backup-location":
+        backup_location = sys.argv[2]
+        try:
+            save_backup_location(backup_location)
             sys.exit(0)
         except Exception:
             sys.exit(1)

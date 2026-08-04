@@ -50,15 +50,38 @@ class DatabaseBackupWorker(QObject):
 
         filename = f"er-servicedesk-backup-{datetime.now().strftime('%Y-%m-%d-%H%M%S')}.dump"
         destination_path = os.path.join(self.destination_folder, filename)
+        container_name = "er-servicedesk-app-postgres"
+        container_dump_path = "/tmp/er-servicedesk-backup.dump"
 
-        # Custom format (-Fc), matching Migrate to Server's own dump --
-        # this is what lets the file later be loaded back with
-        # pg_restore if it's ever actually needed for real recovery.
+        # Two steps, not one -- this worker used to stream pg_dump's
+        # output straight through docker-compose exec's own stdout
+        # capture, the exact mechanism already proven (in
+        # migrate_to_server_worker.py) to silently produce an empty
+        # file on this environment: Docker's own "hijack" mechanism
+        # tears the connection down before any real output comes
+        # through, regardless of pipes vs. files or shell settings.
+        # pg_dump writes its output to a file INSIDE the container
+        # first (-f), then docker cp pulls that file out directly to
+        # its final destination -- a separate mechanism that doesn't
+        # depend on the same live-streaming behavior at all.
+        dump_cmd = [
+            "docker-compose", "exec", "-T", "db",
+            "pg_dump", "-U", "postgres", "-Fc", "-f", container_dump_path, "erservicedesk",
+        ]
+        cp_cmd = ["docker", "cp", f"{container_name}:{container_dump_path}", destination_path]
+
         try:
-            result = subprocess.run(
-                ["docker-compose", "exec", "-T", "db", "pg_dump", "-U", "postgres", "-Fc", "erservicedesk"],
+            os.makedirs(self.destination_folder, exist_ok=True)
+        except OSError as e:
+            self.finished.emit(False, f"Could not create the backup folder {self.destination_folder}:\n\n{e}")
+            return
+
+        try:
+            dump_result = subprocess.run(
+                dump_cmd,
                 cwd=self.compose_dir,
                 capture_output=True,
+                shell=True,
                 timeout=300,
             )
         except FileNotFoundError:
@@ -68,20 +91,24 @@ class DatabaseBackupWorker(QObject):
             self.finished.emit(False, "Creating the backup took too long (over 5 minutes). Please try again.")
             return
 
-        if result.returncode != 0:
-            self.finished.emit(False, f"Backup failed:\n\n{result.stderr.decode(errors='replace')}")
+        if dump_result.returncode != 0:
+            self.finished.emit(False, f"Backup failed:\n\n{dump_result.stderr.decode(errors='replace')}")
             return
 
         try:
-            os.makedirs(self.destination_folder, exist_ok=True)
-            with open(destination_path, "wb") as f:
-                f.write(result.stdout)
-        except OSError as e:
-            self.finished.emit(
-                False,
-                f"The backup was created, but could not be saved to "
-                f"{self.destination_folder}:\n\n{e}",
+            cp_result = subprocess.run(
+                cp_cmd,
+                cwd=self.compose_dir,
+                capture_output=True,
+                shell=True,
+                timeout=60,
             )
+        except subprocess.TimeoutExpired:
+            self.finished.emit(False, "Retrieving the backup took too long. Please try again.")
+            return
+
+        if cp_result.returncode != 0:
+            self.finished.emit(False, f"Backup failed:\n\n{cp_result.stderr.decode(errors='replace')}")
             return
 
         self.finished.emit(True, f"Backup saved to:\n{destination_path}")

@@ -56,7 +56,55 @@ function Write-Log {
     "$(Get-Date -Format o) - $Message" | Out-File -FilePath $LogPath -Append -Encoding utf8
 }
 
+# Same helper as create_server_vm.ps1 -- confirmed via a real test on
+# that script that Get-Command itself can come back completely empty
+# for OpenSSH tools in this process's own environment, independent of
+# PATH entirely by checking known real install locations on disk.
+function Resolve-OpenSshTool {
+    param([string]$ToolName)
+    # Same reasoning as create_server_vm.ps1 -- Sysnative bypasses
+    # WOW64 File System Redirection regardless of the calling
+    # process's own bitness, so checking it first costs nothing even
+    # if this particular script (a Scheduled Task, not spawned by
+    # Setup.exe's own 32-bit process chain) turns out not to actually
+    # need it.
+    $Candidates = @(
+        "$env:WINDIR\Sysnative\OpenSSH\$ToolName",
+        "$env:WINDIR\System32\OpenSSH\$ToolName",
+        "$env:WINDIR\SysWOW64\OpenSSH\$ToolName",
+        "$env:ProgramFiles\OpenSSH\$ToolName",
+        "${env:ProgramFiles(x86)}\OpenSSH\$ToolName"
+    )
+    foreach ($Candidate in $Candidates) {
+        if (Test-Path $Candidate) {
+            return $Candidate
+        }
+    }
+    $Cmd = Get-Command $ToolName -ErrorAction SilentlyContinue
+    if ($Cmd) {
+        return $Cmd.Source
+    }
+    return $null
+}
+
+# Same fix as prepare_vm_image.ps1/create_server_vm.ps1 -- must exist
+# before the first Write-Log call. In practice this directory already
+# exists by the time this listener ever runs (create_server_vm.ps1
+# creates it first), but this shouldn't silently depend on that.
+New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+
 Write-Log "=== vm_resize_listener.ps1 STARTED ==="
+
+# Same defensive check as create_server_vm.ps1 -- this listener's own
+# disk-resize path calls ssh.exe independently, and shouldn't silently
+# assume create_server_vm.ps1 already guaranteed OpenSSH Client is
+# present just because it ran first. Cheap to confirm again here.
+$OpenSshCapabilityName = "OpenSSH.Client~~~~0.0.1.0"
+$OpenSshCapability = Get-WindowsCapability -Online -Name $OpenSshCapabilityName
+if ($OpenSshCapability.State -ne "Installed") {
+    Write-Log "OpenSSH Client not installed -- installing now..."
+    Add-WindowsCapability -Online -Name $OpenSshCapabilityName | Out-Null
+}
 
 # ---------------------------------------------------------------------------
 # Windows credential validation via LogonUser -- the same underlying
@@ -266,7 +314,9 @@ while ($true) {
                     Resize-VHD -Path $VhdxPath -SizeBytes ([int64]$NewCapGB * 1GB)
                     Write-Log "VHDX resized to ${NewCapGB}GB, running growpart/resize2fs inside the VM..."
 
-                    & ssh.exe -o StrictHostKeyChecking=no -o BatchMode=yes -i $SshKeyPath "svc@$StaticIP" `
+                    $SshExe = Resolve-OpenSshTool -ToolName "ssh.exe"
+                    if (-not $SshExe) { $SshExe = "ssh.exe" }
+                    & $SshExe -o StrictHostKeyChecking=no -o BatchMode=yes -i $SshKeyPath "svc@$StaticIP" `
                         "sudo growpart /dev/sda 1 && sudo resize2fs /dev/sda1"
                     if ($LASTEXITCODE -ne 0) {
                         Write-Log "growpart/resize2fs failed with exit code $LASTEXITCODE -- VHDX was resized but the filesystem inside the VM may not reflect it yet."

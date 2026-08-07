@@ -1021,8 +1021,14 @@ function InstallDockerCLIOnWindows(const InstallDir: String): Boolean;
 begin
   Result := False;
 
+  { --connect-timeout/--max-time added after a real, confirmed hang:
+    Setup sat at "Preparing to Install" for over 4 hours with no
+    indication anything was wrong, because this curl call (and every
+    other download in this installer) had no timeout at all -- a
+    stalled connection just waited forever, and so did Exec()
+    waiting on it. Every download below gets the same fix. }
   if not RunCommand('Downloading Windows Docker CLI tools',
-    'curl -f -L -o "' + InstallDir + '\docker-cli.zip" https://download.docker.com/win/static/stable/x86_64/docker-29.5.3.zip', ExpandConstant('{tmp}')) then Exit;
+    'curl -f -L --connect-timeout 15 --max-time 300 -o "' + InstallDir + '\docker-cli.zip" https://download.docker.com/win/static/stable/x86_64/docker-29.5.3.zip', ExpandConstant('{tmp}')) then Exit;
 
   if not RunCommand('Extracting Windows Docker CLI tools',
     'powershell -Command "Expand-Archive -Path ''' + InstallDir + '\docker-cli.zip'' -DestinationPath ''' + InstallDir + ''' -Force"', ExpandConstant('{tmp}')) then Exit;
@@ -1041,7 +1047,7 @@ begin
     confirmed lowercase via a real HTTP check, not assumed from an
     older, differently-cased reference some guides still show. }
   if not RunCommand('Downloading Docker Compose',
-    'curl -f -L -o "' + InstallDir + '\docker-compose.exe" https://github.com/docker/compose/releases/download/v5.3.1/docker-compose-windows-x86_64.exe', ExpandConstant('{tmp}')) then Exit;
+    'curl -f -L --connect-timeout 15 --max-time 300 -o "' + InstallDir + '\docker-compose.exe" https://github.com/docker/compose/releases/download/v5.3.1/docker-compose-windows-x86_64.exe', ExpandConstant('{tmp}')) then Exit;
 
   if not RunCommand('Making Docker commands available',
     'setx /M PATH "%PATH%;' + InstallDir + ';' + InstallDir + '\docker"', ExpandConstant('{tmp}')) then Exit;
@@ -1067,7 +1073,7 @@ begin
     fatal. }
 
   if not RunCommand('Downloading Ubuntu for WSL (this can take a few minutes)',
-    'curl -f -L -o "' + TarballPath + '" ' + WSLRootfsUrl, ExpandConstant('{tmp}')) then Exit;
+    'curl -f -L --connect-timeout 15 --max-time 900 -o "' + TarballPath + '" ' + WSLRootfsUrl, ExpandConstant('{tmp}')) then Exit;
 
   { The WSL2 Windows features (DISM, above) and the WSL2 package
     itself are two separate things -- confirmed by a real test that
@@ -1084,7 +1090,7 @@ begin
     response) as of 2026-07-28 -- worth rechecking periodically, since
     unlike winget this won't self-update. }
   if not RunCommand('Downloading Windows Subsystem for Linux',
-    'curl -f -L -o "' + InstallDir + '\wsl-package.msi" https://github.com/microsoft/WSL/releases/download/2.7.8/wsl.2.7.8.0.x64.msi', ExpandConstant('{tmp}')) then Exit;
+    'curl -f -L --connect-timeout 15 --max-time 300 -o "' + InstallDir + '\wsl-package.msi" https://github.com/microsoft/WSL/releases/download/2.7.8/wsl.2.7.8.0.x64.msi', ExpandConstant('{tmp}')) then Exit;
 
   if not RunCommand('Installing Windows Subsystem for Linux',
     'msiexec /i "' + InstallDir + '\wsl-package.msi" /quiet /norestart', ExpandConstant('{tmp}')) then Exit;
@@ -1112,7 +1118,7 @@ begin
   if not RunCommand('Restarting WSL to apply systemd', 'wsl --shutdown', ExpandConstant('{tmp}')) then Exit;
 
   if not RunCommand('Installing Docker Engine inside WSL (this can take a few minutes)',
-    'wsl -d ' + WSLDistroName + ' -u root -e bash -c "curl -fsSL https://get.docker.com | sh"', ExpandConstant('{tmp}')) then Exit;
+    'wsl -d ' + WSLDistroName + ' -u root -e bash -c "curl -fsSL --connect-timeout 15 --max-time 120 https://get.docker.com | sh"', ExpandConstant('{tmp}')) then Exit;
 
   { Confirmed via real sources this is the correct way to expose
     Docker's daemon over TCP -- a systemd override clearing the
@@ -1300,21 +1306,76 @@ end;
 function InstallHyperVFeature(var NeedsRestart: Boolean): Boolean;
 var
   ResultCode: Integer;
-  Launched: Boolean;
+  Launched, IsServerOS: Boolean;
 begin
   NeedsRestart := False;
   Result := True;
 
-  Launched := Exec('dism.exe', '/online /enable-feature /featurename:Microsoft-Hyper-V /all /norestart', ExpandConstant('{tmp}'), SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  if not Launched then
+  { Confirmed via a real failure on Windows Server 2025: dism.exe's
+    client-oriented enable-feature command reported Hyper-V as
+    State=Enabled, but Get-Module -ListAvailable Hyper-V afterward
+    came back COMPLETELY EMPTY -- not "present but not loaded," the
+    module was never actually deployed to disk at all. That command
+    is the Windows 10/11 client convention; Windows Server needs the
+    Server Manager route (Install-WindowsFeature -IncludeManagementTools)
+    to reliably get the PowerShell module itself deployed, not just
+    the role flagged as enabled. Windows 10/11 client editions don't
+    have the ServerManager module at all, so they still need the
+    dism.exe path -- this has to branch on which OS family it's
+    actually running on, not use one command for both. }
+  Launched := Exec('powershell.exe', '-Command "exit (Get-CimInstance Win32_OperatingSystem).ProductType"',
+    ExpandConstant('{tmp}'), SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  { ProductType: 1 = workstation (Windows 10/11 client), 2 = domain
+    controller, 3 = server -- 2 and 3 both mean "use the Server route." }
+  IsServerOS := Launched and (ResultCode <> 1);
+
+  if IsServerOS then
   begin
-    Result := False;
-    Exit;
+    Launched := Exec('powershell.exe', '-Command "Install-WindowsFeature -Name Hyper-V -IncludeManagementTools"',
+      ExpandConstant('{tmp}'), SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    if (not Launched) or (ResultCode <> 0) then
+    begin
+      Result := False;
+      Exit;
+    end;
+  end
+  else
+  begin
+    Launched := Exec('dism.exe', '/online /enable-feature /featurename:Microsoft-Hyper-V /all /norestart', ExpandConstant('{tmp}'), SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    if not Launched then
+    begin
+      Result := False;
+      Exit;
+    end;
+    if ResultCode = 3010 then
+      NeedsRestart := True
+    else if ResultCode <> 0 then
+      Result := False;
   end;
-  if ResultCode = 3010 then
-    NeedsRestart := True
-  else if ResultCode <> 0 then
-    Result := False;
+
+  { Get-WindowsOptionalFeature's own restart signal as a second check,
+    regardless of which branch above actually enabled the feature --
+    both Install-WindowsFeature and dism.exe share the same underlying
+    servicing stack on Server, so this reads correctly either way.
+
+    The real property, CONFIRMED directly from a real system's own
+    output rather than assumed, is RestartRequired -- a three-state
+    string (No/Possible/Yes), not a plain boolean RestartNeeded the
+    way an earlier version of this check wrongly assumed. That earlier
+    version was checking a property that doesn't exist on this system
+    at all, so it silently never fired. Treating anything other than
+    a confirmed "No" as "treat it as needing a restart" is the safer
+    direction to be wrong in here -- a needless restart costs a few
+    minutes, but proceeding into VM creation on a genuinely
+    not-ready Hyper-V is the opaque crash already seen twice now. }
+  if Result and (not NeedsRestart) then
+  begin
+    Launched := Exec('powershell.exe',
+      '-Command "$f = Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V; if ($f.RestartRequired -ne ''No'') { exit 1 } else { exit 0 }"',
+      ExpandConstant('{tmp}'), SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    if Launched and (ResultCode = 1) then
+      NeedsRestart := True;
+  end;
 end;
 
 { Creates (or, on a re-run/resume, confirms) Server mode's dedicated
@@ -1553,7 +1614,17 @@ begin
     EnvPrefix := 'set PATH=%PATH%;' + VMDir + ';' + VMDir + '\docker && set DOCKER_HOST=tcp://' + VMStaticIP + ':2375 && ';
   end;
 
-  if not RunCommand('Starting Docker containers', EnvPrefix + 'docker-compose up -d --build', ExpandConstant('{app}')) then
+  { Redirects docker-compose's actual output to a log file -- RunCommand
+    itself only captures the exit code, not any real output, and a
+    manual run of this exact command (same EnvPrefix, same working
+    directory) succeeded completely, meaning whatever's failing here
+    is specific to Setup's own automated invocation, not the
+    underlying command itself. Same diagnostic technique already
+    proven throughout the VM creation debugging -- get the real error
+    text instead of guessing from a bare exit code. }
+  if not RunCommand('Starting Docker containers',
+    EnvPrefix + 'docker-compose up -d --build > "' + ExpandConstant('{app}') + '\docker_compose_log.txt" 2>&1',
+    ExpandConstant('{app}')) then
     Exit;
 
   { Postgres and the API container both need a few seconds to actually
@@ -1683,7 +1754,7 @@ end;
   path to have anything to SSH into. }
 procedure StartVmResizeListener;
 var
-  VMDir, SshKeyPath, ScriptPath, ScriptArgs: String;
+  VMDir, SshKeyPath, ScriptPath, ScriptArgs, WrapperPath, WrapperContent: String;
   ResultCode: Integer;
 begin
   VMDir := ExpandConstant('{autopf}\ER-ServiceDesk-VM');
@@ -1691,12 +1762,28 @@ begin
   ScriptPath := ExpandConstant('{app}\vm_resize_listener.ps1');
   ScriptArgs := '-InstallDir "' + VMDir + '" -VMName "' + VMName + '" -StaticIP "' + VMStaticIP + '" -SshKeyPath "' + SshKeyPath + '"';
 
+  { schtasks' own /TR parameter has a strict, real, documented maximum
+    of 261 characters -- confirmed directly via a real failure
+    ("Value for '/tr' option cannot be more than 261 character(s)"):
+    our full command line, with every argument baked straight into
+    the task's run string, blows well past that limit. The standard
+    fix is a small wrapper script with the real arguments baked into
+    IT instead, so schtasks only ever needs to reference that
+    wrapper's short, fixed path -- not the full argument list. All of
+    this listener's actual parameter values (VMName, VMStaticIP,
+    InstallDir, SshKeyPath) are deterministic constants known at
+    install time, not user input, so baking them into a generated file
+    is safe and correct, not a workaround that loses information. }
+  WrapperPath := ExpandConstant('{app}\run_vm_resize_listener.ps1');
+  WrapperContent := '& "' + ScriptPath + '" ' + ScriptArgs;
+  SaveStringToFile(WrapperPath, WrapperContent, False);
+
   Exec('powershell.exe',
-    '-ExecutionPolicy Bypass -File "' + ScriptPath + '" ' + ScriptArgs,
+    '-ExecutionPolicy Bypass -File "' + WrapperPath + '"',
     ExpandConstant('{app}'), SW_HIDE, ewNoWait, ResultCode);
 
   RunCommand('Registering VM resize listener to survive a reboot',
-    'schtasks /create /tn "ER-ServiceDesk-VM-Resize-Listener" /tr "powershell.exe -ExecutionPolicy Bypass -File \"' + ScriptPath + '\" ' + ScriptArgs + '" /sc onstart /ru SYSTEM /rl HIGHEST /f', ExpandConstant('{tmp}'));
+    'schtasks /create /tn "ER-ServiceDesk-VM-Resize-Listener" /tr "powershell.exe -ExecutionPolicy Bypass -File \"' + WrapperPath + '\"" /sc onstart /ru SYSTEM /rl HIGHEST /f', ExpandConstant('{tmp}'));
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);

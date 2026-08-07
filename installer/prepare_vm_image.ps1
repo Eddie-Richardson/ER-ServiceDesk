@@ -41,6 +41,19 @@ param(
 $ErrorActionPreference = "Stop"
 $LogPath = Join-Path $InstallDir "prepare_vm_image_log.txt"
 
+# PowerShell 5.1 often still defaults to TLS 1.0/1.1 for outbound
+# HTTPS unless told otherwise -- both cloud-images.ubuntu.com and
+# GitHub's release CDN require 1.2+, so without this,
+# Invoke-WebRequest below can fail with "Could not create SSL/TLS
+# secure channel" on an otherwise-correct machine.
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+# Directory must exist BEFORE the first Write-Log call below -- Out-File
+# creates the FILE itself, but not missing parent directories. On a
+# fresh machine this folder genuinely doesn't exist yet the first time
+# this script ever runs, so this has to come first, not after.
+New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+
 function Write-Log {
     param([string]$Message)
     "$(Get-Date -Format o) - $Message" | Out-File -FilePath $LogPath -Append -Encoding utf8
@@ -52,8 +65,6 @@ if (Test-Path $MasterVhdxPath) {
     Write-Log "Master VHDX already exists at $MasterVhdxPath -- nothing to do."
     exit 0
 }
-
-New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 
 # Pinned to a specific Ubuntu release, not a "current"/"latest" alias
 # -- the exact same reasoning already applied to WSLRootfsUrl in
@@ -70,7 +81,12 @@ $QemuImgExe = Join-Path $QemuImgDir "qemu-img.exe"
 try {
     if (-not (Test-Path $QcowPath)) {
         Write-Log "Downloading Ubuntu 24.04 cloud image..."
-        Invoke-WebRequest -Uri $QcowUrl -OutFile $QcowPath -UseBasicParsing
+        # -TimeoutSec added after a real, confirmed hang elsewhere in
+        # this installer (Setup sat stuck for 4+ hours with no
+        # indication anything was wrong) -- no download anywhere in
+        # this project had a timeout before that. Generous bound here
+        # since this is a large file (several hundred MB).
+        Invoke-WebRequest -Uri $QcowUrl -OutFile $QcowPath -UseBasicParsing -TimeoutSec 1800
         Write-Log "Downloaded to $QcowPath"
     }
     else {
@@ -79,7 +95,7 @@ try {
 
     if (-not (Test-Path $QemuImgExe)) {
         Write-Log "Downloading qemu-img-windows-x64..."
-        Invoke-WebRequest -Uri $QemuImgZipUrl -OutFile $QemuImgZipPath -UseBasicParsing
+        Invoke-WebRequest -Uri $QemuImgZipUrl -OutFile $QemuImgZipPath -UseBasicParsing -TimeoutSec 300
         Expand-Archive -Path $QemuImgZipPath -DestinationPath $QemuImgDir -Force
         Write-Log "Extracted qemu-img to $QemuImgDir"
 

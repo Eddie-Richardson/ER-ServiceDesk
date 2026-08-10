@@ -11,10 +11,11 @@ permission checkboxes, not a plain description field -- so it gets
 its own RolesTab rather than being forced into the generic pattern),
 plus mode-specific tabs: Local installs get Migrate to Server and
 Database Backup (both need a local database to operate on, so neither
-applies to Client), and Client installs get Server Resources (needs an
-ongoing connection to a Server, which only Client actually has -- Local
-has no reason to remotely resize itself, and Server never opens this
-window in the first place, since no exe is ever installed there).
+applies to Client), and Client installs get Server Resources and
+Server Backup (both need an ongoing connection to a Server, which only
+Client actually has -- Local has no reason to remotely resize or back
+up itself, and Server never opens this window in the first place,
+since no exe is ever installed there).
 
 Superuser-only -- gated by the Dashboard before this window is ever
 opened, same as Users & Roles.
@@ -38,6 +39,7 @@ from desktop.database_backup_tab import DatabaseBackupTab
 from desktop.lookup_tab import LookupTab
 from desktop.migrate_to_server_tab import MigrateToServerTab
 from desktop.roles_tab import RolesTab
+from desktop.server_backup_tab import ServerBackupTab
 from desktop.server_resources_tab import ServerResourcesTab
 from desktop.settings_manager import get_install_mode
 from desktop.window_geometry import restore_geometry, save_geometry
@@ -111,6 +113,7 @@ class SettingsWindow(QWidget):
         # mode that's actually positioned to initiate it).
         if get_install_mode() == "client":
             tabs.addTab(ServerResourcesTab(), "Server Resources")
+            tabs.addTab(ServerBackupTab(), "Server Backup")
 
         outer_layout.addWidget(tabs)
         self.setLayout(outer_layout)

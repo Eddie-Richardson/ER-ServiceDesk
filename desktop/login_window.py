@@ -19,10 +19,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from desktop import layout, session
+from desktop import api_client, layout, session
 from desktop.change_password_dialog import ChangePasswordDialog
 from desktop.login_worker import LoginWorker
-from desktop.settings_manager import get_saved_theme, save_theme
+from desktop.settings_manager import get_saved_theme, save_theme, get_business_name, save_business_name
 from desktop.theme import get_stylesheet
 
 
@@ -34,7 +34,8 @@ class LoginWindow(QWidget):
     def __init__(self):
         """Builds the login form inside a centered card panel."""
         super().__init__()
-        self.setWindowTitle("ER-ServiceDesk - Login")
+        business_name = get_business_name()
+        self.setWindowTitle(f"ER-ServiceDesk - {business_name} - Login" if business_name else "ER-ServiceDesk - Login")
         self.setFixedSize(layout.DIALOG_WIDTH, 340)
 
         self._thread: QThread | None = None
@@ -48,7 +49,7 @@ class LoginWindow(QWidget):
         title.setObjectName("title")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        subtitle = QLabel("Sign in to continue")
+        subtitle = QLabel(business_name if business_name else "Sign in to continue")
         subtitle.setObjectName("subtitle")
         subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -155,7 +156,25 @@ class LoginWindow(QWidget):
         dialog = ChangePasswordDialog(email, current_password, parent=self)
         if dialog.exec():
             session.set_token(dialog.new_token)
+            self._cache_business_name_if_needed()
             self.login_succeeded.emit()
+
+    def _cache_business_name_if_needed(self):
+        """
+        Fetches and caches the shop's display name locally, if not
+        already cached -- only ever called after a real, authenticated
+        session exists (right after session.set_token()). A Client
+        machine never collects this during its own install the way
+        Local/Server do, so this is how it ends up with a correct
+        value at all: fetched once, right after its very first
+        successful login, then cached for every launch after that.
+        Safe, cheap no-op for Local/Server too, since their own value
+        is already set and this only triggers when nothing's cached.
+        """
+        if not get_business_name():
+            business_name = api_client.fetch_business_name()
+            if business_name:
+                save_business_name(business_name)
 
     def _on_login_finished(self, success: bool, result: str):
         """
@@ -176,6 +195,7 @@ class LoginWindow(QWidget):
             return
 
         session.set_token(result)
+        self._cache_business_name_if_needed()
         self.login_succeeded.emit()
 
     def _set_form_enabled(self, enabled: bool):

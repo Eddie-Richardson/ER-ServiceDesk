@@ -51,9 +51,13 @@ $ErrorActionPreference = "Stop"
 $LogPath = Join-Path $InstallDir "vm_resize_listener_log.txt"
 $ListenPort = 8002
 
+$script:LastLogTime = Get-Date
 function Write-Log {
     param([string]$Message)
-    "$(Get-Date -Format o) - $Message" | Out-File -FilePath $LogPath -Append -Encoding utf8
+    $Now = Get-Date
+    $SinceLast = [math]::Round(($Now - $script:LastLogTime).TotalSeconds, 1)
+    $script:LastLogTime = $Now
+    "$($Now.ToString('o')) - [+${SinceLast}s] $Message" | Out-File -FilePath $LogPath -Append -Encoding utf8
 }
 
 # Same helper as create_server_vm.ps1 -- confirmed via a real test on
@@ -92,6 +96,13 @@ function Resolve-OpenSshTool {
 # exists by the time this listener ever runs (create_server_vm.ps1
 # creates it first), but this shouldn't silently depend on that.
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+
+# Overwrite, not append -- same reasoning as create_server_vm.ps1.
+# For a persistent listener, "each run" means each process lifetime
+# (from launch until it exits or the machine reboots), so this covers
+# everything that happened during this specific boot session, not
+# every boot session this install has ever had.
+Remove-Item -Path $LogPath -Force -ErrorAction SilentlyContinue
 
 Write-Log "=== vm_resize_listener.ps1 STARTED ==="
 

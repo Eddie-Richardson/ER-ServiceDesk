@@ -81,7 +81,7 @@ def notify_customer_of_part_status_change(ticket_part_id: int) -> None:
     email shouldn't block the API response.
 
     Routes through message_service.create() (not crud_message directly)
-    so this reuses the exact same Gmail-send + email_status-tracking
+    so this reuses the exact same send + email_status-tracking
     logic that manually-created outbound messages already get -- a
     failure here is just as visible to a tech as any other failed send.
 
@@ -132,7 +132,7 @@ def notify_customer_of_part_status_change(ticket_part_id: int) -> None:
 
 def poll_inbound_email() -> dict:
     """
-    Check the Gmail inbox for unread customer replies and thread each one
+    Check the inbox for unread customer replies and thread each one
     onto its ticket as a new inbound Message.
 
     Meant to be enqueued on a recurring schedule (e.g. every minute) via

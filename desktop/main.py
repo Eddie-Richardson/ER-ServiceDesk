@@ -27,6 +27,34 @@ Flow on launch:
 """
 
 import sys
+import os
+import faulthandler
+
+# Confirmed via a real, repeated crash: three Qt cross-thread warnings
+# print (QObject::setParent, recursive repaint, active painter), then
+# the process terminates with ZERO Python-level traceback -- meaning
+# none of the try/except protection added elsewhere in the app can
+# catch this, since it's a genuine low-level (C++) fault, not a Python
+# exception being silently swallowed. faulthandler is specifically
+# built for exactly this: it prints a real stack trace at the moment
+# of a crash like this, even one Python's own exception handling has
+# no visibility into at all.
+#
+# Confirmed via a SECOND real failure (this one blocking the app from
+# starting at all): faulthandler.enable() defaults to writing to
+# sys.stderr, which isn't just invisible in a console=False PyInstaller
+# build -- it's genuinely None there, not a valid stream at all -- so
+# the default call raised "RuntimeError: sys.stderr is None" before
+# the app could even open. Targeting an explicit log file instead
+# avoids that entirely, and the whole thing is wrapped in its own
+# try/except so nothing about this diagnostic feature can ever prevent
+# the app from starting, regardless of what goes wrong opening it.
+try:
+    _faulthandler_log_path = os.path.join(os.environ.get("TEMP", "."), "er-servicedesk-crash-log.txt")
+    _faulthandler_log_file = open(_faulthandler_log_path, "a", encoding="utf-8")
+    faulthandler.enable(file=_faulthandler_log_file)
+except Exception:
+    pass
 
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox

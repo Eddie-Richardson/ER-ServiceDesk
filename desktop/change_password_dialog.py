@@ -93,7 +93,7 @@ class ChangePasswordDialog(QDialog):
 
         self.new_password_input = QLineEdit()
         self.new_password_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.new_password_input.setPlaceholderText("New password (at least 8 characters)")
+        self.new_password_input.setPlaceholderText("New password (8+ chars, upper/lower/number/special)")
         self.new_password_input.setFixedHeight(layout.INPUT_HEIGHT)
 
         self.confirm_password_input = QLineEdit()
@@ -152,6 +152,15 @@ class ChangePasswordDialog(QDialog):
             self._show_error("New password and confirmation don't match.")
             return
 
+        # Mirrors the backend's own rules in app/core/security.py's
+        # hash_password -- this is just faster feedback than a round
+        # trip to the server; the backend remains the real enforcement
+        # point regardless of what this check does.
+        strength_error = self._password_strength_error(new_password)
+        if strength_error:
+            self._show_error(strength_error)
+            return
+
         self.save_button.setEnabled(False)
         self.save_button.setText("Saving...")
         self.error_label.hide()
@@ -167,6 +176,27 @@ class ChangePasswordDialog(QDialog):
         self._thread.finished.connect(self._thread.deleteLater)
 
         self._thread.start()
+
+    def _password_strength_error(self, password: str) -> str:
+        """
+        Args:
+            password: The candidate new password.
+
+        Returns:
+            A human-readable error message if the password fails any
+            requirement, or an empty string if it passes all of them.
+        """
+        if len(password) < 8:
+            return "Password must be at least 8 characters."
+        if not any(c.isupper() for c in password):
+            return "Password must include at least one uppercase letter."
+        if not any(c.islower() for c in password):
+            return "Password must include at least one lowercase letter."
+        if not any(c.isdigit() for c in password):
+            return "Password must include at least one number."
+        if not any(not c.isalnum() for c in password):
+            return "Password must include at least one special character."
+        return ""
 
     def _on_finished(self, success: bool, result: str):
         """

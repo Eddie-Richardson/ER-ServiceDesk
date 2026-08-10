@@ -54,7 +54,6 @@ class Ticket(Base):
     status = relationship("TicketStatus", back_populates="tickets")
     stage = relationship("TicketStage", back_populates="tickets")
     assigned_to_user = relationship("User", back_populates="tickets_assigned")
-    notes = relationship("Note", back_populates="ticket")
     status_history = relationship("StatusHistory", back_populates="ticket")
     current_location = relationship("Location", back_populates="tickets")
     parts_needed = relationship("TicketPart", back_populates="ticket")

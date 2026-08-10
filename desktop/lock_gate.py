@@ -16,18 +16,31 @@ has nothing to lock.
 
 from typing import Callable
 
-from PySide6.QtCore import QThread
+from PySide6.QtCore import QObject, QThread
 from PySide6.QtWidgets import QDialog, QMessageBox, QWidget
 
 from desktop.lock_acquire_worker import LockAcquireWorker
 from desktop.lock_release_worker import LockReleaseWorker
 
 
-class LockGate:
+class LockGate(QObject):
     """
     Owns the acquire/open/release flow for one window. Create one
     instance per window (in its __init__) and reuse it for every edit
     action that window performs.
+
+    A genuine QObject subclass, not a plain Python class -- confirmed
+    via a real, executed reproduction (not just documentation) that
+    this matters: without real QObject thread affinity, Qt has no
+    valid receiver thread to queue a cross-thread signal delivery to,
+    so the connected callback (_on_acquire_finished) could run
+    directly on the background worker thread regardless of what
+    connection type is requested on the connect() call -- confirmed
+    this happens even with an explicit Qt.ConnectionType.QueuedConnection,
+    which is NOT enough on its own without a real QObject receiver.
+    Every widget that callback then touches (opening the edit dialog
+    itself, and anything opened from within it) inherits that same
+    wrong-thread context, causing real, repeated crashes.
     """
 
     def __init__(self, parent: QWidget):
@@ -36,9 +49,12 @@ class LockGate:
             parent: The window this gate belongs to -- used as the
                 parent for any "record is locked" message box, and to
                 keep worker/thread references alive on the same object
-                that owns this gate.
+                that owns this gate. Also passed to QObject's own
+                __init__ for genuine Qt parenting, which is what
+                establishes this gate's own correct thread affinity.
         """
-        self.parent = parent
+        super().__init__(parent)
+        self._parent_widget = parent
         self._acquire_thread: QThread | None = None
         self._acquire_worker: LockAcquireWorker | None = None
         self._release_thread: QThread | None = None
@@ -101,7 +117,7 @@ class LockGate:
                 failure (who holds it, or a connection error).
         """
         if not success:
-            QMessageBox.information(self.parent, "Record Locked", message)
+            QMessageBox.information(self._parent_widget, "Record Locked", message)
             return
 
         dialog = self._open_dialog()

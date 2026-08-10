@@ -22,7 +22,6 @@ from .part_location import PartLocation
 from .ticket_part import TicketPart
 from .message import Message
 from .message_template import MessageTemplate
-from .note import Note
 from .payment import Payment
 from .permission import Permission
 from .quote import Quote

@@ -39,6 +39,28 @@ $ErrorActionPreference = "Stop"
 
 $InstallDir = $PSScriptRoot
 
+# Confirmed via a real migration failure: this file had NO logging at
+# all before this, unlike create_server_vm.ps1 and the other VM
+# scripts -- a genuine pg_restore failure surfaced to the client as
+# nothing but a generic "pg_restore failed" message, with zero way to
+# see the actual underlying error. Same Write-Log pattern already
+# established everywhere else in this project.
+$LogPath = Join-Path $InstallDir "migration_listener_log.txt"
+
+# Overwrite, not append -- each run's log should only ever contain
+# THAT run, not accumulate across every run this install has ever
+# had.
+Remove-Item -Path $LogPath -Force -ErrorAction SilentlyContinue
+
+$script:LastLogTime = Get-Date
+function Write-Log {
+    param([string]$Message)
+    $Now = Get-Date
+    $SinceLast = [math]::Round(($Now - $script:LastLogTime).TotalSeconds, 1)
+    $script:LastLogTime = $Now
+    "$($Now.ToString('o')) - [+${SinceLast}s] $Message" | Out-File -FilePath $LogPath -Append -Encoding utf8
+}
+
 # A real migration test proved this script's own docker/docker-compose
 # calls below fail with "'docker' is not recognized" -- this runs as a
 # Scheduled Task under the SYSTEM account, and SYSTEM's environment was
@@ -56,8 +78,16 @@ $InstallDir = $PSScriptRoot
 # docker cp, docker-compose exec, and pg_restore all work identically
 # over a remote DOCKER_HOST -- this was the one thing that actually
 # needed to change when Server mode moved off WSL2.
-$WSLInstallDir = Join-Path (Split-Path -Parent $InstallDir) "ER-ServiceDesk-WSL"
-$env:PATH = $env:PATH + ";$WSLInstallDir;$WSLInstallDir\docker"
+#
+# The PATH fix above this needed the same update and initially missed
+# it -- confirmed via a real migration failure showing the exact same
+# "'docker' is not recognized" symptom this whole block was written to
+# fix in the first place. docker.exe/docker-compose.exe live under
+# ER-ServiceDesk-VM now (see InstallDockerCLIOnWindows in setup.iss),
+# not the old ER-ServiceDesk-WSL folder name -- DOCKER_HOST got updated
+# when Server moved off WSL2, but this PATH construction was missed.
+$VMInstallDir = Join-Path (Split-Path -Parent $InstallDir) "ER-ServiceDesk-VM"
+$env:PATH = $env:PATH + ";$VMInstallDir;$VMInstallDir\docker"
 $env:DOCKER_HOST = "tcp://192.168.100.10:2375"
 $EnvPath = Join-Path $InstallDir ".env"
 $ListenPort = 8001
@@ -123,11 +153,21 @@ while ($Listener.IsListening) {
         $Request.InputStream.CopyTo($FileStream)
         $FileStream.Close()
 
-        $NewGmailAddress = $Request.Headers["X-Gmail-Address"]
-        $NewGmailPassword = $Request.Headers["X-Gmail-App-Password"]
+        $NewEmailAddress = $Request.Headers["X-Email-Address"]
+        $NewEmailPassword = $Request.Headers["X-Email-Password"]
         $NewBusinessName = $Request.Headers["X-Business-Name"]
         $NewSecretKey = $Request.Headers["X-Secret-Key"]
         $NewPostgresPassword = $Request.Headers["X-Postgres-Password"]
+        # Carried through so this migrated server keeps whatever real
+        # mail provider the original Local install was configured for
+        # -- confirmed necessary, otherwise the migrated .env would
+        # have no SMTP_HOST/SMTP_PORT/IMAP_HOST lines at all and
+        # config.py's own defaults (which match Gmail) would silently
+        # take over regardless of what the admin actually set up.
+        $NewSmtpHost = $Request.Headers["X-Smtp-Host"]
+        $NewSmtpPort = $Request.Headers["X-Smtp-Port"]
+        $NewImapHost = $Request.Headers["X-Imap-Host"]
+        $NewImapPort = $Request.Headers["X-Imap-Port"]
 
         # The CURRENT (bootstrap) password is needed to authenticate
         # the ALTER USER call -- you have to already be connected to
@@ -136,15 +176,51 @@ while ($Listener.IsListening) {
         $CurrentPostgresPassword = Read-EnvValue "POSTGRES_PASSWORD"
 
         Push-Location $InstallDir
+        $CmdErrPath = Join-Path $InstallDir "migration_cmd_stderr.txt"
         try {
-            & docker cp $DumpPath "er-servicedesk-app-postgres:/tmp/migration.dump"
-            if ($LASTEXITCODE -ne 0) { throw "docker cp failed" }
+            # Confirmed via a real migration failure: the outer catch
+            # block's own caught exception message was DOCKER'S OWN
+            # stderr text verbatim ("Successfully copied 0B..."), not
+            # either of the fixed strings this code actually throws --
+            # meaning something was auto-throwing BEFORE our own
+            # explicit $LASTEXITCODE checks below ever got a chance to
+            # run. Same category of bug already found and fixed once
+            # for the SSH retry loop in create_server_vm.ps1:
+            # PowerShell can auto-convert a native command's stderr
+            # output into a terminating exception under
+            # $ErrorActionPreference = "Stop", even when that stderr
+            # is redirected to a file rather than merged via 2>&1.
+            # Temporarily relaxing it to "Continue" around each
+            # external call below prevents that auto-throw while still
+            # allowing our OWN explicit $LASTEXITCODE checks to control
+            # real pass/fail -- restored immediately after each call so
+            # nothing else in this script loses the Stop behavior it
+            # otherwise relies on.
+            $PreviousErrorActionPreference = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"
 
-            & docker-compose exec -T db pg_restore -U postgres -d erservicedesk --clean --if-exists /tmp/migration.dump
-            if ($LASTEXITCODE -ne 0) { throw "pg_restore failed" }
+            & docker cp $DumpPath "er-servicedesk-app-postgres:/tmp/migration.dump" 2> $CmdErrPath
+            if ($LASTEXITCODE -ne 0) {
+                $ErrorActionPreference = $PreviousErrorActionPreference
+                Write-Log "docker cp failed: $(Get-Content $CmdErrPath -Raw)"
+                throw "docker cp failed"
+            }
 
-            & docker-compose exec -T db psql -U postgres -c "ALTER USER postgres WITH PASSWORD '$NewPostgresPassword';"
-            if ($LASTEXITCODE -ne 0) { throw "ALTER USER failed" }
+            & docker-compose exec -T db pg_restore -U postgres -d erservicedesk --clean --if-exists /tmp/migration.dump 2> $CmdErrPath
+            if ($LASTEXITCODE -ne 0) {
+                $ErrorActionPreference = $PreviousErrorActionPreference
+                Write-Log "pg_restore failed: $(Get-Content $CmdErrPath -Raw)"
+                throw "pg_restore failed"
+            }
+
+            & docker-compose exec -T db psql -U postgres -c "ALTER USER postgres WITH PASSWORD '$NewPostgresPassword';" 2> $CmdErrPath
+            if ($LASTEXITCODE -ne 0) {
+                $ErrorActionPreference = $PreviousErrorActionPreference
+                Write-Log "ALTER USER failed: $(Get-Content $CmdErrPath -Raw)"
+                throw "ALTER USER failed"
+            }
+
+            $ErrorActionPreference = $PreviousErrorActionPreference
 
             $NewEnvContent = @"
 DATABASE_URL=postgresql+psycopg2://postgres:$NewPostgresPassword@db:5432/erservicedesk
@@ -152,9 +228,13 @@ POSTGRES_USER=postgres
 POSTGRES_PASSWORD=$NewPostgresPassword
 POSTGRES_DB=erservicedesk
 SECRET_KEY=$NewSecretKey
-GMAIL_ADDRESS=$NewGmailAddress
-GMAIL_APP_PASSWORD=$NewGmailPassword
+EMAIL_ADDRESS=$NewEmailAddress
+EMAIL_PASSWORD=$NewEmailPassword
 BUSINESS_NAME=$NewBusinessName
+SMTP_HOST=$NewSmtpHost
+SMTP_PORT=$NewSmtpPort
+IMAP_HOST=$NewImapHost
+IMAP_PORT=$NewImapPort
 "@
             Set-Content -Path $EnvPath -Value $NewEnvContent -NoNewline
 
@@ -164,9 +244,18 @@ BUSINESS_NAME=$NewBusinessName
             # Recreates the containers so the new .env actually takes
             # effect -- a plain restart doesn't re-read .env, only
             # container recreation does, the same lesson already
-            # learned the hard way earlier in this project.
-            & docker-compose up -d --force-recreate
-            if ($LASTEXITCODE -ne 0) { throw "Container recreation failed" }
+            # learned the hard way earlier in this project. Same
+            # ErrorActionPreference/stderr-capture protection as the
+            # three calls above -- this one had none at all before,
+            # despite being just as capable of hitting the same bug.
+            $ErrorActionPreference = "Continue"
+            & docker-compose up -d --force-recreate 2> $CmdErrPath
+            $RecreateExitCode = $LASTEXITCODE
+            $ErrorActionPreference = $PreviousErrorActionPreference
+            if ($RecreateExitCode -ne 0) {
+                Write-Log "Container recreation failed: $(Get-Content $CmdErrPath -Raw)"
+                throw "Container recreation failed"
+            }
 
             $Response.StatusCode = 200
             $Body = [System.Text.Encoding]::UTF8.GetBytes("Migration completed successfully.")

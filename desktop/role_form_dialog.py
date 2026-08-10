@@ -96,7 +96,7 @@ class RoleFormDialog(QDialog):
         self.description_input.setPlaceholderText("Description (optional)")
         self.description_input.setFixedHeight(60)
 
-        self.permission_checkboxes: dict[int, QCheckBox] = {}
+        self.permission_checkboxes: dict[int, QPushButton] = {}
 
         self.error_label = QLabel("")
         self.error_label.setObjectName("subtitle")

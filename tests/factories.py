@@ -43,7 +43,7 @@ def make_plain_user(db, email="plain_user@example.com") -> User:
     """Create and persist a minimal User record (not authenticated -- just a target FK)."""
     obj = User(
         email=email,
-        hashed_password=hash_password("irrelevant"),
+        hashed_password=hash_password("Irrelevant123!"),
         first_name="Plain",
         last_name="User",
         is_active=True,

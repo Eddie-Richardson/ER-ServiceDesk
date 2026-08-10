@@ -267,12 +267,13 @@ def test_devices_crud(client, agent_headers, db):
 # Resources needing a full Ticket
 # ---------------------------------------------------------------------------
 
-def test_notes_crud(client, agent_headers, db):
+def test_messages_crud(client, superuser_headers, db):
+    """Covers the internal-note case specifically -- see test_message_authorization.py (if/when written) for outbound/inbound and the author-or-superuser authorization rule."""
     ticket = make_full_ticket(db)
     user = make_plain_user(db)
     _assert_crud_lifecycle(
-        client, agent_headers, "/notes",
-        {"ticket_id": ticket.id, "user_id": user.id, "is_public": False, "content": "Internal note"},
+        client, superuser_headers, "/messages",
+        {"ticket_id": ticket.id, "user_id": user.id, "direction": "internal", "content": "Internal note"},
         {"content": "Updated internal note"},
         update_check_field="content",
     )

@@ -43,7 +43,6 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)
     roles = relationship("UserRole", back_populates="user")
-    notes = relationship("Note", back_populates="user")
     tickets_assigned = relationship("Ticket", back_populates="assigned_to_user")
 
     @property

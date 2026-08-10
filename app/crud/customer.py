@@ -34,8 +34,8 @@ class CustomerCRUD:
 
         Used to match an inbound email's sender address back to the
         customer it came from. Case-insensitive because email addresses
-        are effectively case-insensitive in practice (most providers,
-        including Gmail, treat them that way), and a customer's stored
+        are effectively case-insensitive in practice (most providers
+        treat them that way), and a customer's stored
         address may not exactly match the casing their mail client sends.
 
         Args:

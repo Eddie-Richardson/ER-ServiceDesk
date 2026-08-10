@@ -16,13 +16,13 @@ from app.routes import (
     audit_logs,
     auth,
     background_jobs,
+    business_info,
     customers,
     devices,
     invoices,
     locations,
     message_templates,
     messages,
-    notes,
     parts,
     payments,
     permissions,
@@ -75,7 +75,6 @@ app.include_router(ticket_type_stages.router)
 app.include_router(status_histories.router)
 
 # Ticket-linked records
-app.include_router(notes.router)
 app.include_router(messages.router)
 app.include_router(message_templates.router)
 app.include_router(quotes.router)
@@ -86,6 +85,7 @@ app.include_router(payments.router)
 # System / ops
 app.include_router(audit_logs.router)
 app.include_router(background_jobs.router)
+app.include_router(business_info.router)
 app.include_router(system_settings.router)
 
 # Inventory (merged from InventoryHub)

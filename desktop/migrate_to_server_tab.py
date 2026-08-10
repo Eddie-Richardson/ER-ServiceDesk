@@ -218,7 +218,7 @@ class MigrateToServerTab(QWidget):
         except Exception as exc:
             debug_log(f"docker-compose down -v FAILED: {type(exc).__name__}: {exc}")
 
-        for item in ("docker-compose.yml", "Dockerfile", "requirements.txt", "alembic.ini", "app", "alembic", ".env"):
+        for item in ("docker-compose.yml", "Dockerfile", "requirements.txt", "alembic.ini", "app", "alembic", ".env", "RestoreDatabaseLocal.exe"):
             item_path = os.path.join(compose_dir, item)
             try:
                 if item in ("app", "alembic"):

@@ -28,6 +28,22 @@ class UserCRUD:
         """
         return db.query(User).filter(User.id == id).first()
 
+    def get_by_email(self, db: Session, email: str) -> User | None:
+        """
+        Fetch a single User by email -- used to check for a duplicate
+        BEFORE attempting to create an account, so a signup attempt
+        for an already-registered address fails cleanly up front
+        instead of via an unhandled database constraint error later.
+
+        Args:
+            db: Active database session.
+            email: The email address to look up.
+
+        Returns:
+            The matching User instance, or None if no account has this email.
+        """
+        return db.query(User).filter(User.email == email).first()
+
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
         """
         Fetch multiple User records with simple offset pagination.

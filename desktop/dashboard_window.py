@@ -27,7 +27,7 @@ from desktop.users_roles_window import UsersRolesWindow
 from desktop.inventory_window import InventoryWindow
 from desktop.tickets_window import TicketsWindow
 from desktop.window_geometry import restore_geometry, save_geometry
-from desktop.settings_manager import get_saved_theme
+from desktop.settings_manager import get_saved_theme, get_business_name
 from desktop.theme import MONO_FONT_FAMILY, get_status_color
 
 NAV_ITEMS = ["Tickets", "Inventory", "Customers", "Users & Roles", "Settings"]
@@ -44,7 +44,8 @@ class DashboardWindow(QWidget):
         load of ticket status counts.
         """
         super().__init__()
-        self.setWindowTitle("ER-ServiceDesk - Dashboard")
+        business_name = get_business_name()
+        self.setWindowTitle(f"ER-ServiceDesk - {business_name} - Dashboard" if business_name else "ER-ServiceDesk - Dashboard")
         self.resize(760, 480)
         restore_geometry(self, "DashboardWindow")
 

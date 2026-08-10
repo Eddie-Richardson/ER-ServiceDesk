@@ -169,18 +169,36 @@ class MigrateToServerWorker(QObject):
             self.finished.emit(False, f"Database backup failed:\n\n{stderr_content.decode(errors='replace')}")
             return None
 
-        try:
-            cp_result = subprocess.run(
-                cp_cmd,
-                cwd=self.compose_dir,
-                capture_output=True,
-                shell=True,
-                timeout=60,
-            )
-        except subprocess.TimeoutExpired:
-            debug_log("TimeoutExpired raised on docker cp step")
-            self.finished.emit(False, "Retrieving the database backup took too long. Please try again.")
-            return None
+        # Confirmed via a real failure: pg_dump genuinely succeeds and
+        # the file genuinely exists inside the container (verified
+        # directly, manually, right after) -- yet docker cp run
+        # immediately afterward (only ~1.66s later, per this exact
+        # debug log) fails to find it, while the same two commands run
+        # by hand with natural typing delay between them succeed every
+        # time. Consistent with a brief WSL2 filesystem-sync lag
+        # between the write completing inside the container and it
+        # becoming visible to docker cp from outside a moment later --
+        # a retry with a short pause covers this without needing to
+        # guess at one single "safe" fixed delay.
+        cp_result = None
+        for attempt in range(5):
+            try:
+                cp_result = subprocess.run(
+                    cp_cmd,
+                    cwd=self.compose_dir,
+                    capture_output=True,
+                    shell=True,
+                    timeout=60,
+                )
+            except subprocess.TimeoutExpired:
+                debug_log("TimeoutExpired raised on docker cp step")
+                self.finished.emit(False, "Retrieving the database backup took too long. Please try again.")
+                return None
+
+            if cp_result.returncode == 0:
+                break
+            debug_log(f"docker cp attempt {attempt + 1} failed (returncode={cp_result.returncode}), retrying after a short pause...")
+            time.sleep(2)
 
         elapsed = time.monotonic() - start_time
         dump_size = os.path.getsize(dump_path) if os.path.exists(dump_path) else -1
@@ -202,17 +220,30 @@ class MigrateToServerWorker(QObject):
         """
         Reads a single KEY=value line's value directly out of the
         local .env file -- these values travel to the server as-is
-        (the exact same Gmail credentials, business name, and
-        SECRET_KEY), matching the original design: only the Postgres
-        password needs special reconciliation on the server side,
-        since it's baked into Postgres itself rather than being a
+        (the exact same email credentials, mail server settings,
+        business name, and SECRET_KEY), matching the original design:
+        only the Postgres password needs special reconciliation on
+        the server side, since it's baked into Postgres itself rather
+        than being a
         plain config value.
+
+        setup.iss's own WriteEnvFiles wraps every value in double
+        quotes now (EscapeForEnvFile, escaping literal " and \\ inside
+        it) -- this reverses that exactly, so a value like
+        BUSINESS_NAME="Bob's Shop" comes back as the clean Bob's Shop,
+        not the literal quoted text. Confirmed necessary directly:
+        without this, migration would send every value with its
+        surrounding quote characters baked in as part of the actual
+        data.
         """
         env_path = os.path.join(self.compose_dir, ".env")
         with open(env_path, "r") as f:
             for line in f:
                 if line.startswith(key + "="):
-                    return line.rstrip("\n").split("=", 1)[1]
+                    raw_value = line.rstrip("\n").split("=", 1)[1]
+                    if raw_value.startswith('"') and raw_value.endswith('"') and len(raw_value) >= 2:
+                        raw_value = raw_value[1:-1].replace('\\"', '"').replace("\\\\", "\\")
+                    return raw_value
         return ""
 
     def _send_migration(self, dump_path: str) -> bool:
@@ -244,11 +275,20 @@ class MigrateToServerWorker(QObject):
         """
         headers = {
             "X-Migration-Token": self.migration_token,
-            "X-Gmail-Address": self._read_env_value("GMAIL_ADDRESS"),
-            "X-Gmail-App-Password": self._read_env_value("GMAIL_APP_PASSWORD"),
+            "X-Email-Address": self._read_env_value("EMAIL_ADDRESS"),
+            "X-Email-Password": self._read_env_value("EMAIL_PASSWORD"),
             "X-Business-Name": self._read_env_value("BUSINESS_NAME"),
             "X-Secret-Key": self._read_env_value("SECRET_KEY"),
             "X-Postgres-Password": self._read_env_value("POSTGRES_PASSWORD"),
+            # Carried through so a migrated server keeps whatever real
+            # mail provider the original Local install was configured
+            # for -- without this, the server would silently fall back
+            # to config.py's own Gmail-matching defaults regardless of
+            # what the admin actually set up on Local.
+            "X-Smtp-Host": self._read_env_value("SMTP_HOST"),
+            "X-Smtp-Port": self._read_env_value("SMTP_PORT"),
+            "X-Imap-Host": self._read_env_value("IMAP_HOST"),
+            "X-Imap-Port": self._read_env_value("IMAP_PORT"),
         }
         url = f"http://{self.server_address}:8001/migrate/"
 

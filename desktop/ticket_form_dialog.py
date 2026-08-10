@@ -27,6 +27,7 @@ is created as part of the same save as the ticket (see TicketSaveWorker).
 """
 
 from PySide6.QtCore import QThread, Qt
+import traceback
 from PySide6.QtWidgets import (
     QComboBox,
     QCompleter,
@@ -43,6 +44,7 @@ from PySide6.QtWidgets import (
 from desktop import layout, session
 from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.ticket_save_worker import TicketSaveWorker
+from desktop.notes_dialog import NotesDialog
 
 PRIORITY_LEVELS = ["Low", "Medium", "High", "Urgent"]
 DEFAULT_STATUS_NAME = "Open"
@@ -238,6 +240,17 @@ class TicketFormDialog(QDialog):
         cancel_button.setFixedHeight(layout.BUTTON_HEIGHT)
         cancel_button.clicked.connect(self.reject)
 
+        # Only shown when editing an EXISTING ticket -- a brand-new,
+        # unsaved ticket has no id yet for a note to attach to. Once
+        # the ticket's been saved once and reopened, notes become
+        # available.
+        notes_button = None
+        if self.ticket:
+            notes_button = QPushButton("Notes")
+            notes_button.setObjectName("secondary")
+            notes_button.setFixedHeight(layout.BUTTON_HEIGHT)
+            notes_button.clicked.connect(self._open_notes_dialog)
+
         bottom_bar = QWidget()
         bottom_layout = QVBoxLayout()
         bottom_layout.setContentsMargins(
@@ -247,12 +260,50 @@ class TicketFormDialog(QDialog):
         bottom_layout.setSpacing(layout.SPACE_SM)
         bottom_layout.addWidget(self.error_label)
         bottom_layout.addWidget(self.save_button)
+        if notes_button:
+            bottom_layout.addWidget(notes_button)
         bottom_layout.addWidget(cancel_button)
         bottom_bar.setLayout(bottom_layout)
         outer_layout.addWidget(bottom_bar)
 
         self.setLayout(outer_layout)
         self._on_customer_changed()  # populate devices for whatever customer is initially selected
+
+    def _open_notes_dialog(self):
+        """
+        Opens the note history + composer for this ticket. Only ever
+        called when self.ticket is set (the Notes button doesn't
+        exist otherwise).
+
+        Modal (exec, not show) -- reverted back to modal after a real
+        user report that mouse clicks stopped registering anywhere in
+        the composer area (the checkbox and its surroundings) once
+        this was non-modal. LockGate is now genuinely fixed
+        (LockGate(QObject), verified via actual reproduction), so the
+        original reason this was ever made non-modal -- a wrong
+        diagnosis blaming nested modal event loops -- no longer
+        applies. Mixing a modal parent (this ticket form, shown via
+        its own .exec() from LockGate) with a non-modal child can
+        create real, Windows-specific input-routing behavior that a
+        Linux-based headless test has no way to see or verify either
+        way -- modal removes that whole category of risk rather than
+        chasing a platform-specific quirk blind.
+
+        NotesDialog itself stays fully synchronous (no QThread) --
+        that part of the earlier fix is independent of modal-vs-non-
+        modal and still holds.
+        """
+        try:
+            self._notes_dialog = NotesDialog(self.ticket["id"], self.ticket.get("title", "Ticket"), self.ticket.get("customer_id"), parent=self)
+            self._notes_dialog.exec()
+        except Exception:
+            # Confirmed via a real crash with zero visible output: this
+            # app's console=False build has no way to surface an
+            # uncaught exception at all -- it just silently terminates.
+            # Catching and displaying it here is both a genuine safety
+            # net and, right now, the only way to actually see what's
+            # failing.
+            QMessageBox.critical(self, "Notes Error", traceback.format_exc())
 
     def _make_searchable_combo(self) -> QComboBox:
         """

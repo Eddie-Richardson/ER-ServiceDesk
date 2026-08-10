@@ -69,6 +69,30 @@ class ApiError(Exception):
     pass
 
 
+def fetch_business_name() -> str:
+    """
+    Fetches the shop's display name from the server. Requires an
+    active, authenticated session -- see app/routes/business_info.py
+    server-side; there is no unauthenticated way to reach this at all.
+    Called right after a successful login (see login_window.py) to
+    cache this locally, since a Client machine never collects it
+    during its own install the way Local/Server do.
+
+    Never raises -- this is a nice-to-have branding fetch, not
+    something that should ever block or break the login flow. Any
+    failure (server unreachable, bad response, etc.) just returns an
+    empty string, same as if no business name were configured at all.
+
+    Returns:
+        The business name, or "" on any failure.
+    """
+    try:
+        result = _authed_get("/business-info/business-name")
+        return result.get("business_name", "") or ""
+    except ApiError:
+        return ""
+
+
 def _authed_get(path: str) -> list | dict:
     """
     Performs a GET request against the backend with the current session's
@@ -881,3 +905,69 @@ def release_lock(entity_type: str, entity_id: int):
 
     if response.status_code == 401:
         raise ApiError("Session expired. Please log in again.")
+
+
+def list_messages_for_ticket(ticket_id: int) -> list[dict]:
+    """
+    Returns every entry in a ticket's note/conversation history --
+    internal notes and customer email exchange together -- in
+    whatever order the backend returns them (creation order). Visible
+    to anyone with ticket access -- shared history, not private to
+    its author.
+
+    Args:
+        ticket_id: The ticket to fetch entries for.
+    """
+    all_messages = _authed_get("/messages/")
+    return [m for m in all_messages if m.get("ticket_id") == ticket_id]
+
+
+def create_message(payload: dict) -> dict:
+    """
+    Creates a new entry. If payload's direction is "outbound", the
+    backend also emails the content to the customer -- see
+    message_service.create() server-side.
+
+    Args:
+        payload: Fields matching the backend's MessageCreate schema
+            (ticket_id, user_id, customer_id, direction, content).
+
+    Returns:
+        The created record.
+    """
+    return _authed_post("/messages/", payload)
+
+
+def update_message(message_id: int, payload: dict) -> dict:
+    """
+    Edits an existing entry's content.
+
+    Args:
+        message_id: The entry's id.
+        payload: {"content": "..."} -- the only field an edit can
+            change (see MessageUpdate server-side).
+
+    Returns:
+        The updated record.
+
+    Raises:
+        ApiError: 403 if the current user isn't allowed to edit this
+            specific entry (see message_service.update() server-side
+            for the exact rule).
+    """
+    return _authed_put(f"/messages/{message_id}", payload)
+
+
+def delete_message(message_id: int):
+    """
+    Deletes an entry by id.
+
+    Args:
+        message_id: The entry's id.
+
+    Raises:
+        ApiError: 403 if the current user isn't allowed to delete this
+            specific entry (see message_service.delete() server-side
+            for the exact rule).
+    """
+    delete_lookup_item("/messages/", message_id)

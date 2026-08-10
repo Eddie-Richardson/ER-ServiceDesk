@@ -413,6 +413,28 @@ Source: "migration_listener.ps1"; DestDir: "{app}"; Check: IsMigrationTarget
 ; since resizing could happen any number of times after install.
 Source: "vm_resize_listener.ps1"; DestDir: "{app}"; Check: IsServerMode
 
+; The database backup listener -- both Server sub-choices, its own
+; dedicated listener separate from vm_resize_listener.ps1 (each
+; listener scoped to one concern, not a shared "do several admin
+; things" endpoint).
+Source: "server_backup_listener.ps1"; DestDir: "{app}"; Check: IsServerMode
+
+; Restore-from-backup -- deliberately a standalone tool, not a
+; desktop app feature (see restore_database_local.py/
+; restore_database_server.py's own headers for the full reasoning:
+; no login dependency, no listener, machine access is the auth
+; check). Compiled to a real .exe rather than shipped as a raw .ps1 --
+; confirmed via real testing that PowerShell's default execution
+; policy blocks an unsigned script from running at all, a genuinely
+; bad thing to put between a stressed admin and fixing a broken
+; database in an emergency. Local gets its own version; both Server
+; sub-choices get theirs, since either could need restoring. Local's
+; copy gets deleted as part of migrate_to_server_tab.py's own
+; teardown-to-Client logic, so a post-migration Client machine
+; doesn't keep a local-restore capability that no longer applies to it.
+Source: "..\dist\RestoreDatabaseLocal.exe"; DestDir: "{app}"; Check: IsLocalMode
+Source: "..\dist\RestoreDatabaseServer.exe"; DestDir: "{app}"; Check: IsServerMode
+
 ; .env self-healing + container startup at boot -- both Server
 ; sub-choices, unlike migration_listener.ps1 above which is Migration
 ; Target only. Any Server install has .env and needs this resilience,
@@ -508,6 +530,7 @@ var
   ModePage: TInputOptionWizardPage;
   ServerSubChoicePage: TInputOptionWizardPage;
   CredentialsPage: TInputQueryWizardPage;
+  MailServerPage: TInputQueryWizardPage;
   ClientAddressPage: TInputQueryWizardPage;
   MigrationTargetToken: String;
   MigrationTokenMemo: TNewMemo;
@@ -523,9 +546,14 @@ var
   RestartedFromReboot: Boolean;
   ResumedModeIndex: Integer;
   ResumedSubChoiceIndex: Integer;
-  ResumedGmailAddress: String;
-  ResumedGmailPassword: String;
+  ResumedEmailAddress: String;
+  ResumedEmailPassword: String;
   ResumedBusinessName: String;
+  ResumedSmtpHost: String;
+  ResumedSmtpPort: String;
+  ResumedImapHost: String;
+  ResumedImapPort: String;
+  ResumedAppDir: String;
   { Set True inside InstallDockerInWSL once it genuinely runs --
     RunDockerSetup checks this to decide whether to explicitly force
     PATH/DOCKER_HOST for its own docker-compose calls. Needed
@@ -559,9 +587,14 @@ begin
   begin
     ResumedModeIndex := StrToIntDef(ExpandConstant('{param:modeidx|0}'), 0);
     ResumedSubChoiceIndex := StrToIntDef(ExpandConstant('{param:subidx|0}'), 0);
-    ResumedGmailAddress := ExpandConstant('{param:gmailaddr|}');
-    ResumedGmailPassword := ExpandConstant('{param:gmailpass|}');
+    ResumedEmailAddress := ExpandConstant('{param:emailaddr|}');
+    ResumedEmailPassword := ExpandConstant('{param:emailpass|}');
     ResumedBusinessName := ExpandConstant('{param:bizname|}');
+    ResumedSmtpHost := ExpandConstant('{param:smtphost|smtp.gmail.com}');
+    ResumedSmtpPort := ExpandConstant('{param:smtpport|587}');
+    ResumedImapHost := ExpandConstant('{param:imaphost|imap.gmail.com}');
+    ResumedImapPort := ExpandConstant('{param:imapport|993}');
+    ResumedAppDir := ExpandConstant('{param:appdir|' + ExpandConstant('{autopf}\ER-ServiceDesk') + '}');
   end;
 
   Result := True;
@@ -569,6 +602,21 @@ end;
 
 procedure InitializeWizard;
 begin
+  { Confirmed via a real bug: on a resumed run, wpSelectDir (Inno's
+    own built-in "Select Destination Location" page) was showing
+    again, and since the install folder from the FIRST pass had
+    already been partially populated by that point, it triggered
+    Inno's own "folder already exists, install anyway?" prompt --
+    exactly the kind of re-prompting this whole reboot-resume
+    mechanism was built to avoid. WizardForm.DirEdit.Text set here,
+    before wpSelectDir would ever be shown, is what makes the install
+    folder resolve to the SAME one chosen the first time even though
+    that page gets skipped below (see ShouldSkipPage) -- skipping the
+    page alone wouldn't be enough; Inno needs to be told what that
+    folder should be some other way. }
+  if RestartedFromReboot then
+    WizardForm.DirEdit.Text := ResumedAppDir;
+
   ModePage := CreateInputOptionPage(wpWelcome,
     'Choose Install Mode',
     'How will this installation be used?',
@@ -592,20 +640,82 @@ begin
   if RestartedFromReboot then
     ServerSubChoicePage.SelectedValueIndex := ResumedSubChoiceIndex;
 
-  { Gmail credentials + business name. Only shown for Local and
-    Server -> New Setup, via ShouldSkipPage below. }
+  { Email address, its password, and business name. Only shown for
+    Local and Server -> New Setup, via ShouldSkipPage below. Mail
+    server settings live on their own separate page (MailServerPage,
+    right after this one) -- confirmed via a real, reproducible test
+    that cramming all 7 fields (these 3 plus the 4 SMTP/IMAP ones)
+    onto a single CreateInputQueryPage silently failed to render two
+    of them, even with a freshly recompiled, verified-correct source
+    file. No documented limit exists for this in Inno's own docs, but
+    splitting into two pages sidesteps whatever the real cause is,
+    and is a genuinely better grouping anyway: identity/business info
+    on one page, technical mail server settings clearly separated on
+    another. }
   CredentialsPage := CreateInputQueryPage(ServerSubChoicePage.ID,
     'Email & Business Details',
     'This information is used to send email notifications to customers.',
-    'Enter your Gmail address, its App Password (not your regular Gmail password), and your business name.');
-  CredentialsPage.Add('Gmail Address:', False);
-  CredentialsPage.Add('Gmail App Password:', True);
+    'Enter your email address, its password (or App Password, if your provider requires one), and your business name.');
+  CredentialsPage.Add('Email Address:', False);
+  CredentialsPage.Add('Password (or App Password if your provider requires it):', True);
   CredentialsPage.Add('Business Name:', False);
+
   if RestartedFromReboot then
   begin
-    CredentialsPage.Values[0] := ResumedGmailAddress;
-    CredentialsPage.Values[1] := ResumedGmailPassword;
+    CredentialsPage.Values[0] := ResumedEmailAddress;
+    CredentialsPage.Values[1] := ResumedEmailPassword;
     CredentialsPage.Values[2] := ResumedBusinessName;
+  end;
+
+  { Mail server settings, split onto their own page -- see the comment
+    above CredentialsPage for the full reasoning on why this isn't
+    combined with it. Confirmed genuinely NOT Gmail-specific under the
+    hood -- only the two host addresses were ever hardcoded (see
+    app/core/config.py), while the actual connection mechanism
+    (STARTTLS on 587 for SMTP, implicit SSL on 993 for IMAP) is close
+    to a true universal standard, verified directly against 2026
+    documentation for Gmail, Outlook/365, Yahoo, and iCloud -- all
+    four work over plain SMTP/IMAP with real server settings, not
+    anything Gmail-proprietary. Pre-filling Gmail's own values as the
+    default keeps the common case a one-click "looks right, continue"
+    for the admin who's already using Gmail, while genuinely
+    supporting any provider that publishes standard SMTP/IMAP
+    settings. }
+  MailServerPage := CreateInputQueryPage(CredentialsPage.ID,
+    'Mail Server Settings',
+    'These are used to send and receive email notifications for tickets.',
+    'Gmail''s own settings are filled in as a starting point -- change these if you''re using a different email provider.');
+  MailServerPage.Add('SMTP Server (outgoing mail):', False);
+  MailServerPage.Add('SMTP Port:', False);
+  MailServerPage.Add('IMAP Server (incoming mail):', False);
+  MailServerPage.Add('IMAP Port:', False);
+
+  { Gmail's own values as sensible defaults -- confirmed working
+    directly, not just assumed, and a popular starting point even
+    though far from a majority (most email is on free services, Gmail
+    is simply one well-known one among them). Overridden below if
+    resuming after a reboot, so a value the admin already typed before
+    the reboot isn't silently replaced by these defaults.
+
+    IMAP Port specifically matters as its own field -- confirmed ports
+    themselves (not just hosts) are close to universal for the major
+    providers actually checked (993 IMAP, 587 SMTP), but a real,
+    known exception exists: ProtonMail doesn't expose standard
+    IMAP/SMTP directly at all, requiring "Proton Mail Bridge" running
+    locally, which proxies through non-standard ports. Without a real
+    field for this, anyone in that situation would have no way to
+    configure around it at all. }
+  MailServerPage.Values[0] := 'smtp.gmail.com';
+  MailServerPage.Values[1] := '587';
+  MailServerPage.Values[2] := 'imap.gmail.com';
+  MailServerPage.Values[3] := '993';
+
+  if RestartedFromReboot then
+  begin
+    MailServerPage.Values[0] := ResumedSmtpHost;
+    MailServerPage.Values[1] := ResumedSmtpPort;
+    MailServerPage.Values[2] := ResumedImapHost;
+    MailServerPage.Values[3] := ResumedImapPort;
   end;
 
   { Server address. Only shown for Client, via ShouldSkipPage below. }
@@ -660,12 +770,24 @@ begin
     correctly generated the whole time -- confirmed directly, not
     assumed: the token was genuinely sitting in .env, the page
     displaying it just never appeared at all. Fixed by only treating
-    our own four custom pages as skippable on resume; any other
-    PageID (a built-in Inno page) is never affected by resume state. }
+    our own five custom pages as skippable on resume; any other
+    PageID (a built-in Inno page) is never affected by resume state --
+    EXCEPT wpSelectDir specifically, added below as a second, later,
+    deliberate fix: confirmed via a separate real bug that this
+    built-in page was showing again on a resumed run, and since the
+    install folder from the first pass already existed by that point
+    (Hyper-V/WSL2 setup had already created and partially populated
+    it), re-showing it triggered Inno's own "folder already exists,
+    install anyway?" prompt -- exactly the kind of re-prompting this
+    whole mechanism was built to avoid. WizardForm.DirEdit.Text is set
+    in InitializeWizard above, before this page would ever show, so
+    the install folder still resolves to the SAME one chosen the
+    first time even though the page itself is skipped here. }
   if RestartedFromReboot then
   begin
     Result := (PageID = ModePage.ID) or (PageID = ServerSubChoicePage.ID) or
-      (PageID = CredentialsPage.ID) or (PageID = ClientAddressPage.ID);
+      (PageID = CredentialsPage.ID) or (PageID = MailServerPage.ID) or
+      (PageID = ClientAddressPage.ID) or (PageID = wpSelectDir);
     Exit;
   end;
 
@@ -674,8 +796,138 @@ begin
     Result := ModePage.SelectedValueIndex <> 1
   else if PageID = CredentialsPage.ID then
     Result := not (IsLocalMode() or IsNewServerSetup())
+  else if PageID = MailServerPage.ID then
+    Result := not (IsLocalMode() or IsNewServerSetup())
   else if PageID = ClientAddressPage.ID then
     Result := not IsClientMode();
+end;
+
+{ Wraps a value for safe inclusion in .env, escaping the two characters
+  that would otherwise corrupt the file if written raw: a literal
+  backslash (would be misread as starting an escape sequence) and a
+  literal double-quote (would prematurely close the quoted value).
+  Verified directly against python-dotenv's own documentation --
+  double-quoted values safely contain a literal # (normally a comment
+  marker) and even a genuine embedded newline, so quoting alone,
+  combined with escaping just these two characters, is sufficient to
+  let the admin type absolutely anything into these fields without
+  ever corrupting .env, no character blocked or restricted at all.
+  StringChangeEx modifies its first argument in place (a var
+  parameter) rather than returning the changed string -- its own
+  Integer return value (a count of replacements made) is deliberately
+  unused here. }
+function EscapeForEnvFile(const Value: String): String;
+var
+  Escaped: String;
+begin
+  Escaped := Value;
+  StringChangeEx(Escaped, '\', '\\', True);
+  StringChangeEx(Escaped, '"', '\"', True);
+  Result := '"' + Escaped + '"';
+end;
+
+{ Basic structural email validation -- Inno's Pascal Script has no
+  regex support, so this checks the real structural requirements
+  manually instead: exactly one @ symbol, a non-empty part on each
+  side of it, a . somewhere in the domain part that isn't the very
+  first or very last character, and no spaces anywhere. Not a fully
+  RFC-5322-exhaustive validator (nothing simple ever really is), but
+  catches the real, common mistakes -- a missing @, a typo'd domain
+  with no dot, a stray space from a copy-paste -- without needing
+  anything Inno's Pascal Script doesn't actually have. }
+function IsValidEmailFormat(const Email: String): Boolean;
+var
+  AtPos, DotPos: Integer;
+  LocalPart, DomainPart: String;
+begin
+  Result := False;
+  if Pos(' ', Email) > 0 then Exit;
+
+  AtPos := Pos('@', Email);
+  if AtPos <= 1 then Exit;
+  if Pos('@', Copy(Email, AtPos + 1, Length(Email))) > 0 then Exit;
+
+  LocalPart := Copy(Email, 1, AtPos - 1);
+  DomainPart := Copy(Email, AtPos + 1, Length(Email));
+  if (Length(LocalPart) = 0) or (Length(DomainPart) = 0) then Exit;
+
+  DotPos := Pos('.', DomainPart);
+  if (DotPos <= 1) or (DotPos = Length(DomainPart)) then Exit;
+
+  Result := True;
+end;
+
+{ Real Inno event function -- returning False here keeps the wizard on
+  the current page instead of advancing, which is how page-level
+  validation works in Inno Setup (there's no separate "validate"
+  callback, this doubles as both "user clicked Next" and "is this page
+  allowed to be left"). Only CredentialsPage has real validation needs
+  -- ModePage/ServerSubChoicePage/ClientAddressPage are either
+  pre-populated selections with no invalid state, or (ClientAddressPage)
+  validated already elsewhere.
+
+  Email blocks on invalid format -- a wrong email here means the app
+  can never send messages until someone manually edits .env later,
+  worth stopping at install time rather than discovering it's broken
+  after the fact. Business name only requires non-empty -- there's no
+  meaningful invalid FORMAT for a name, and EscapeForEnvFile (used in
+  WriteEnvFiles) already makes any actual character content safe to
+  write, so nothing here needs to restrict what characters are
+  allowed. SMTP/IMAP get format-only checks (a real connection test at
+  install time risks blocking or slowing the whole install on a
+  network hiccup having nothing to do with whether the settings
+  THEMSELVES are valid) -- host non-empty and space-free, port a real
+  integer in the valid 1-65535 range. }
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+
+  if CurPageID = CredentialsPage.ID then
+  begin
+    if not IsValidEmailFormat(CredentialsPage.Values[0]) then
+    begin
+      MsgBox('Please enter a valid email address.', mbError, MB_OK);
+      Result := False;
+      Exit;
+    end;
+
+    if Trim(CredentialsPage.Values[2]) = '' then
+    begin
+      MsgBox('Please enter a business name.', mbError, MB_OK);
+      Result := False;
+      Exit;
+    end;
+  end
+  else if CurPageID = MailServerPage.ID then
+  begin
+    if (Trim(MailServerPage.Values[0]) = '') or (Pos(' ', MailServerPage.Values[0]) > 0) then
+    begin
+      MsgBox('Please enter a valid SMTP server address (no spaces).', mbError, MB_OK);
+      Result := False;
+      Exit;
+    end;
+
+    if (StrToIntDef(MailServerPage.Values[1], -1) < 1) or (StrToIntDef(MailServerPage.Values[1], 70000) > 65535) then
+    begin
+      MsgBox('Please enter a valid SMTP port (1-65535).', mbError, MB_OK);
+      Result := False;
+      Exit;
+    end;
+
+    if (Trim(MailServerPage.Values[2]) = '') or (Pos(' ', MailServerPage.Values[2]) > 0) then
+    begin
+      MsgBox('Please enter a valid IMAP server address (no spaces).', mbError, MB_OK);
+      Result := False;
+      Exit;
+    end;
+
+    if (StrToIntDef(MailServerPage.Values[3], -1) < 1) or (StrToIntDef(MailServerPage.Values[3], 70000) > 65535) then
+    begin
+      MsgBox('Please enter a valid IMAP port (1-65535).', mbError, MB_OK);
+      Result := False;
+      Exit;
+    end;
+  end;
 end;
 
 { Builds a random alphanumeric string of the given length. Letters and
@@ -715,15 +967,28 @@ begin
     'POSTGRES_DB=erservicedesk' + #13#10 +
     'SECRET_KEY=' + SecretKey + #13#10;
 
-  { Migration Target deliberately gets none of this -- the real Gmail
+  { Migration Target deliberately gets none of this -- the real email
     credentials and business name arrive later via the migration
-    itself, not typed in here. }
+    itself, not typed in here.
+
+    Every value here goes through EscapeForEnvFile now, not just
+    business name -- an email address or business name containing a
+    genuine # or embedded quote is rare but not impossible, and
+    there's no reason to leave those values unprotected just because
+    they're less likely to need it than business name. SMTP_PORT is
+    a plain number (never needs quoting) but escaping it too costs
+    nothing and keeps every line in this block handled the same,
+    uniform way. }
   if IsLocalMode() or IsNewServerSetup() then
   begin
     EnvContent := EnvContent +
-      'GMAIL_ADDRESS=' + CredentialsPage.Values[0] + #13#10 +
-      'GMAIL_APP_PASSWORD=' + CredentialsPage.Values[1] + #13#10 +
-      'BUSINESS_NAME=' + CredentialsPage.Values[2] + #13#10;
+      'EMAIL_ADDRESS=' + EscapeForEnvFile(CredentialsPage.Values[0]) + #13#10 +
+      'EMAIL_PASSWORD=' + EscapeForEnvFile(CredentialsPage.Values[1]) + #13#10 +
+      'BUSINESS_NAME=' + EscapeForEnvFile(CredentialsPage.Values[2]) + #13#10 +
+      'SMTP_HOST=' + EscapeForEnvFile(MailServerPage.Values[0]) + #13#10 +
+      'SMTP_PORT=' + EscapeForEnvFile(MailServerPage.Values[1]) + #13#10 +
+      'IMAP_HOST=' + EscapeForEnvFile(MailServerPage.Values[2]) + #13#10 +
+      'IMAP_PORT=' + EscapeForEnvFile(MailServerPage.Values[3]) + #13#10;
   end;
 
   { Migration Target's one-time token, authenticating the later
@@ -797,6 +1062,24 @@ begin
   LogPath := ExpandConstant('{autopf}\ER-ServiceDesk-Install-Log.txt');
   Timestamp := GetDateTimeString('yyyy-mm-dd hh:nn:ss', '-', ':');
   SaveStringToFile(LogPath, Timestamp + ' - ' + Message + #13#10, True);
+end;
+
+{ One log, covering the entire install from true start to true finish --
+  Hyper-V/WSL setup, VM creation, Docker startup, all of it, in a
+  single file with one continuous clock, instead of scattered across
+  separate per-script logs. ForceDirectories guarantees the app folder
+  exists even though this gets called before Inno's own file-copy step
+  has run. Deliberately defined here, right after LogStep, rather than
+  its own original spot right before PrepareToInstall -- moved earlier
+  so it's defined before CreateServerVM, which now calls it too,
+  avoiding any risk around whether Inno's specific Pascal Script
+  dialect tolerates forward references the way standard Pascal
+  requires an explicit forward declaration for. }
+procedure LogTiming(const StepLabel: String);
+begin
+  ForceDirectories(ExpandConstant('{app}'));
+  SaveStringToFile(ExpandConstant('{app}\install_timing_log.txt'),
+    GetDateTimeString('yyyy-mm-dd hh:nn:ss', #0, #0) + ' - ' + StepLabel + #13#10, True);
 end;
 
 { Same as RunCommand, but never shows an error dialog -- for the rare
@@ -898,8 +1181,8 @@ end;
   mechanism via a real official Inno example script demonstrating this
   exact scenario (CodePrepareToInstall.iss).
 
-  Worth being explicit about a real, narrow tradeoff here: the Gmail
-  app password sits in this RunOnce entry (HKEY_LOCAL_MACHINE,
+  Worth being explicit about a real, narrow tradeoff here: the email
+  password sits in this RunOnce entry (HKEY_LOCAL_MACHINE,
   readable by any local account) in plain text for the brief window
   between now and the next reboot. This mirrors the official example's
   own pattern (which also passes plain command-line params for its
@@ -913,9 +1196,14 @@ begin
   RunOnceData := Quote(ExpandConstant('{srcexe}')) + ' /restart=1';
   RunOnceData := RunOnceData + ' /modeidx=' + IntToStr(ModePage.SelectedValueIndex);
   RunOnceData := RunOnceData + ' /subidx=' + IntToStr(ServerSubChoicePage.SelectedValueIndex);
-  RunOnceData := RunOnceData + ' /gmailaddr=' + Quote(CredentialsPage.Values[0]);
-  RunOnceData := RunOnceData + ' /gmailpass=' + Quote(CredentialsPage.Values[1]);
+  RunOnceData := RunOnceData + ' /emailaddr=' + Quote(CredentialsPage.Values[0]);
+  RunOnceData := RunOnceData + ' /emailpass=' + Quote(CredentialsPage.Values[1]);
   RunOnceData := RunOnceData + ' /bizname=' + Quote(CredentialsPage.Values[2]);
+  RunOnceData := RunOnceData + ' /smtphost=' + Quote(MailServerPage.Values[0]);
+  RunOnceData := RunOnceData + ' /smtpport=' + Quote(MailServerPage.Values[1]);
+  RunOnceData := RunOnceData + ' /imaphost=' + Quote(MailServerPage.Values[2]);
+  RunOnceData := RunOnceData + ' /imapport=' + Quote(MailServerPage.Values[3]);
+  RunOnceData := RunOnceData + ' /appdir=' + Quote(WizardDirValue);
   RegWriteStringValue(HKEY_LOCAL_MACHINE, 'Software\Microsoft\Windows\CurrentVersion\RunOnce', 'ER-ServiceDeskResume', RunOnceData);
 end;
 
@@ -1410,6 +1698,7 @@ begin
   if not RunCommand('Preparing the Server VM image (this can take several minutes the first time)',
     'powershell.exe -ExecutionPolicy Bypass -File "' + ExpandConstant('{tmp}\prepare_vm_image.ps1') + '" ' + ScriptParams,
     ExpandConstant('{tmp}')) then Exit;
+  LogTiming('CreateServerVM: prepare_vm_image.ps1 (VHDX download/prep) finished');
 
   ScriptParams := '-InstallDir "' + InstallDir + '"' +
     ' -VMName "' + VMName + '"' +
@@ -1422,6 +1711,7 @@ begin
   if not RunCommand('Creating the Server VM (this can take several minutes)',
     'powershell.exe -ExecutionPolicy Bypass -File "' + ExpandConstant('{tmp}\create_server_vm.ps1') + '" ' + ScriptParams,
     ExpandConstant('{tmp}')) then Exit;
+  LogTiming('CreateServerVM: create_server_vm.ps1 (VM creation + cloud-init + SSH wait) finished');
 
   { Windows still needs docker.exe/docker-compose.exe on PATH to talk
     to the VM's Docker daemon -- same tools, same reasoning as the
@@ -1499,6 +1789,15 @@ end;
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
   LogStep('=== PrepareToInstall STARTED ===');
+  { Overwrite, not append -- each install run's timing log should
+    only ever contain THAT run, not accumulate across every install
+    attempt this machine has ever had. Only cleared here, at the
+    first possible LogTiming call site -- every LogTiming call after
+    this one, for the rest of this same run, still appends normally
+    via its own SaveStringToFile(..., True). }
+  ForceDirectories(ExpandConstant('{app}'));
+  SaveStringToFile(ExpandConstant('{app}\install_timing_log.txt'), '', False);
+  LogTiming('PrepareToInstall started');
   NeedsRestart := False;
 
   if IsClientMode() then
@@ -1519,6 +1818,7 @@ begin
         'with Desktop Experience) and try again.';
       Exit;
     end;
+    LogTiming('Local: DetectAndInstallPrerequisites (WSL2) finished');
 
     if NeedsRestart then
     begin
@@ -1542,6 +1842,7 @@ begin
         'with Desktop Experience, and Hyper-V support) and try again.';
       Exit;
     end;
+    LogTiming('Server: DetectAndInstallServerPrerequisites (Hyper-V VM) finished');
 
     if NeedsRestart then
     begin
@@ -1738,6 +2039,11 @@ begin
     specifically waiting to receive a migration. }
   RunCommand('Configuring firewall for server resource management',
     'netsh advfirewall firewall add rule name="ER-ServiceDesk VM Resize Listener" dir=in action=allow protocol=TCP localport=8002', ExpandConstant('{tmp}'));
+
+  { Same reasoning as port 8002 -- both Server sub-choices, since
+    backup is a feature every Server install has. }
+  RunCommand('Configuring firewall for database backup',
+    'netsh advfirewall firewall add rule name="ER-ServiceDesk Backup Listener" dir=in action=allow protocol=TCP localport=8003', ExpandConstant('{tmp}'));
 end;
 
 { Launches the VM resource-resize listener as a detached background
@@ -1786,6 +2092,59 @@ begin
     'schtasks /create /tn "ER-ServiceDesk-VM-Resize-Listener" /tr "powershell.exe -ExecutionPolicy Bypass -File \"' + WrapperPath + '\"" /sc onstart /ru SYSTEM /rl HIGHEST /f', ExpandConstant('{tmp}'));
 end;
 
+{ Launches the database backup listener the same two-part way as
+  StartVmResizeListener -- detached immediate launch plus a Scheduled
+  Task for reboot survival, and (as of a real failure this listener
+  hit) the same wrapper-script fix too -- see this procedure's own
+  comment for why. }
+procedure StartServerBackupListener;
+var
+  ScriptPath, ScriptArgs, WrapperPath, WrapperContent: String;
+begin
+  ScriptPath := ExpandConstant('{app}\server_backup_listener.ps1');
+  ScriptArgs := '-InstallDir "' + ExpandConstant('{app}') + '"';
+
+  { Confirmed via a real failure ("Invalid argument/option -
+    '-InstallDir'") that embedding ScriptArgs directly into schtasks'
+    own /tr value, nested inside an outer quoted string, breaks --
+    schtasks ends up treating '-InstallDir' as its own top-level
+    argument rather than part of the quoted command string. This
+    isn't a length problem (confirmed well under the 261-character
+    /tr limit on its own) -- it's nested-quote complexity, the exact
+    same class of problem StartVmResizeListener already solved with a
+    wrapper script. Applying that same proven fix here rather than
+    hand-tuning the escaping further: the wrapper file uses plain,
+    normal PowerShell quoting internally, and /tr only ever needs to
+    reference the wrapper's own simple path -- no embedded arguments,
+    nothing left to escape incorrectly. }
+  WrapperPath := ExpandConstant('{app}\run_server_backup_listener.ps1');
+  WrapperContent := '& "' + ScriptPath + '" ' + ScriptArgs;
+  SaveStringToFile(WrapperPath, WrapperContent, False);
+
+  RunCommand('Registering database backup listener to survive a reboot',
+    'schtasks /create /tn "ER-ServiceDesk-Backup-Listener" /tr "powershell.exe -ExecutionPolicy Bypass -File \"' + WrapperPath + '\"" /sc onstart /ru SYSTEM /rl HIGHEST /f', ExpandConstant('{tmp}'));
+
+  { Confirmed via a real, reproduced failure that the previous
+    approach here -- a separate Exec(..., ewNoWait) call to launch the
+    listener immediately, independent of the Scheduled Task above --
+    was NOT reliable: the listener started and logged successfully at
+    install time, but was confirmed gone minutes later with no error
+    logged anywhere (not in its own log, despite thorough try/catch
+    coverage there; not in Windows Event Viewer either), and the
+    Scheduled Task itself had genuinely never triggered (no reboot had
+    happened). A direct, manually-launched run of the exact same
+    script worked completely correctly and the backup succeeded --
+    confirming the bug was specific to how the immediate launch was
+    started, not anything in the script's own logic. Triggering the
+    already-registered Scheduled Task immediately via schtasks /run,
+    instead of a separate Exec() call, means both "available right
+    away" and "survives a reboot" now go through the exact same,
+    already-proven-reliable SYSTEM-run mechanism, rather than two
+    different launch paths where only one of them was ever actually
+    trustworthy. }
+  RunCommandQuiet('schtasks /run /tn "ER-ServiceDesk-Backup-Listener"', ExpandConstant('{tmp}'));
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
@@ -1793,9 +2152,14 @@ begin
     if not IsClientMode() then
     begin
       WriteEnvFiles;
+      LogTiming('WriteEnvFiles finished');
       RunDockerSetup;
+      LogTiming('RunDockerSetup (docker-compose up --build + migrations) finished');
       if IsMigrationTarget() then
+      begin
         StartMigrationListener;
+        LogTiming('StartMigrationListener finished');
+      end;
       if IsServerMode() then
       begin
         { SetupWslPortForward and RegisterServerStartupTask are both
@@ -1810,9 +2174,12 @@ begin
           behind it. }
         ConfigureFirewallRules;
         StartVmResizeListener;
+        StartServerBackupListener;
+        LogTiming('ConfigureFirewallRules + StartVmResizeListener + StartServerBackupListener finished');
       end;
     end;
     WriteRegistryValues;
+    LogTiming('=== Install finished ===');
   end;
 end;
 
@@ -1877,7 +2244,7 @@ end;
   tree, which also holds harmless preferences (theme, window geometry)
   that have no reason to be wiped on an ordinary uninstall. The backup
   folder and deployment values are different: they hold live secrets
-  (the Postgres password, SECRET_KEY, Gmail app password) that protect
+  (the Postgres password, SECRET_KEY, email password) that protect
   nothing once the app itself is gone, so leaving them behind would be
   a liability, not a convenience. }
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);

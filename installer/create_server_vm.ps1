@@ -60,9 +60,14 @@ $LogPath = Join-Path $InstallDir "create_server_vm_log.txt"
 # the ADK installer via Invoke-WebRequest.
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
+$script:LastLogTime = Get-Date
+$script:ScriptStartTime = $script:LastLogTime
 function Write-Log {
     param([string]$Message)
-    "$(Get-Date -Format o) - $Message" | Out-File -FilePath $LogPath -Append -Encoding utf8
+    $Now = Get-Date
+    $SinceLast = [math]::Round(($Now - $script:LastLogTime).TotalSeconds, 1)
+    $script:LastLogTime = $Now
+    "$($Now.ToString('o')) - [+${SinceLast}s] $Message" | Out-File -FilePath $LogPath -Append -Encoding utf8
 }
 
 # Confirmed via a real test: Get-Command itself came back completely
@@ -133,6 +138,11 @@ function Resolve-OpenSshTool {
 # first and already created this exact folder, but this script
 # shouldn't silently depend on that -- it should be correct standalone.
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+
+# Overwrite, not append -- each run's log should only ever contain
+# THAT run, not accumulate across every run this install has ever
+# had. Cheap, avoids an unbounded-growth log over months of real use.
+Remove-Item -Path $LogPath -Force -ErrorAction SilentlyContinue
 
 Write-Log "=== create_server_vm.ps1 STARTED (VMName=$VMName) ==="
 
@@ -720,7 +730,7 @@ if (-not $Ready) {
     exit 1
 }
 
-Write-Log "=== create_server_vm.ps1 FINISHED SUCCESSFULLY ==="
+Write-Log "=== create_server_vm.ps1 FINISHED SUCCESSFULLY (total runtime: $([math]::Round(((Get-Date) - $script:ScriptStartTime).TotalMinutes, 1)) minutes) ==="
 exit 0
 
 }

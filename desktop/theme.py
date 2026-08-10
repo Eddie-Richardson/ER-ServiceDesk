@@ -224,6 +224,33 @@ def _build_stylesheet(p: dict) -> str:
             color: {p['accent_text']};
         }}
 
+        /* ---- Checkboxes ----
+           Confirmed via direct inspection: no QCheckBox styling
+           existed here at all before this, meaning Qt's own unstyled
+           default rendering filled the gap once a global QSS
+           stylesheet was applied -- and that default checkmark color
+           doesn't adapt to this app's custom light/dark palettes,
+           rendering invisible against a light background specifically
+           (a real user report -- works in dark mode, not light --
+           matches this exactly). Solid color fill for the checked
+           state instead of a checkmark glyph avoids needing an image
+           asset and removes any ambiguity about visibility in either
+           theme. */
+        QCheckBox::indicator {{
+            width: 16px;
+            height: 16px;
+            border: 1px solid {p['border']};
+            border-radius: 3px;
+            background-color: {p['surface']};
+        }}
+        QCheckBox::indicator:hover {{
+            border: 1px solid {p['accent']};
+        }}
+        QCheckBox::indicator:checked {{
+            background-color: {p['accent']};
+            border: 1px solid {p['accent']};
+        }}
+
         /* ---- Tabs (Inventory, Settings) ---- */
         QTabWidget::pane {{
             border: 1px solid {p['border']};

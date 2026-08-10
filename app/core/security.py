@@ -64,15 +64,27 @@ def hash_password(password: str) -> str:
         A salted bcrypt hash suitable for storage.
 
     Raises:
-        ValueError: If the password is shorter than MIN_PASSWORD_LENGTH
-            or its UTF-8 byte length exceeds bcrypt's MAX_PASSWORD_LENGTH_BYTES
-            limit -- checked here, before bcrypt itself would raise a
-            less helpful error.
+        ValueError: If the password is shorter than MIN_PASSWORD_LENGTH,
+            its UTF-8 byte length exceeds bcrypt's MAX_PASSWORD_LENGTH_BYTES
+            limit, or it's missing a required character variety (upper,
+            lower, digit, special) -- all checked here, before bcrypt
+            itself would raise a less helpful error, and enforced
+            centrally since every user-chosen password change (not
+            system-generated temp passwords, which already have variety
+            by construction) routes through this one function.
     """
     if len(password) < MIN_PASSWORD_LENGTH:
         raise ValueError(f"Password must be at least {MIN_PASSWORD_LENGTH} characters.")
     if len(password.encode("utf-8")) > MAX_PASSWORD_LENGTH_BYTES:
         raise ValueError(f"Password must be under {MAX_PASSWORD_LENGTH_BYTES} bytes.")
+    if not any(c.isupper() for c in password):
+        raise ValueError("Password must include at least one uppercase letter.")
+    if not any(c.islower() for c in password):
+        raise ValueError("Password must include at least one lowercase letter.")
+    if not any(c.isdigit() for c in password):
+        raise ValueError("Password must include at least one number.")
+    if not any(not c.isalnum() for c in password):
+        raise ValueError("Password must include at least one special character.")
     return pwd_context.hash(password)
 
 def verify_password(plain: str, hashed: str) -> bool:

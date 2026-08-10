@@ -102,6 +102,29 @@ services:
       - redis
       - api
 
+  # -------------------------------------------------------------------------
+  # RQ Scheduler -- triggers recurring jobs (poll_inbound_email) on their
+  # configured interval. Confirmed via a real test (a customer's reply
+  # never showing up) that this was never actually running anywhere:
+  # app/workers/scheduler.py's own header already documented that BOTH
+  # the registration script AND a separate, continuously-running
+  # rqscheduler process are needed, but neither was ever wired into this
+  # file -- the worker above only executes jobs once they're enqueued,
+  # it doesn't create the recurring schedule itself. Registration is
+  # explicitly idempotent (scheduler.py cancels any existing instance of
+  # the job before re-registering), so re-running it on every container
+  # restart is safe, not just tolerated.
+  # -------------------------------------------------------------------------
+  scheduler:
+    build: .
+    container_name: er-servicedesk-app-scheduler
+    restart: unless-stopped
+    command: ["sh", "-c", "python -m app.workers.scheduler && rqscheduler --url redis://redis:6379/0"]
+    env_file: .env
+    depends_on:
+      - redis
+      - api
+
 # ---------------------------------------------------------------------------
 # Named Volumes
 # ---------------------------------------------------------------------------

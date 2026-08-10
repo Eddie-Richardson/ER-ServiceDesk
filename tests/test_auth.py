@@ -27,11 +27,11 @@ def _create_login_user(db, email, password, is_superuser=False):
 
 def test_login_success(client, db):
     """A correct email/password pair returns a bearer token."""
-    _create_login_user(db, "login_ok@example.com", "correct-password")
+    _create_login_user(db, "login_ok@example.com", "Correct-Password123!")
 
     response = client.post(
         "/auth/login",
-        json={"email": "login_ok@example.com", "password": "correct-password"},
+        json={"email": "login_ok@example.com", "password": "Correct-Password123!"},
     )
 
     assert response.status_code == 200
@@ -42,7 +42,7 @@ def test_login_success(client, db):
 
 def test_login_wrong_password(client, db):
     """An incorrect password is rejected with 400, not a 500 or a token."""
-    _create_login_user(db, "login_wrong@example.com", "correct-password")
+    _create_login_user(db, "login_wrong@example.com", "Correct-Password123!")
 
     response = client.post(
         "/auth/login",

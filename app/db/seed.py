@@ -148,7 +148,7 @@ def seed_data(db: Session, business_name: str | None = None):
     if not admin_user:
         admin_user = User(
             email=admin_email,
-            hashed_password=hash_password("admin123"),
+            hashed_password=hash_password("Admin123!"),
             first_name="Admin",
             last_name="User",
             is_active=True,
@@ -171,7 +171,7 @@ def seed_data(db: Session, business_name: str | None = None):
     if not agent_user:
         agent_user = User(
             email=agent_email,
-            hashed_password=hash_password("agent123"),
+            hashed_password=hash_password("Agent123!"),
             first_name="Agent",
             last_name="User",
             is_active=True,
@@ -198,7 +198,7 @@ def seed_data(db: Session, business_name: str | None = None):
     if not front_desk_user:
         front_desk_user = User(
             email=front_desk_email,
-            hashed_password=hash_password("frontdesk123"),
+            hashed_password=hash_password("FrontDesk123!"),
             first_name="Front",
             last_name="Desk",
             is_active=True,

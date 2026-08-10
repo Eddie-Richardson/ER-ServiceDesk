@@ -1,14 +1,22 @@
 # ER-ServiceDesk/app/core/email.py
-# Gmail SMTP (outbound) / IMAP (inbound) integration.
+# SMTP (outbound) / IMAP (inbound) email integration.
 """
-Email integration using Gmail directly -- no third-party provider.
+Email integration over standard SMTP/IMAP -- not tied to any one
+provider. Only the connection METHOD is hardcoded (STARTTLS for SMTP,
+implicit SSL for IMAP), confirmed close to universal standards across
+major providers (Gmail, Outlook/365, Yahoo, iCloud all verified
+working). The actual host/port/credentials come from settings/.env,
+collected as real installer fields -- Gmail was the original design
+and is still the pre-filled default, but any provider with standard
+SMTP/IMAP settings works the same way.
 
-Outbound: smtplib over Gmail's SMTP server, authenticated with an App
-Password (not the account's real login password; generated separately
-in the Google Account security settings, and only usable once 2-Step
-Verification is enabled on the account).
+Outbound: smtplib with STARTTLS, authenticated with EMAIL_PASSWORD --
+for providers like Gmail that require one, this is an App Password
+(not the account's real login password; generated separately and
+often requiring 2-Step Verification to be enabled first). Other
+providers may accept the account's normal password directly instead.
 
-Inbound: imaplib polling the Gmail inbox for unread messages. A customer
+Inbound: imaplib polling the inbox for unread messages. A customer
 reply is matched back to the right ticket via a ticket ID embedded in the
 subject line -- see `format_ticket_subject` / `extract_ticket_id` below.
 Both outbound and inbound use the same subject convention so a customer's
@@ -71,7 +79,7 @@ def extract_ticket_id(subject: str) -> int | None:
 
 def send_email(to_address: str, subject: str, body: str) -> None:
     """
-    Send a plain-text email via Gmail's SMTP server.
+    Send a plain-text email over SMTP.
 
     Args:
         to_address: Recipient email address.
@@ -80,27 +88,29 @@ def send_email(to_address: str, subject: str, body: str) -> None:
         body: Plain-text message body.
 
     Raises:
-        RuntimeError: If GMAIL_ADDRESS or GMAIL_APP_PASSWORD are not
+        RuntimeError: If EMAIL_ADDRESS or EMAIL_PASSWORD are not
             configured in settings/.env.
         smtplib.SMTPException: If the send itself fails (auth failure,
             connection issue, etc.) -- allowed to propagate so the caller
             (or an RQ job's retry logic) can decide how to handle it.
     """
-    if not settings.GMAIL_ADDRESS or not settings.GMAIL_APP_PASSWORD:
+    if not settings.EMAIL_ADDRESS or not settings.EMAIL_PASSWORD:
         raise RuntimeError(
-            "GMAIL_ADDRESS and GMAIL_APP_PASSWORD must be set in .env "
+            "EMAIL_ADDRESS and EMAIL_PASSWORD must be set in .env "
             "before sending email."
         )
 
     msg = EmailMessage()
-    msg["From"] = settings.GMAIL_ADDRESS
+    msg["From"] = f"{settings.BUSINESS_NAME} <{settings.EMAIL_ADDRESS}>" if settings.BUSINESS_NAME else settings.EMAIL_ADDRESS
     msg["To"] = to_address
     msg["Subject"] = subject
+    if settings.BUSINESS_NAME:
+        body = f"{body}\n\n-- \n{settings.BUSINESS_NAME}"
     msg.set_content(body)
 
-    with smtplib.SMTP(settings.GMAIL_SMTP_HOST, settings.GMAIL_SMTP_PORT) as server:
+    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
         server.starttls()
-        server.login(settings.GMAIL_ADDRESS, settings.GMAIL_APP_PASSWORD)
+        server.login(settings.EMAIL_ADDRESS, settings.EMAIL_PASSWORD)
         server.send_message(msg)
 
 
@@ -142,7 +152,7 @@ def _extract_plain_body(msg: email_lib.message.Message) -> str:
 
 def fetch_unread_emails() -> list[InboundEmail]:
     """
-    Connect to the Gmail inbox via IMAP, fetch all unread messages, and
+    Connect to the inbox via IMAP, fetch all unread messages, and
     mark them as read.
 
     Intended to be called from an RQ job on a schedule (polling), not
@@ -156,20 +166,20 @@ def fetch_unread_emails() -> list[InboundEmail]:
         than silently dropping it.
 
     Raises:
-        RuntimeError: If GMAIL_ADDRESS or GMAIL_APP_PASSWORD are not
+        RuntimeError: If EMAIL_ADDRESS or EMAIL_PASSWORD are not
             configured.
         imaplib.IMAP4.error: If the IMAP connection/login/fetch fails.
     """
-    if not settings.GMAIL_ADDRESS or not settings.GMAIL_APP_PASSWORD:
+    if not settings.EMAIL_ADDRESS or not settings.EMAIL_PASSWORD:
         raise RuntimeError(
-            "GMAIL_ADDRESS and GMAIL_APP_PASSWORD must be set in .env "
+            "EMAIL_ADDRESS and EMAIL_PASSWORD must be set in .env "
             "before polling email."
         )
 
     results: list[InboundEmail] = []
 
-    with imaplib.IMAP4_SSL(settings.GMAIL_IMAP_HOST) as imap:
-        imap.login(settings.GMAIL_ADDRESS, settings.GMAIL_APP_PASSWORD)
+    with imaplib.IMAP4_SSL(settings.IMAP_HOST, settings.IMAP_PORT) as imap:
+        imap.login(settings.EMAIL_ADDRESS, settings.EMAIL_PASSWORD)
         imap.select("INBOX")
 
         status, data = imap.search(None, "UNSEEN")

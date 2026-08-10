@@ -67,11 +67,22 @@ class UserService:
             The newly created User instance.
 
         Raises:
+            HTTPException: 400 if an account with this email already
+                exists -- checked up front, before anything else
+                happens, so a duplicate signup attempt fails cleanly
+                without sending a confusing "your account was created"
+                email to an address that already has one.
             HTTPException: 500 if the temp password email fails to
                 send. The account is deliberately NOT created in this
                 case -- an account whose password nobody actually
                 received is worse than no account at all.
         """
+        if crud_user.get_by_email(db, obj_in.email):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="An account with this email address already exists.",
+            )
+
         temp_password = generate_temp_password()
 
         try:
@@ -166,9 +177,23 @@ class UserService:
 
         Returns:
             The updated User instance.
+
+        Raises:
+            HTTPException: 400 if the email is being changed to one
+                already used by a DIFFERENT account -- same reasoning
+                as create()'s own duplicate check, checked up front
+                rather than left to an unhandled database constraint.
         """
         db_obj = crud_user.get(db, id)
         update_data = obj_in.model_dump(exclude_unset=True)
+
+        if "email" in update_data and update_data["email"] != db_obj.email:
+            existing = crud_user.get_by_email(db, update_data["email"])
+            if existing and existing.id != id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="An account with this email address already exists.",
+                )
 
         for field, value in update_data.items():
             setattr(db_obj, field, value)

@@ -91,7 +91,7 @@ def _make_user(db, email: str, is_superuser: bool) -> User:
     """Create and persist a bare User for auth-related fixtures."""
     user = User(
         email=email,
-        hashed_password=hash_password("testpass123"),
+        hashed_password=hash_password("Testpass123!"),
         first_name="Test",
         last_name="User",
         is_active=True,

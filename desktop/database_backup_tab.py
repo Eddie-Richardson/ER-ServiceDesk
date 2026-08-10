@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
 )
 
 from desktop.database_backup_worker import DatabaseBackupWorker
+from desktop.path_validation import check_path_writable
 from desktop.settings_manager import get_backup_location
 
 # A reasonable starting point before the admin has chosen anything --
@@ -88,11 +89,18 @@ class DatabaseBackupTab(QWidget):
         self.setLayout(layout)
 
     def _on_choose_location(self):
-        """Opens a folder picker and, if the admin picks one, saves it as the new default going forward."""
+        """Opens a folder picker and, if the admin picks one, validates it's genuinely writable before saving it as the new default."""
         chosen = QFileDialog.getExistingDirectory(self, "Choose Backup Location", self.location_display.text())
-        if chosen:
-            self.location_display.setText(chosen)
-            self._save_backup_location_elevated(chosen)
+        if not chosen:
+            return
+
+        writable, error = check_path_writable(chosen)
+        if not writable:
+            QMessageBox.critical(self, "Location Not Usable", error)
+            return
+
+        self.location_display.setText(chosen)
+        self._save_backup_location_elevated(chosen)
 
     def _on_backup_clicked(self):
         """Starts the backup worker on a background thread."""

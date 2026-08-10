@@ -63,9 +63,13 @@ wheels/
 pip-wheel-metadata/
 share/python-wheels/
 *.manifest
-*.spec
-# Excluding build file
-!ER-ServiceDesk.spec
+# *.spec files are NOT ignored -- every one in this project (ER-ServiceDesk.spec,
+# RestoreDatabaseLocal.spec, RestoreDatabaseServer.spec) is real,
+# hand-written PyInstaller build config, not auto-generated. Previously
+# had a blanket *.spec rule with per-file exceptions, but that meant a
+# new spec file silently gets ignored unless someone remembers to add
+# an exception for it -- confirmed this actually happened. Simpler and
+# more robust to just not ignore the extension at all.
 
 # -------------------------------------------------------------------
 # Inno Setup installer build output (compiled binary, not source --

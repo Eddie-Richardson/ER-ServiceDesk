@@ -10,21 +10,26 @@ number or correct a brand/model after the fact, reached by double-
 clicking a device in a customer's device list.
 """
 
-from PySide6.QtCore import QThread
+from PySide6.QtCore import QThread, Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
+    QHeaderView,
     QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
     QVBoxLayout,
+    QWidget,
 )
 
 from desktop import api_client, layout
 from desktop.api_client import ApiError
 from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.device_save_worker import DeviceSaveWorker
+from desktop.device_user_account_dialog import DeviceUserAccountDialog
 
 
 class DeviceEditDialog(QDialog):
@@ -91,6 +96,14 @@ class DeviceEditDialog(QDialog):
         self.serial_number_input = QLineEdit()
         self.serial_number_input.setFixedHeight(layout.INPUT_HEIGHT)
 
+        self.os_input = QLineEdit()
+        self.os_input.setPlaceholderText("e.g. Windows 11 (optional)")
+        self.os_input.setFixedHeight(layout.INPUT_HEIGHT)
+
+        self.edition_input = QLineEdit()
+        self.edition_input.setPlaceholderText("e.g. Home, Pro, Enterprise (optional)")
+        self.edition_input.setFixedHeight(layout.INPUT_HEIGHT)
+
         self.location_combo = QComboBox()
         self.location_combo.setFixedHeight(layout.INPUT_HEIGHT)
         self.location_combo.addItem("-- None --", userData=None)
@@ -122,12 +135,16 @@ class DeviceEditDialog(QDialog):
             ("Brand", self.brand_input),
             ("Model", self.model_input),
             ("Serial Number", self.serial_number_input),
+            ("OS", self.os_input),
+            ("Edition", self.edition_input),
             ("Current Location", self.location_combo),
         ]:
             field_label = QLabel(label_text)
             field_label.setObjectName("subtitle")
             outer_layout.addWidget(field_label)
             outer_layout.addWidget(widget)
+
+        outer_layout.addWidget(self._build_user_accounts_section())
 
         outer_layout.addWidget(self.error_label)
         outer_layout.addSpacing(layout.SPACE_SM)
@@ -146,6 +163,8 @@ class DeviceEditDialog(QDialog):
         self.brand_input.setText(device.get("brand") or "")
         self.model_input.setText(device.get("model") or "")
         self.serial_number_input.setText(device.get("serial_number") or "")
+        self.os_input.setText(device.get("os") or "")
+        self.edition_input.setText(device.get("edition") or "")
 
         index = self.location_combo.findData(device.get("current_location_id"))
         if index >= 0:
@@ -192,6 +211,8 @@ class DeviceEditDialog(QDialog):
             "brand": self.brand_input.text().strip() or None,
             "model": self.model_input.text().strip() or None,
             "serial_number": self.serial_number_input.text().strip() or None,
+            "os": self.os_input.text().strip() or None,
+            "edition": self.edition_input.text().strip() or None,
             "current_location_id": self.location_combo.currentData(),
         }
         return payload, ""
@@ -220,6 +241,81 @@ class DeviceEditDialog(QDialog):
         """
         self.error_label.setText(message)
         self.error_label.show()
+
+    # -----------------------------------------------------------------
+    # User Accounts
+    # -----------------------------------------------------------------
+    def _build_user_accounts_section(self) -> QWidget:
+        """
+        Builds the expandable user-accounts table for this device --
+        supports more than one login (the rare-but-real multi-account
+        case), each tracked separately with its own admin flag and
+        encrypted password. Always shown -- this dialog is edit-only,
+        so self.device always has a real id.
+
+        Returns:
+            The assembled section widget (label + Add button + table),
+            ready to add to the form's layout.
+        """
+        section_label = QLabel("User Accounts")
+        section_label.setObjectName("subtitle")
+
+        add_account_button = QPushButton("Add User Account")
+        add_account_button.setObjectName("secondary")
+        add_account_button.clicked.connect(self._on_add_user_account)
+
+        self.accounts_table = QTableWidget()
+        self.accounts_table.setColumnCount(2)
+        self.accounts_table.setHorizontalHeaderLabels(["Account", "Admin"])
+        self.accounts_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.accounts_table.verticalHeader().setVisible(False)
+        self.accounts_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.accounts_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.accounts_table.setFixedHeight(120)
+        self.accounts_table.doubleClicked.connect(self._on_account_row_double_clicked)
+
+        self._load_user_accounts()
+
+        container_layout = QVBoxLayout()
+        container_layout.setContentsMargins(0, 0, 0, 0)
+        container_layout.addWidget(section_label)
+        container_layout.addWidget(add_account_button)
+        container_layout.addWidget(self.accounts_table)
+        container = QWidget()
+        container.setLayout(container_layout)
+        return container
+
+    def _load_user_accounts(self):
+        """Fetches and renders this device's current user accounts."""
+        try:
+            accounts = api_client.list_device_user_accounts(self.device["id"])
+        except ApiError:
+            accounts = []
+
+        self.accounts_table.setRowCount(len(accounts))
+        for row, account in enumerate(accounts):
+            values = [account.get("account_name", ""), "Yes" if account.get("is_admin") else "No"]
+            for col, value in enumerate(values):
+                item = QTableWidgetItem(value)
+                item.setData(Qt.ItemDataRole.UserRole, account)
+                self.accounts_table.setItem(row, col, item)
+
+    def _on_add_user_account(self):
+        """Opens DeviceUserAccountDialog in add mode; refreshes the table if an account was added."""
+        dialog = DeviceUserAccountDialog(self.device["id"], None, parent=self)
+        if dialog.exec():
+            self._load_user_accounts()
+
+    def _on_account_row_double_clicked(self):
+        """Opens DeviceUserAccountDialog pre-filled with the double-clicked row's account; refreshes the table if saved or removed."""
+        selected_items = self.accounts_table.selectedItems()
+        if not selected_items:
+            return
+
+        account = selected_items[0].data(Qt.ItemDataRole.UserRole)
+        dialog = DeviceUserAccountDialog(self.device["id"], account, parent=self)
+        if dialog.exec():
+            self._load_user_accounts()
 
     # -----------------------------------------------------------------
     # Delete

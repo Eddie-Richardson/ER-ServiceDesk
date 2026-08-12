@@ -217,6 +217,14 @@ class TicketFormDialog(QDialog):
         self.description_input.setPlaceholderText("Details (optional)")
         self.description_input.setFixedHeight(100)
 
+        self.pickup_person_input = QLineEdit()
+        self.pickup_person_input.setPlaceholderText("Who is authorized to pick up the device (optional)")
+        self.pickup_person_input.setFixedHeight(layout.INPUT_HEIGHT)
+
+        self.accessories_included_input = QLineEdit()
+        self.accessories_included_input.setPlaceholderText("What was brought in, e.g. charger, bag (optional)")
+        self.accessories_included_input.setFixedHeight(layout.INPUT_HEIGHT)
+
         # Only shown when editing an EXISTING ticket -- a brand-new,
         # unsaved ticket has no id yet for a part requirement to
         # attach to, matching the same reasoning as Notes/History.
@@ -239,6 +247,8 @@ class TicketFormDialog(QDialog):
             ("Location", self.location_combo),
             ("Title", self.title_input),
             ("Description", self.description_input),
+            ("Pick Up Person", self.pickup_person_input),
+            ("Accessories Included", self.accessories_included_input),
         ]:
             if label_text is not None:
                 field_label = QLabel(label_text)
@@ -563,6 +573,8 @@ class TicketFormDialog(QDialog):
 
         self.title_input.setText(ticket.get("title", ""))
         self.description_input.setPlainText(ticket.get("description") or "")
+        self.pickup_person_input.setText(ticket.get("pickup_person") or "")
+        self.accessories_included_input.setText(ticket.get("accessories_included") or "")
 
     def _select_combo_by_data(self, combo: QComboBox, data_value):
         """
@@ -656,6 +668,8 @@ class TicketFormDialog(QDialog):
             "current_location_id": self.location_combo.currentData(),
             "title": title,
             "description": self.description_input.toPlainText().strip() or None,
+            "pickup_person": self.pickup_person_input.text().strip() or None,
+            "accessories_included": self.accessories_included_input.text().strip() or None,
         }
         return payload, new_device_payload, ""
 

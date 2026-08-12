@@ -157,6 +157,7 @@ while ($Listener.IsListening) {
         $NewEmailPassword = $Request.Headers["X-Email-Password"]
         $NewBusinessName = $Request.Headers["X-Business-Name"]
         $NewSecretKey = $Request.Headers["X-Secret-Key"]
+        $NewDeviceAccountEncryptionKey = $Request.Headers["X-Device-Account-Encryption-Key"]
         $NewPostgresPassword = $Request.Headers["X-Postgres-Password"]
         # Carried through so this migrated server keeps whatever real
         # mail provider the original Local install was configured for
@@ -228,6 +229,7 @@ POSTGRES_USER=postgres
 POSTGRES_PASSWORD=$NewPostgresPassword
 POSTGRES_DB=erservicedesk
 SECRET_KEY=$NewSecretKey
+DEVICE_ACCOUNT_ENCRYPTION_KEY=$NewDeviceAccountEncryptionKey
 EMAIL_ADDRESS=$NewEmailAddress
 EMAIL_PASSWORD=$NewEmailPassword
 BUSINESS_NAME=$NewBusinessName

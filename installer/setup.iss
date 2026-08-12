@@ -955,17 +955,20 @@ var
   EnvContent: String;
   PostgresPassword: String;
   SecretKey: String;
+  DeviceAccountEncryptionKey: String;
   BackupDir: String;
 begin
   PostgresPassword := GenerateRandomString(24);
   SecretKey := GenerateRandomString(48);
+  DeviceAccountEncryptionKey := GenerateRandomString(48);
 
   EnvContent :=
     'DATABASE_URL=postgresql+psycopg2://postgres:' + PostgresPassword + '@db:5432/erservicedesk' + #13#10 +
     'POSTGRES_USER=postgres' + #13#10 +
     'POSTGRES_PASSWORD=' + PostgresPassword + #13#10 +
     'POSTGRES_DB=erservicedesk' + #13#10 +
-    'SECRET_KEY=' + SecretKey + #13#10;
+    'SECRET_KEY=' + SecretKey + #13#10 +
+    'DEVICE_ACCOUNT_ENCRYPTION_KEY=' + DeviceAccountEncryptionKey + #13#10;
 
   { Migration Target deliberately gets none of this -- the real email
     credentials and business name arrive later via the migration

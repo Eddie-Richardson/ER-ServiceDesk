@@ -19,6 +19,7 @@ from app.routes import (
     business_info,
     customers,
     devices,
+    device_user_accounts,
     discounts,
     invoices,
     locations,
@@ -70,6 +71,7 @@ app.include_router(user_roles.router)
 # Customers, devices, tickets
 app.include_router(customers.router)
 app.include_router(devices.router)
+app.include_router(device_user_accounts.router)
 app.include_router(tickets.router)
 app.include_router(ticket_categories.router)
 app.include_router(ticket_stages.router)

@@ -21,6 +21,8 @@ class TicketBase(BaseModel):
     title: str
     description: str | None = None
     priority: str
+    pickup_person: str | None = None
+    accessories_included: str | None = None
 
 class TicketCreate(TicketBase):
     """Schema for creating a new Ticket record (client -> server)."""
@@ -39,6 +41,8 @@ class TicketUpdate(BaseModel):
     title: str | None = None
     description: str | None = None
     priority: str | None = None
+    pickup_person: str | None = None
+    accessories_included: str | None = None
     updated_at: datetime | None = None
 
 class Ticket(TicketBase):

@@ -20,6 +20,12 @@ class Device(Base):
         brand: Optional manufacturer/brand name.
         model: Optional model identifier.
         serial_number: Optional serial number for asset tracking.
+        os: Operating system, e.g. "Windows 11" -- kept separate from
+            edition so an OS reinstall always has both pieces of
+            information needed for the correct installer image.
+        edition: OS edition, e.g. "Home"/"Pro"/"Enterprise" -- kept as
+            its own field (not folded into os as free text) so it
+            can't get overlooked before a reinstall.
         current_location_id: Where this device is physically located in
             the shop right now (e.g. a bench, a shelf).
         created_at: Timestamp the record was created.
@@ -32,9 +38,12 @@ class Device(Base):
     brand = Column(String, nullable=True)
     model = Column(String, nullable=True)
     serial_number = Column(String, nullable=True)
+    os = Column(String, nullable=True)
+    edition = Column(String, nullable=True)
     current_location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)
     customer = relationship("Customer", back_populates="devices")
     tickets = relationship("Ticket", back_populates="device")
     current_location = relationship("Location", back_populates="devices")
+    user_accounts = relationship("DeviceUserAccount", back_populates="device", cascade="all, delete-orphan")

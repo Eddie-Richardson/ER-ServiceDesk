@@ -13,6 +13,7 @@ from .audit_log import AuditLog
 from .background_job import BackgroundJob
 from .customer import Customer
 from .device import Device
+from .device_user_account import DeviceUserAccount
 from .discount import Discount
 from .invoice import Invoice
 from .invoice_line_item import InvoiceLineItem

@@ -29,6 +29,14 @@ class Ticket(Base):
         title: Short summary of the issue.
         description: Optional full description of the issue.
         priority: Ticket priority level.
+        pickup_person: Who is authorized to pick up the device for this
+            particular visit -- varies per ticket, not a fixed
+            Customer-level fact (a different person could drop off and
+            pick up, or pick-up person could differ across repeat
+            repairs for the same customer).
+        accessories_included: What was physically brought in with the
+            device at drop-off for this visit (e.g. "charger, no bag")
+            -- also varies per visit, not a permanent Device fact.
         created_at: Timestamp the record was created.
         updated_at: Timestamp the record was last updated.
     """
@@ -45,6 +53,8 @@ class Ticket(Base):
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     priority = Column(String, nullable=False, index=True)
+    pickup_person = Column(String, nullable=True)
+    accessories_included = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)
     customer = relationship("Customer", back_populates="tickets")

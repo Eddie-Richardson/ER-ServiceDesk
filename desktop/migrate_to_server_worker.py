@@ -221,10 +221,10 @@ class MigrateToServerWorker(QObject):
         Reads a single KEY=value line's value directly out of the
         local .env file -- these values travel to the server as-is
         (the exact same email credentials, mail server settings,
-        business name, and SECRET_KEY), matching the original design:
-        only the Postgres password needs special reconciliation on
-        the server side, since it's baked into Postgres itself rather
-        than being a
+        business name, SECRET_KEY, and DEVICE_ACCOUNT_ENCRYPTION_KEY),
+        matching the original design: only the Postgres password needs
+        special reconciliation on the server side, since it's baked
+        into Postgres itself rather than being a
         plain config value.
 
         setup.iss's own WriteEnvFiles wraps every value in double
@@ -279,6 +279,7 @@ class MigrateToServerWorker(QObject):
             "X-Email-Password": self._read_env_value("EMAIL_PASSWORD"),
             "X-Business-Name": self._read_env_value("BUSINESS_NAME"),
             "X-Secret-Key": self._read_env_value("SECRET_KEY"),
+            "X-Device-Account-Encryption-Key": self._read_env_value("DEVICE_ACCOUNT_ENCRYPTION_KEY"),
             "X-Postgres-Password": self._read_env_value("POSTGRES_PASSWORD"),
             # Carried through so a migrated server keeps whatever real
             # mail provider the original Local install was configured

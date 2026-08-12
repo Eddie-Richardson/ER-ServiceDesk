@@ -1270,6 +1270,28 @@ def extend_installment_date(installment_id: int, new_due_date: str) -> dict:
     return _authed_put(f"/payment_plans/installments/{installment_id}/extend", {"new_due_date": new_due_date})
 
 
+def list_device_user_accounts(device_id: int) -> list[dict]:
+    """Returns every user account known for a device, with passwords decrypted for display."""
+    return _authed_get(f"/device_user_accounts/?device_id={device_id}")
+
+
+def create_device_user_account(device_id: int, account_name: str, password: str | None, is_admin: bool) -> dict:
+    """Adds a new user account to a device. Password is encrypted server-side before storage."""
+    return _authed_post("/device_user_accounts/", {
+        "device_id": device_id, "account_name": account_name, "password": password, "is_admin": is_admin,
+    })
+
+
+def update_device_user_account(account_id: int, payload: dict) -> dict:
+    """Updates an existing device user account."""
+    return _authed_put(f"/device_user_accounts/{account_id}", payload)
+
+
+def delete_device_user_account(account_id: int):
+    """Removes a user account from a device."""
+    delete_lookup_item("/device_user_accounts/", account_id)
+
+
 def list_services() -> list[dict]:
     """Returns all billable services. Requires superuser."""
     return _authed_get("/services/")

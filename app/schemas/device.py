@@ -15,6 +15,8 @@ class DeviceBase(BaseModel):
     brand: str | None = None
     model: str | None = None
     serial_number: str | None = None
+    os: str | None = None
+    edition: str | None = None
     current_location_id: int | None = None
 
 class DeviceCreate(DeviceBase):
@@ -28,6 +30,8 @@ class DeviceUpdate(BaseModel):
     brand: str | None = None
     model: str | None = None
     serial_number: str | None = None
+    os: str | None = None
+    edition: str | None = None
     current_location_id: int | None = None
     updated_at: datetime | None = None
 

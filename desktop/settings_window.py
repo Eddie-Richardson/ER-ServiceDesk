@@ -30,18 +30,26 @@ from PySide6.QtWidgets import QTabWidget, QVBoxLayout, QWidget
 
 from desktop.api_client import (
     list_asset_categories,
+    list_discounts,
     list_locations,
+    list_tax_rates,
     list_ticket_categories,
     list_ticket_statuses,
-    list_ticket_types,
 )
+from desktop.audit_log_tab import AuditLogTab
+from desktop.background_jobs_tab import BackgroundJobsTab
 from desktop.database_backup_tab import DatabaseBackupTab
 from desktop.lookup_tab import LookupTab
+from desktop.message_templates_tab import MessageTemplatesTab
 from desktop.migrate_to_server_tab import MigrateToServerTab
+from desktop.name_percentage_tab import NamePercentageTab
 from desktop.roles_tab import RolesTab
 from desktop.server_backup_tab import ServerBackupTab
 from desktop.server_resources_tab import ServerResourcesTab
+from desktop.services_tab import ServicesTab
 from desktop.settings_manager import get_install_mode
+from desktop.system_settings_tab import SystemSettingsTab
+from desktop.ticket_types_stages_tab import TicketTypesStagesTab
 from desktop.window_geometry import restore_geometry, save_geometry
 
 
@@ -90,11 +98,15 @@ class SettingsWindow(QWidget):
             LookupTab("Ticket Status", list_ticket_statuses, "/ticket_statuses/", "ticket_status"),
             "Ticket Statuses",
         )
-        tabs.addTab(
-            LookupTab("Ticket Type", list_ticket_types, "/ticket_types/", "ticket_type"),
-            "Ticket Types",
-        )
+        tabs.addTab(TicketTypesStagesTab(), "Ticket Types & Stages")
         tabs.addTab(RolesTab(), "Roles")
+        tabs.addTab(SystemSettingsTab(), "System Settings")
+        tabs.addTab(AuditLogTab(), "Audit Log")
+        tabs.addTab(BackgroundJobsTab(), "Background Jobs")
+        tabs.addTab(MessageTemplatesTab(), "Message Templates")
+        tabs.addTab(ServicesTab(), "Services")
+        tabs.addTab(NamePercentageTab("Discount", list_discounts, "/discounts/", "discount"), "Discounts")
+        tabs.addTab(NamePercentageTab("Tax Rate", list_tax_rates, "/tax_rates/", "tax_rate"), "Tax Rates")
 
         # Migrate to Server and Database Backup both only make sense
         # for Local mode -- Client is already pointed at a server (for

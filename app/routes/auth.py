@@ -48,7 +48,7 @@ def login(credentials: UserLogin, db: Session = Depends(get_db)):
     if user.must_change_password:
         return {"must_change_password": True}
 
-    return auth_service.login(user)
+    return auth_service.login(db, user)
 
 
 @router.post("/change-password")
@@ -91,4 +91,4 @@ def change_password(request: ChangePasswordRequest, db: Session = Depends(get_db
     user.must_change_password = False
     db.commit()
 
-    return auth_service.login(user)
+    return auth_service.login(db, user)

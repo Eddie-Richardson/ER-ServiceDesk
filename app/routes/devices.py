@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.api.dependencies import get_current_user
+from app.models.user import User
 from app.services.device_service import device_service
 from app.schemas.device import Device, DeviceCreate, DeviceUpdate
 
@@ -73,12 +74,22 @@ def update_device(id: int, obj_in: DeviceUpdate, db: Session = Depends(get_db)):
     return device_service.update(db, id, obj_in)
 
 @router.delete("/{id}")
-def delete_device(id: int, db: Session = Depends(get_db)):
+def delete_device(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """
-    Delete a Device record by ID.
+    Delete a Device record by ID, if it's not attached to any ticket.
 
     Args:
         id: Primary key of the record to delete.
         db: Injected database session.
+        current_user: The user performing this deletion -- recorded
+            in the audit trail.
+
+    Raises:
+        HTTPException: 400 if any ticket currently references this
+            device.
     """
-    return device_service.delete(db, id)
+    return device_service.delete(db, id, current_user.id)

@@ -3,82 +3,62 @@
 """
 REST endpoints for a payment applied against an invoice.
 
-Thin HTTP layer: validates the request via the schema layer and delegates
-all real work to the service layer.
+Gated on billing.manage, same reasoning as routes/quotes.py. Recording
+a payment automatically updates the invoice's is_paid status -- see
+payment_service.py.
 """
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
-from app.api.dependencies import get_current_user
+from app.api.dependencies import require_permission, get_current_user
+from app.models.user import User
 from app.services.payment_service import payment_service
 from app.schemas.payment import Payment, PaymentCreate, PaymentUpdate
 
-router = APIRouter(prefix="/payments", tags=["payments"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/payments", tags=["payments"], dependencies=[Depends(require_permission("billing.manage"))])
+
 
 @router.get("/", response_model=list[Payment])
-def list_payments(db: Session = Depends(get_db)):
-    """
-    List a payment applied against an invoice, paginated.
-
-    Args:
-        db: Injected database session.
-
-    Returns:
-        A list of Payment records.
-    """
+def list_payments(invoice_id: int | None = None, db: Session = Depends(get_db)):
+    """List payments, paginated, optionally filtered to a single invoice."""
+    if invoice_id is not None:
+        return payment_service.get_by_invoice(db, invoice_id)
     return payment_service.get_multi(db)
+
 
 @router.get("/{id}", response_model=Payment)
 def get_payment(id: int, db: Session = Depends(get_db)):
-    """
-    Fetch a single Payment record by ID.
-
-    Args:
-        id: Primary key of the record to fetch.
-        db: Injected database session.
-
-    Returns:
-        The matching Payment record.
-    """
+    """Fetch a single Payment record by ID."""
     return payment_service.get(db, id)
 
+
 @router.post("/", response_model=Payment)
-def create_payment(obj_in: PaymentCreate, db: Session = Depends(get_db)):
-    """
-    Create a new Payment record.
+def create_payment(
+    obj_in: PaymentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Record a new payment against an invoice. Automatically marks the invoice paid if this brings total payments up to its total."""
+    return payment_service.create(db, obj_in, current_user.id)
 
-    Args:
-        obj_in: Validated request body for the new record.
-        db: Injected database session.
-
-    Returns:
-        The newly created Payment record.
-    """
-    return payment_service.create(db, obj_in)
 
 @router.put("/{id}", response_model=Payment)
-def update_payment(id: int, obj_in: PaymentUpdate, db: Session = Depends(get_db)):
-    """
-    Update an existing Payment record.
+def update_payment(
+    id: int,
+    obj_in: PaymentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update an existing Payment. Re-checks the invoice's paid status in case the amount changed."""
+    return payment_service.update(db, id, obj_in, current_user.id)
 
-    Args:
-        id: Primary key of the record to update.
-        obj_in: Fields to change; unset fields are left untouched.
-        db: Injected database session.
-
-    Returns:
-        The updated Payment record.
-    """
-    return payment_service.update(db, id, obj_in)
 
 @router.delete("/{id}")
-def delete_payment(id: int, db: Session = Depends(get_db)):
-    """
-    Delete a Payment record by ID.
-
-    Args:
-        id: Primary key of the record to delete.
-        db: Injected database session.
-    """
-    return payment_service.delete(db, id)
+def delete_payment(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete a Payment by ID. Re-checks the invoice's paid status -- can un-mark a previously-paid invoice."""
+    return payment_service.delete(db, id, current_user.id)

@@ -1,10 +1,17 @@
 # ER-ServiceDesk/app/routes/audit_logs.py
-# API routes for AuditLog operations.
+# API routes for AuditLog -- read-only.
 """
-REST endpoints for a record of a user action or system event, for security review and compliance.
+Read-only REST endpoint for the security/compliance audit trail.
 
-Thin HTTP layer: validates the request via the schema layer and delegates
-all real work to the service layer.
+Deliberately GET-only -- entries are only ever written internally by
+other services (via audit_log_service.log()), never directly through
+the API. An audit trail a user could rewrite or erase through a route
+wouldn't be trustworthy, even for a superuser -- a compromised admin
+account could otherwise just cover its own tracks.
+
+Superuser-only, matching the sensitive nature of this data -- this is
+a full activity record across every user, not something a regular
+tech should be able to browse.
 """
 
 from fastapi import APIRouter, Depends
@@ -12,22 +19,36 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.api.dependencies import require_superuser
 from app.services.audit_log_service import audit_log_service
-from app.schemas.audit_log import AuditLog, AuditLogCreate, AuditLogUpdate
+from app.schemas.audit_log import AuditLog
 
 router = APIRouter(prefix="/audit_logs", tags=["audit_logs"], dependencies=[Depends(require_superuser)])
 
 @router.get("/", response_model=list[AuditLog])
-def list_audit_logs(db: Session = Depends(get_db)):
+def list_audit_logs(
+    user_id: int | None = None,
+    entity_type: str | None = None,
+    entity_id: int | None = None,
+    db: Session = Depends(get_db),
+):
     """
-    List a record of a user action or system event, for security review and compliance, paginated.
+    List audit trail entries, most recent first, optionally filtered
+    to a specific user and/or entity -- lets an admin pull up
+    "everything this one user has done," "everything that's happened
+    to tickets," or "this one ticket's full history" without fetching
+    the entire table.
 
     Args:
+        user_id: If given, only entries performed by this user.
+        entity_type: If given, only entries for this kind of entity
+            (e.g. "ticket", "user", "customer").
+        entity_id: If given (along with entity_type), only entries for
+            that one specific entity instance.
         db: Injected database session.
 
     Returns:
         A list of AuditLog records.
     """
-    return audit_log_service.get_multi(db)
+    return audit_log_service.get_multi(db, user_id=user_id, entity_type=entity_type, entity_id=entity_id)
 
 @router.get("/{id}", response_model=AuditLog)
 def get_audit_log(id: int, db: Session = Depends(get_db)):
@@ -42,43 +63,3 @@ def get_audit_log(id: int, db: Session = Depends(get_db)):
         The matching AuditLog record.
     """
     return audit_log_service.get(db, id)
-
-@router.post("/", response_model=AuditLog)
-def create_audit_log(obj_in: AuditLogCreate, db: Session = Depends(get_db)):
-    """
-    Create a new AuditLog record.
-
-    Args:
-        obj_in: Validated request body for the new record.
-        db: Injected database session.
-
-    Returns:
-        The newly created AuditLog record.
-    """
-    return audit_log_service.create(db, obj_in)
-
-@router.put("/{id}", response_model=AuditLog)
-def update_audit_log(id: int, obj_in: AuditLogUpdate, db: Session = Depends(get_db)):
-    """
-    Update an existing AuditLog record.
-
-    Args:
-        id: Primary key of the record to update.
-        obj_in: Fields to change; unset fields are left untouched.
-        db: Injected database session.
-
-    Returns:
-        The updated AuditLog record.
-    """
-    return audit_log_service.update(db, id, obj_in)
-
-@router.delete("/{id}")
-def delete_audit_log(id: int, db: Session = Depends(get_db)):
-    """
-    Delete a AuditLog record by ID.
-
-    Args:
-        id: Primary key of the record to delete.
-        db: Injected database session.
-    """
-    return audit_log_service.delete(db, id)

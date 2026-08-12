@@ -1,10 +1,14 @@
-# ER-ServiceDesk/app/routes/status_historys.py
-# API routes for StatusHistory operations.
+# ER-ServiceDesk/app/routes/status_histories.py
+# API routes for StatusHistory -- read-only.
 """
-REST endpoints for an audit trail entry for a ticket status transition.
+Read-only REST endpoint for a ticket's status change history.
 
-Thin HTTP layer: validates the request via the schema layer and delegates
-all real work to the service layer.
+Deliberately GET-only -- StatusHistory entries are only ever created
+internally by ticket_service.py, whenever a ticket's status_id
+genuinely changes. There's no create/update/delete route here at all:
+an audit trail a regular user could freely rewrite or erase through
+the API wouldn't be a trustworthy audit trail, which defeats the
+entire point of building this.
 """
 
 from fastapi import APIRouter, Depends
@@ -12,14 +16,18 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.api.dependencies import get_current_user
 from app.services.status_history_service import status_history_service
-from app.schemas.status_history import StatusHistory, StatusHistoryCreate, StatusHistoryUpdate
+from app.schemas.status_history import StatusHistory
 
 router = APIRouter(prefix="/status_histories", tags=["status_histories"], dependencies=[Depends(get_current_user)])
 
 @router.get("/", response_model=list[StatusHistory])
-def list_status_historys(db: Session = Depends(get_db)):
+def list_status_histories(db: Session = Depends(get_db)):
     """
-    List an audit trail entry for a ticket status transition, paginated.
+    List every status change ever recorded, across every ticket.
+    Visible to anyone with an active session -- the desktop client
+    filters this down to one ticket's own history client-side (see
+    api_client.list_status_history_for_ticket()), matching the same
+    pattern already used for a ticket's Notes/Message timeline.
 
     Args:
         db: Injected database session.
@@ -42,43 +50,3 @@ def get_status_history(id: int, db: Session = Depends(get_db)):
         The matching StatusHistory record.
     """
     return status_history_service.get(db, id)
-
-@router.post("/", response_model=StatusHistory)
-def create_status_history(obj_in: StatusHistoryCreate, db: Session = Depends(get_db)):
-    """
-    Create a new StatusHistory record.
-
-    Args:
-        obj_in: Validated request body for the new record.
-        db: Injected database session.
-
-    Returns:
-        The newly created StatusHistory record.
-    """
-    return status_history_service.create(db, obj_in)
-
-@router.put("/{id}", response_model=StatusHistory)
-def update_status_history(id: int, obj_in: StatusHistoryUpdate, db: Session = Depends(get_db)):
-    """
-    Update an existing StatusHistory record.
-
-    Args:
-        id: Primary key of the record to update.
-        obj_in: Fields to change; unset fields are left untouched.
-        db: Injected database session.
-
-    Returns:
-        The updated StatusHistory record.
-    """
-    return status_history_service.update(db, id, obj_in)
-
-@router.delete("/{id}")
-def delete_status_history(id: int, db: Session = Depends(get_db)):
-    """
-    Delete a StatusHistory record by ID.
-
-    Args:
-        id: Primary key of the record to delete.
-        db: Injected database session.
-    """
-    return status_history_service.delete(db, id)

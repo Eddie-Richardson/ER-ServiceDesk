@@ -14,8 +14,17 @@ from app.schemas.ticket_part import TicketPart, TicketPartCreate, TicketPartUpda
 router = APIRouter(prefix="/ticket_parts", tags=["ticket_parts"], dependencies=[Depends(get_current_user)])
 
 @router.get("/", response_model=list[TicketPart])
-def list_ticket_parts(db: Session = Depends(get_db)):
-    """List TicketPart records, paginated."""
+def list_ticket_parts(ticket_id: int | None = None, db: Session = Depends(get_db)):
+    """
+    List TicketPart records, paginated, optionally filtered to a
+    single ticket.
+
+    Args:
+        ticket_id: If given, only part requirements for this ticket.
+        db: Injected database session.
+    """
+    if ticket_id is not None:
+        return ticket_part_service.get_by_ticket(db, ticket_id)
     return ticket_part_service.get_multi(db)
 
 @router.get("/{id}", response_model=TicketPart)

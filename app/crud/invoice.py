@@ -42,6 +42,19 @@ class InvoiceCRUD:
         """
         return db.query(Invoice).offset(skip).limit(limit).all()
 
+    def get_by_ticket(self, db: Session, ticket_id: int):
+        """
+        Fetch every invoice for a given ticket.
+
+        Args:
+            db: Active database session.
+            ticket_id: The ticket to look up invoices for.
+
+        Returns:
+            A list of Invoice instances for that ticket.
+        """
+        return db.query(Invoice).filter(Invoice.ticket_id == ticket_id).all()
+
     def create(self, db: Session, obj_in: InvoiceCreate) -> Invoice:
         """
         Insert a new Invoice record.

@@ -239,6 +239,47 @@ def list_ticket_types() -> list[dict]:
     return _authed_get("/ticket_types/")
 
 
+def list_ticket_stages() -> list[dict]:
+    """Returns all ticket stages (id, name, description). Requires an active session."""
+    return _authed_get("/ticket_stages/")
+
+
+def list_stages_for_type(type_id: int) -> list[dict]:
+    """
+    Returns every (type, stage) allow-list entry for a single ticket
+    type -- which stages are currently allowed for it.
+
+    Args:
+        type_id: The ticket type to look up allowed stages for.
+    """
+    return _authed_get(f"/ticket_type_stages/by-type/{type_id}")
+
+
+def create_ticket_type_stage(type_id: int, stage_id: int) -> dict:
+    """
+    Allows a stage for a ticket type.
+
+    Args:
+        type_id: The ticket type.
+        stage_id: The stage to allow for it.
+
+    Returns:
+        The newly created allow-list entry.
+    """
+    return _authed_post("/ticket_type_stages/", {"type_id": type_id, "stage_id": stage_id})
+
+
+def delete_ticket_type_stage(ticket_type_stage_id: int):
+    """
+    Removes a stage from a ticket type's allow-list.
+
+    Args:
+        ticket_type_stage_id: The allow-list entry's own id (not the
+            type or stage id).
+    """
+    delete_lookup_item("/ticket_type_stages/", ticket_type_stage_id)
+
+
 def list_customers() -> list[dict]:
     """Returns all customers. Requires an active session."""
     return _authed_get("/customers/")
@@ -688,6 +729,61 @@ def update_lookup_item(endpoint: str, item_id: int, payload: dict) -> dict:
     return _authed_put(f"{endpoint}{item_id}", payload)
 
 
+def delete_device(device_id: int):
+    """
+    Deletes a device by id.
+
+    Args:
+        device_id: The device's id.
+
+    Raises:
+        ApiError: If the device is currently attached to a ticket --
+            see device_service.delete() server-side for the exact rule.
+    """
+    delete_lookup_item("/devices/", device_id)
+
+
+def archive_customer(customer_id: int) -> dict:
+    """
+    Archives a customer -- hides them from the active ticket picker
+    and the default Customers view. Fully reversible.
+
+    Args:
+        customer_id: The customer's id.
+
+    Returns:
+        The updated customer record.
+    """
+    return _authed_post(f"/customers/{customer_id}/archive", {})
+
+
+def unarchive_customer(customer_id: int) -> dict:
+    """
+    Reverses archive_customer().
+
+    Args:
+        customer_id: The customer's id.
+
+    Returns:
+        The updated customer record.
+    """
+    return _authed_post(f"/customers/{customer_id}/unarchive", {})
+
+
+def delete_customer(customer_id: int):
+    """
+    Deletes a customer by id.
+
+    Args:
+        customer_id: The customer's id.
+
+    Raises:
+        ApiError: If the customer has any tickets or devices on file --
+            see customer_service.delete() server-side for the exact rule.
+    """
+    delete_lookup_item("/customers/", customer_id)
+
+
 def delete_lookup_item(endpoint: str, item_id: int):
     """
     Deletes a record from a simple name/description lookup table.
@@ -971,3 +1067,315 @@ def delete_message(message_id: int):
             for the exact rule).
     """
     delete_lookup_item("/messages/", message_id)
+
+
+def list_status_history_for_ticket(ticket_id: int) -> list[dict]:
+    """
+    Returns a ticket's full status change history, in whatever order
+    the backend returns them (creation order -- oldest first).
+    Read-only; there's no create/update/delete for this at all, since
+    entries are only ever written internally by the backend when a
+    status genuinely changes.
+
+    Args:
+        ticket_id: The ticket to fetch history for.
+    """
+    all_entries = _authed_get("/status_histories/")
+    return [e for e in all_entries if e.get("ticket_id") == ticket_id]
+
+
+def list_ticket_parts_for_ticket(ticket_id: int) -> list[dict]:
+    """
+    Returns every part requirement on a single ticket, filtered
+    server-side -- the overall ticket_parts table can grow large
+    across every ticket over time, even though any one ticket only
+    ever has a handful.
+
+    Args:
+        ticket_id: The ticket to fetch parts for.
+    """
+    return _authed_get(f"/ticket_parts/?ticket_id={ticket_id}")
+
+
+def create_ticket_part(payload: dict) -> dict:
+    """
+    Creates a new part requirement on a ticket.
+
+    Args:
+        payload: {"ticket_id", "part_id", "quantity_needed", "status",
+            "carrier", "tracking_number", "notes"} -- ticket_id and
+            part_id are required, the rest optional.
+
+    Returns:
+        The newly created record.
+    """
+    return _authed_post("/ticket_parts/", payload)
+
+
+def update_ticket_part(ticket_part_id: int, payload: dict) -> dict:
+    """
+    Updates an existing part requirement. If status actually changes,
+    the backend automatically enqueues a customer notification -- see
+    ticket_part_service.update() server-side.
+
+    Args:
+        ticket_part_id: The record's id.
+        payload: Fields to change; unset fields are left untouched.
+
+    Returns:
+        The updated record.
+    """
+    return _authed_put(f"/ticket_parts/{ticket_part_id}", payload)
+
+
+def delete_ticket_part(ticket_part_id: int):
+    """
+    Deletes a part requirement by id.
+
+    Args:
+        ticket_part_id: The record's id.
+    """
+    delete_lookup_item("/ticket_parts/", ticket_part_id)
+
+
+def list_quotes_for_ticket(ticket_id: int) -> list[dict]:
+    """Returns every quote for a single ticket, filtered server-side. Requires billing_access."""
+    return _authed_get(f"/quotes/?ticket_id={ticket_id}")
+
+
+def create_quote(ticket_id: int) -> dict:
+    """
+    Creates a new, empty quote for a ticket -- use add_quote_line_item()
+    to build it up afterward.
+    """
+    return _authed_post("/quotes/", {"ticket_id": ticket_id})
+
+
+def get_quote(quote_id: int) -> dict:
+    """Fetches a single quote by id, including its line items."""
+    return _authed_get(f"/quotes/{quote_id}")
+
+
+def update_quote(quote_id: int, payload: dict) -> dict:
+    """
+    Updates a quote's discount/tax selection or details. Changing
+    discount_id/tax_rate_id recalculates totals server-side.
+    """
+    return _authed_put(f"/quotes/{quote_id}", payload)
+
+
+def delete_quote(quote_id: int):
+    """Deletes a quote by id. Its own line items are cascade-deleted with it."""
+    delete_lookup_item("/quotes/", quote_id)
+
+
+def add_quote_line_item(quote_id: int, service_id: int, quantity: int) -> dict:
+    """Adds a line item to a quote, snapshotting the service's current name/price server-side."""
+    return _authed_post(f"/quotes/{quote_id}/line-items?service_id={service_id}&quantity={quantity}", {})
+
+
+def update_quote_line_item(line_item_id: int, quantity: int) -> dict:
+    """Updates a quote line item's quantity."""
+    return _authed_put(f"/quotes/line-items/{line_item_id}", {"quantity": quantity})
+
+
+def remove_quote_line_item(line_item_id: int):
+    """Removes a line item from a quote."""
+    delete_lookup_item("/quotes/line-items/", line_item_id)
+
+
+def convert_quote_to_invoice(quote_id: int) -> dict:
+    """Converts an approved quote into a real invoice, copying its line items and discount/tax selection."""
+    return _authed_post(f"/quotes/{quote_id}/convert-to-invoice", {})
+
+
+def list_invoices_for_ticket(ticket_id: int) -> list[dict]:
+    """Returns every invoice for a single ticket, filtered server-side. Requires billing_access."""
+    return _authed_get(f"/invoices/?ticket_id={ticket_id}")
+
+
+def create_invoice(ticket_id: int) -> dict:
+    """Creates a new, empty invoice for a ticket directly (not via quote conversion)."""
+    return _authed_post("/invoices/", {"ticket_id": ticket_id})
+
+
+def get_invoice(invoice_id: int) -> dict:
+    """Fetches a single invoice by id, including its line items."""
+    return _authed_get(f"/invoices/{invoice_id}")
+
+
+def update_invoice(invoice_id: int, payload: dict) -> dict:
+    """Updates an invoice's discount/tax selection, details, or is_paid."""
+    return _authed_put(f"/invoices/{invoice_id}", payload)
+
+
+def delete_invoice(invoice_id: int):
+    """Deletes an invoice by id. Its own line items are cascade-deleted with it."""
+    delete_lookup_item("/invoices/", invoice_id)
+
+
+def add_invoice_line_item(invoice_id: int, service_id: int, quantity: int) -> dict:
+    """Adds a line item to an invoice, snapshotting the service's current name/price server-side."""
+    return _authed_post(f"/invoices/{invoice_id}/line-items?service_id={service_id}&quantity={quantity}", {})
+
+
+def update_invoice_line_item(line_item_id: int, quantity: int) -> dict:
+    """Updates an invoice line item's quantity."""
+    return _authed_put(f"/invoices/line-items/{line_item_id}", {"quantity": quantity})
+
+
+def remove_invoice_line_item(line_item_id: int):
+    """Removes a line item from an invoice."""
+    delete_lookup_item("/invoices/line-items/", line_item_id)
+
+
+def list_payments_for_invoice(invoice_id: int) -> list[dict]:
+    """Returns every payment recorded against a single invoice, filtered server-side."""
+    return _authed_get(f"/payments/?invoice_id={invoice_id}")
+
+
+def create_payment(invoice_id: int, amount: str, method: str) -> dict:
+    """Records a payment against an invoice. Automatically marks it paid if this brings total payments up to its total."""
+    return _authed_post("/payments/", {"invoice_id": invoice_id, "amount": amount, "method": method})
+
+
+def create_payment_plan(invoice_id: int, installment_amount: str, frequency: str, start_date: str) -> dict:
+    """Sets up a new payment plan on an invoice -- the number of installments and their due dates are worked out server-side."""
+    return _authed_post("/payment_plans/", {
+        "invoice_id": invoice_id, "installment_amount": installment_amount,
+        "frequency": frequency, "start_date": start_date,
+    })
+
+
+def get_payment_plan_by_invoice(invoice_id: int) -> dict | None:
+    """Fetches the payment plan for a given invoice, if any."""
+    return _authed_get(f"/payment_plans/by-invoice/{invoice_id}")
+
+
+def record_installment_payment(installment_id: int, amount: str | None, method: str) -> dict:
+    """
+    Records a payment against a specific installment -- uses the
+    installment's own planned amount if amount is None, or a
+    different amount if the customer paid more or less. Automatically
+    rebalances the remaining schedule to match.
+    """
+    payload = {"method": method}
+    if amount is not None:
+        payload["amount"] = amount
+    return _authed_post(f"/payment_plans/installments/{installment_id}/pay", payload)
+
+
+def extend_installment_date(installment_id: int, new_due_date: str) -> dict:
+    """Pushes back a specific installment's due date, recalculating every later installment's date from it."""
+    return _authed_put(f"/payment_plans/installments/{installment_id}/extend", {"new_due_date": new_due_date})
+
+
+def list_services() -> list[dict]:
+    """Returns all billable services. Requires superuser."""
+    return _authed_get("/services/")
+
+
+def list_discounts() -> list[dict]:
+    """Returns all discounts. Requires superuser."""
+    return _authed_get("/discounts/")
+
+
+def list_tax_rates() -> list[dict]:
+    """Returns all tax rates. Requires superuser."""
+    return _authed_get("/tax_rates/")
+
+
+def list_message_templates() -> list[dict]:
+    """
+    Returns every reusable message template.
+
+    Returns:
+        A list of {"id", "name", "subject", "body"} dicts.
+    """
+    return _authed_get("/message_templates/")
+
+
+def list_background_jobs(job_type: str | None = None, status: str | None = None) -> list[dict]:
+    """
+    Returns background job run history, most recent first, optionally
+    filtered server-side by job type and/or status.
+
+    Args:
+        job_type: If given, only jobs of this type.
+        status: If given, only jobs currently in this status.
+
+    Returns:
+        A list of background job entry dicts.
+    """
+    params = []
+    if job_type is not None:
+        params.append(f"job_type={job_type}")
+    if status is not None:
+        params.append(f"status={status}")
+    query_string = f"?{'&'.join(params)}" if params else ""
+    return _authed_get(f"/background_jobs/{query_string}")
+
+
+def list_audit_log_for_ticket(ticket_id: int) -> list[dict]:
+    """
+    Returns a single ticket's own audit trail entries (created,
+    updated, an inbound email matching, an outbound notification
+    sending or failing), most recent first. Filtered server-side.
+
+    Uses the ticket-scoped endpoint, not the general /audit_logs/ one
+    -- this works for any user with ticket access, not just superusers,
+    since one ticket's own history is far less sensitive than browsing
+    the full audit log across every user and entity.
+
+    Args:
+        ticket_id: The ticket to fetch audit history for.
+    """
+    return _authed_get(f"/tickets/{ticket_id}/audit-log")
+
+
+def list_audit_logs(user_id: int | None = None, entity_type: str | None = None) -> list[dict]:
+    """
+    Returns audit trail entries, most recent first, optionally
+    filtered server-side to a specific user and/or entity type.
+    Requires superuser.
+
+    Args:
+        user_id: If given, only entries performed by this user.
+        entity_type: If given, only entries for this kind of entity
+            (e.g. "ticket", "user", "customer").
+
+    Returns:
+        A list of audit log entry dicts.
+    """
+    params = []
+    if user_id is not None:
+        params.append(f"user_id={user_id}")
+    if entity_type is not None:
+        params.append(f"entity_type={entity_type}")
+    query_string = f"?{'&'.join(params)}" if params else ""
+    return _authed_get(f"/audit_logs/{query_string}")
+
+
+def list_system_settings() -> list[dict]:
+    """
+    Returns every configured system setting. Requires superuser.
+
+    Returns:
+        A list of {"id": ..., "key": ..., "value": ...} dicts.
+    """
+    return _authed_get("/system_settings/")
+
+
+def save_system_setting(key: str, value: str) -> dict:
+    """
+    Creates or updates a system setting by its key name. Requires
+    superuser.
+
+    Args:
+        key: The setting's key, e.g. "lock_timeout_minutes".
+        value: The new value to store.
+
+    Returns:
+        The created or updated setting record.
+    """
+    return _authed_put(f"/system_settings/by-key/{key}", {"value": value})

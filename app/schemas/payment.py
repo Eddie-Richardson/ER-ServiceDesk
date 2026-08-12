@@ -1,16 +1,17 @@
 # ER-ServiceDesk/app/schemas/payment.py
-# Pydantic schemas for Payment entities used to validate and structure a payment applied against an invoice
+# Pydantic schemas for Payment entities
 """
-Pydantic schemas for Payment entities used to validate and structure a payment applied against an invoice.
+Request/response schemas for a payment applied against an invoice.
 """
 
 from datetime import datetime
+from decimal import Decimal
 from pydantic import BaseModel, ConfigDict
 
 class PaymentBase(BaseModel):
     """Shared fields for Payment across create/read/update."""
     invoice_id: int
-    amount: float
+    amount: Decimal
     method: str
     transaction_id: str | None = None
 
@@ -20,11 +21,9 @@ class PaymentCreate(PaymentBase):
 
 class PaymentUpdate(BaseModel):
     """Schema for partially updating an existing Payment record. All fields optional."""
-    invoice_id: int | None = None
-    amount: float | None = None
+    amount: Decimal | None = None
     method: str | None = None
     transaction_id: str | None = None
-    updated_at: datetime | None = None
 
 class Payment(PaymentBase):
     """Schema returned to the client for a Payment record (server -> client)."""

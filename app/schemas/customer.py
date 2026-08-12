@@ -26,11 +26,13 @@ class CustomerUpdate(BaseModel):
     email: str | None = None
     phone: str | None = None
     address: str | None = None
+    is_archived: bool | None = None
     updated_at: datetime | None = None
 
 class Customer(CustomerBase):
     """Schema returned to the client for a Customer record (server -> client)."""
     id: int
+    is_archived: bool
     created_at: datetime
     updated_at: datetime
     model_config = ConfigDict(from_attributes=True)

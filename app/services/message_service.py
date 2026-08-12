@@ -21,6 +21,7 @@ from app.crud.ticket import crud_ticket
 from app.crud.customer import crud_customer
 from app.schemas.message import MessageCreate, MessageUpdate
 from app.core.email import send_email, format_ticket_subject
+from app.services.audit_log_service import audit_log_service
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +110,10 @@ class MessageService:
             )
             message.email_status = "failed"
             db.commit()
+            audit_log_service.log(
+                db, "outbound_notification_failed", "ticket", message.ticket_id, user_id=message.user_id,
+                details="Ticket or customer not found",
+            )
             return
 
         subject = format_ticket_subject(ticket.id, ticket.title)
@@ -128,6 +133,13 @@ class MessageService:
             message.email_status = "sent"
 
         db.commit()
+
+        audit_log_service.log(
+            db,
+            "outbound_notification_sent" if message.email_status == "sent" else "outbound_notification_failed",
+            "ticket", message.ticket_id, user_id=message.user_id,
+            details=f"Sent to {customer.email}" if message.email_status == "sent" else f"Delivery failed to {customer.email}",
+        )
 
     def update(self, db: Session, id: int, obj_in: MessageUpdate, current_user):
         """

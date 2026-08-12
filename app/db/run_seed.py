@@ -18,7 +18,6 @@ Usage:
     docker-compose exec api python -m app.db.run_seed
 """
 
-import os
 import sys
 
 from app.db.session import SessionLocal
@@ -27,9 +26,7 @@ from app.db.seed import seed_data
 
 def run():
     """
-    Runs seed_data() against a real database session, passing through
-    BUSINESS_NAME from the environment if the Setup Wizard set one in
-    .env.
+    Runs seed_data() against a real database session.
 
     Exits with status 0 on success, 1 on failure -- the exit code is
     what a calling script (like the Setup Wizard's subprocess call)
@@ -37,7 +34,7 @@ def run():
     """
     db = SessionLocal()
     try:
-        seed_data(db, business_name=os.environ.get("BUSINESS_NAME"))
+        seed_data(db)
     except Exception as e:
         print(f"Seeding failed: {e}", file=sys.stderr)
         sys.exit(1)

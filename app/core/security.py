@@ -18,13 +18,11 @@ pwd_context = CryptContext(
     deprecated="auto"
 )
 
-# Excludes visually ambiguous characters (0/O, 1/l/I) and characters that
-# occasionally cause friction if a password needs to be typed manually
-# despite being emailed for copy/paste (quotes, backslash).
-_TEMP_PASSWORD_ALPHABET = "".join(
-    c for c in (string.ascii_letters + string.digits + "!@#$%^&*")
-    if c not in "0O1lI\"'\\"
-)
+_TEMP_PASSWORD_UPPER = "".join(c for c in string.ascii_uppercase if c not in "O1lI")
+_TEMP_PASSWORD_LOWER = "".join(c for c in string.ascii_lowercase if c not in "0O1lI")
+_TEMP_PASSWORD_DIGITS = "".join(c for c in string.digits if c not in "01")
+_TEMP_PASSWORD_SPECIAL = "!@#$%^&*"
+_TEMP_PASSWORD_ALPHABET = _TEMP_PASSWORD_UPPER + _TEMP_PASSWORD_LOWER + _TEMP_PASSWORD_DIGITS + _TEMP_PASSWORD_SPECIAL
 
 
 def generate_temp_password(length: int = 12) -> str:
@@ -34,15 +32,40 @@ def generate_temp_password(length: int = 12) -> str:
     admin never chooses or sees a real password, only this generated
     one, which the user is forced to change on first login.
 
+    Explicitly guarantees at least one uppercase, one lowercase, one
+    digit, and one special character -- confirmed via a real,
+    reproducible failure that simply sampling every character
+    independently and randomly from a mixed alphabet does NOT
+    guarantee this on its own (an earlier version of this function did
+    exactly that, and hash_password()'s own strength check below
+    intermittently rejected the result whenever one of the four
+    classes happened not to appear by chance).
+
     Args:
         length: How many characters to generate. 12 comfortably clears
             any reasonable minimum while staying well under bcrypt's
-            72-byte hashing limit.
+            72-byte hashing limit. Must be at least 4, to fit one of
+            each guaranteed character class.
 
     Returns:
-        A random password string, safe to include in an email body.
+        A random password string, safe to include in an email body,
+        guaranteed to satisfy hash_password()'s own requirements.
     """
-    return "".join(secrets.choice(_TEMP_PASSWORD_ALPHABET) for _ in range(length))
+    guaranteed = [
+        secrets.choice(_TEMP_PASSWORD_UPPER),
+        secrets.choice(_TEMP_PASSWORD_LOWER),
+        secrets.choice(_TEMP_PASSWORD_DIGITS),
+        secrets.choice(_TEMP_PASSWORD_SPECIAL),
+    ]
+    remaining = [secrets.choice(_TEMP_PASSWORD_ALPHABET) for _ in range(length - len(guaranteed))]
+    all_chars = guaranteed + remaining
+    # Shuffle so the guaranteed characters aren't predictably in the
+    # first four positions -- a real, if minor, weakness if left
+    # predictable.
+    for i in range(len(all_chars) - 1, 0, -1):
+        j = secrets.randbelow(i + 1)
+        all_chars[i], all_chars[j] = all_chars[j], all_chars[i]
+    return "".join(all_chars)
 
 
 MIN_PASSWORD_LENGTH = 8

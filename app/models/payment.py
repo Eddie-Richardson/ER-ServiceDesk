@@ -4,7 +4,7 @@
 ORM model for a payment applied against an invoice.
 """
 
-from sqlalchemy import Column, Integer, Float, ForeignKey, DateTime, String
+from sqlalchemy import Column, Integer, Numeric, ForeignKey, DateTime, String
 from sqlalchemy.orm import relationship
 from datetime import datetime, UTC
 from app.db.base import Base
@@ -25,7 +25,7 @@ class Payment(Base):
     __tablename__ = "payments"
     id = Column(Integer, primary_key=True, index=True)
     invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=False)
-    amount = Column(Float, nullable=False)
+    amount = Column(Numeric, nullable=False)
     method = Column(String, nullable=False)
     transaction_id = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)

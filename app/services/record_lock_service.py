@@ -5,12 +5,13 @@
 Business logic for acquiring and releasing record locks.
 
 A lock is considered abandoned (and safely reclaimable) once it's older
-than LOCK_TIMEOUT_MINUTES -- checked lazily, whenever someone next tries
-to acquire it, rather than via a separate scheduled cleanup job. This
-covers the case a check-out lock always has to answer for: what happens
-if the person holding it closes their laptop, loses power, or their app
-crashes without releasing it. Nobody else should be locked out forever
-because of that.
+than the "lock_timeout_minutes" SystemSetting (editable in Settings ->
+System Settings; defaults to 15 if never set) -- checked lazily,
+whenever someone next tries to acquire it, rather than via a separate
+scheduled cleanup job. This covers the case a check-out lock always has
+to answer for: what happens if the person holding it closes their
+laptop, loses power, or their app crashes without releasing it. Nobody
+else should be locked out forever because of that.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -19,8 +20,9 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.record_lock import RecordLock
+from app.services.system_setting_service import system_setting_service
 
-LOCK_TIMEOUT_MINUTES = 15
+DEFAULT_LOCK_TIMEOUT_MINUTES = 15
 
 
 class RecordLockService:
@@ -32,7 +34,7 @@ class RecordLockService:
 
         Succeeds if the record is unlocked, already locked by this same
         user (e.g. they re-opened it), or the existing lock has gone
-        stale past LOCK_TIMEOUT_MINUTES with no one having released it.
+        stale past the "lock_timeout_minutes" SystemSetting with no one having released it.
 
         Args:
             db: Active database session.
@@ -65,9 +67,12 @@ class RecordLockService:
                 # naive value can be safely assumed to already be UTC
                 # rather than raising on the comparison below.
                 locked_at = locked_at.replace(tzinfo=timezone.utc)
+            timeout_minutes = system_setting_service.get_int(
+                db, "lock_timeout_minutes", DEFAULT_LOCK_TIMEOUT_MINUTES
+            )
             is_stale = (
                 datetime.now(timezone.utc) - locked_at
-                > timedelta(minutes=LOCK_TIMEOUT_MINUTES)
+                > timedelta(minutes=timeout_minutes)
             )
             if not is_same_user and not is_stale:
                 raise HTTPException(

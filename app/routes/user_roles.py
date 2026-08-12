@@ -10,7 +10,8 @@ all real work to the service layer.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
-from app.api.dependencies import require_superuser
+from app.api.dependencies import require_superuser, get_current_user
+from app.models.user import User
 from app.services.user_role_service import user_role_service
 from app.schemas.user_role import UserRole, UserRoleCreate, UserRoleUpdate
 
@@ -44,18 +45,24 @@ def get_user_role(id: int, db: Session = Depends(get_db)):
     return user_role_service.get(db, id)
 
 @router.post("/", response_model=UserRole)
-def create_user_role(obj_in: UserRoleCreate, db: Session = Depends(get_db)):
+def create_user_role(
+    obj_in: UserRoleCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """
-    Create a new UserRole record.
+    Grant a role to a user.
 
     Args:
         obj_in: Validated request body for the new record.
         db: Injected database session.
+        current_user: The admin granting this role -- recorded in the
+            audit trail.
 
     Returns:
         The newly created UserRole record.
     """
-    return user_role_service.create(db, obj_in)
+    return user_role_service.create(db, obj_in, current_user.id)
 
 @router.put("/{id}", response_model=UserRole)
 def update_user_role(id: int, obj_in: UserRoleUpdate, db: Session = Depends(get_db)):
@@ -73,12 +80,18 @@ def update_user_role(id: int, obj_in: UserRoleUpdate, db: Session = Depends(get_
     return user_role_service.update(db, id, obj_in)
 
 @router.delete("/{id}")
-def delete_user_role(id: int, db: Session = Depends(get_db)):
+def delete_user_role(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """
-    Delete a UserRole record by ID.
+    Revoke a role from a user.
 
     Args:
         id: Primary key of the record to delete.
         db: Injected database session.
+        current_user: The admin revoking this role -- recorded in the
+            audit trail.
     """
-    return user_role_service.delete(db, id)
+    return user_role_service.delete(db, id, current_user.id)

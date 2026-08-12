@@ -28,6 +28,19 @@ class SystemSettingCRUD:
         """
         return db.query(SystemSetting).filter(SystemSetting.id == id).first()
 
+    def get_by_key(self, db: Session, key: str) -> SystemSetting | None:
+        """
+        Fetch a single SystemSetting by its unique key name.
+
+        Args:
+            db: Active database session.
+            key: The setting's key, e.g. 'lock_timeout_minutes'.
+
+        Returns:
+            The matching SystemSetting instance, or None if not set.
+        """
+        return db.query(SystemSetting).filter(SystemSetting.key == key).first()
+
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
         """
         Fetch multiple SystemSetting records with simple offset pagination.

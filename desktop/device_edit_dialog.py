@@ -16,11 +16,13 @@ from PySide6.QtWidgets import (
     QDialog,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QVBoxLayout,
 )
 
-from desktop import layout
+from desktop import api_client, layout
+from desktop.api_client import ApiError
 from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.device_save_worker import DeviceSaveWorker
 
@@ -44,6 +46,7 @@ class DeviceEditDialog(QDialog):
         self.device = device
         self.locations = locations
         self.saved_device: dict | None = None
+        self.deleted = False
 
         self._thread: QThread | None = None
         self._worker: DeviceSaveWorker | None = None
@@ -109,6 +112,11 @@ class DeviceEditDialog(QDialog):
         cancel_button.setFixedHeight(layout.BUTTON_HEIGHT)
         cancel_button.clicked.connect(self.reject)
 
+        self.delete_button = QPushButton("Delete Device")
+        self.delete_button.setObjectName("danger")
+        self.delete_button.setFixedHeight(layout.BUTTON_HEIGHT)
+        self.delete_button.clicked.connect(self._attempt_delete)
+
         for label_text, widget in [
             ("Device Type", self.device_type_input),
             ("Brand", self.brand_input),
@@ -125,6 +133,7 @@ class DeviceEditDialog(QDialog):
         outer_layout.addSpacing(layout.SPACE_SM)
         outer_layout.addWidget(self.save_button)
         outer_layout.addWidget(cancel_button)
+        outer_layout.addWidget(self.delete_button)
 
         self.setLayout(outer_layout)
 
@@ -211,3 +220,35 @@ class DeviceEditDialog(QDialog):
         """
         self.error_label.setText(message)
         self.error_label.show()
+
+    # -----------------------------------------------------------------
+    # Delete
+    # -----------------------------------------------------------------
+    def _attempt_delete(self):
+        """
+        Confirms, then deletes this device. Synchronous (no QThread) --
+        this is a small, infrequent action, not performance-critical.
+        Shows the real backend reason inline if blocked (e.g. still
+        attached to a ticket) rather than a generic failure message.
+        """
+        confirmed = QMessageBox.question(
+            self,
+            "Delete Device",
+            "Delete this device? This can't be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if confirmed != QMessageBox.StandardButton.Yes:
+            return
+
+        self.delete_button.setEnabled(False)
+        try:
+            api_client.delete_device(self.device["id"])
+        except ApiError as e:
+            self._show_error(str(e))
+            return
+        finally:
+            self.delete_button.setEnabled(True)
+
+        self.deleted = True
+        self.accept()

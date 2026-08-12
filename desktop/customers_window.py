@@ -15,8 +15,9 @@ genuinely open.
 """
 
 from PySide6.QtCore import QThread, Qt, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QColor
 from PySide6.QtWidgets import (
+    QCheckBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -33,7 +34,8 @@ from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.lock_gate import LockGate
 from desktop.customer_form_dialog import CustomerFormDialog
 from desktop.customers_worker import CustomersDataWorker
-from desktop.theme import MONO_FONT_FAMILY
+from desktop.theme import MONO_FONT_FAMILY, DARK, LIGHT
+from desktop.settings_manager import get_saved_theme
 
 COLUMN_HEADERS = ["Name", "Email", "Phone", "Address"]
 
@@ -99,11 +101,20 @@ class CustomersWindow(QWidget):
         toolbar.addStretch()
         outer_layout.addLayout(toolbar)
 
+        search_row = QHBoxLayout()
+
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Search by name or email...")
         self.search_input.setFixedHeight(layout.INPUT_HEIGHT)
         self.search_input.textChanged.connect(self._apply_search)
-        outer_layout.addWidget(self.search_input)
+        search_row.addWidget(self.search_input)
+
+        self.show_archived_checkbox = QCheckBox("Show Archived")
+        self.show_archived_checkbox.setChecked(False)
+        self.show_archived_checkbox.stateChanged.connect(self._apply_search)
+        search_row.addWidget(self.show_archived_checkbox)
+
+        outer_layout.addLayout(search_row)
 
         self.status_label = QLabel("Loading customers...")
         self.status_label.setObjectName("subtitle")
@@ -161,14 +172,17 @@ class CustomersWindow(QWidget):
     # Search + table rendering
     # -----------------------------------------------------------------
     def _apply_search(self):
-        """Re-renders the table filtered to the current search text, matched against name or email."""
+        """Re-renders the table filtered to the current search text and archived toggle."""
         query = self.search_input.text().strip().lower()
+        show_archived = self.show_archived_checkbox.isChecked()
+
+        base = self.all_customers if show_archived else [c for c in self.all_customers if not c.get("is_archived")]
 
         if not query:
-            filtered = self.all_customers
+            filtered = base
         else:
             filtered = [
-                c for c in self.all_customers
+                c for c in base
                 if query in f"{c['first_name']} {c['last_name']}".lower()
                 or query in c.get("email", "").lower()
             ]
@@ -184,6 +198,8 @@ class CustomersWindow(QWidget):
             customers: The customers to display, already filtered.
         """
         mono_font = QFont(MONO_FONT_FAMILY)
+        theme_name = get_saved_theme()
+        danger_color = QColor(DARK["danger"] if theme_name == "dark" else LIGHT["danger"])
 
         self.table.setRowCount(len(customers))
         for row, customer in enumerate(customers):
@@ -199,6 +215,9 @@ class CustomersWindow(QWidget):
 
                 if col in (1, 2):  # Email, Phone -- technical contact strings, not prose
                     item.setFont(mono_font)
+
+                if col == 0 and customer.get("is_archived"):
+                    item.setForeground(danger_color)
 
                 self.table.setItem(row, col, item)
 

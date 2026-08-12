@@ -50,6 +50,7 @@ from datetime import datetime
 
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QDialog,
     QFrame,
     QHBoxLayout,
@@ -92,6 +93,7 @@ class NotesDialog(QDialog):
         """
         super().__init__(parent)
         self.ticket_id = ticket_id
+        self.ticket_title = ticket_title
         self.customer_id = customer_id
         self.setWindowTitle(f"Notes - {ticket_title}")
         self.resize(600, 500)
@@ -117,6 +119,12 @@ class NotesDialog(QDialog):
         composer_frame.setFrameShape(QFrame.Shape.StyledPanel)
         composer_layout = QVBoxLayout()
 
+        self.template_combo = QComboBox()
+        self.template_combo.addItem("Insert Template...", userData=None)
+        self.template_combo.currentIndexChanged.connect(self._on_template_selected)
+        composer_layout.addWidget(self.template_combo)
+        self._load_templates()
+
         self.composer_input = QTextEdit()
         self.composer_input.setPlaceholderText("Add a note...")
         self.composer_input.setFixedHeight(80)
@@ -138,6 +146,47 @@ class NotesDialog(QDialog):
         """Saves this dialog's size/position before closing, matching every other window in this app."""
         save_geometry(self, "notes_dialog")
         super().closeEvent(event)
+
+    # -- Message templates (composer quick-insert) --
+
+    def _load_templates(self):
+        """Fills the template dropdown with every available template. Silently leaves just the placeholder if this fails -- not critical to the dialog's main purpose."""
+        try:
+            templates = api_client.list_message_templates()
+        except ApiError:
+            return
+        for template in templates:
+            self.template_combo.addItem(template["name"], userData=template)
+
+    def _on_template_selected(self, index: int):
+        """
+        Inserts the selected template's body into the composer, with
+        {ticket_id} and {ticket_title} substituted in. Asks for
+        confirmation first if the composer already has text, so a
+        tech can't lose something they'd already typed by accident.
+        Resets the dropdown back to the placeholder afterward, so the
+        same (or another) template can be inserted again later.
+        """
+        template = self.template_combo.itemData(index)
+        if template is None:
+            return
+
+        if self.composer_input.toPlainText().strip():
+            confirmed = QMessageBox.question(
+                self,
+                "Replace Current Text?",
+                "This will replace what you've already typed. Continue?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if confirmed != QMessageBox.StandardButton.Yes:
+                self.template_combo.setCurrentIndex(0)
+                return
+
+        body = template.get("body", "")
+        body = body.replace("{ticket_id}", str(self.ticket_id)).replace("{ticket_title}", self.ticket_title)
+        self.composer_input.setPlainText(body)
+        self.template_combo.setCurrentIndex(0)
 
     # -- Loading and rendering --
 

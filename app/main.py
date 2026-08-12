@@ -19,19 +19,23 @@ from app.routes import (
     business_info,
     customers,
     devices,
+    discounts,
     invoices,
     locations,
     message_templates,
     messages,
     parts,
+    payment_plans,
     payments,
     permissions,
     quotes,
     record_locks,
     role_permissions,
     roles,
+    services,
     status_histories,
     system_settings,
+    tax_rates,
     ticket_categories,
     ticket_parts,
     ticket_stages,
@@ -81,6 +85,10 @@ app.include_router(quotes.router)
 app.include_router(record_locks.router)
 app.include_router(invoices.router)
 app.include_router(payments.router)
+app.include_router(payment_plans.router)
+app.include_router(services.router)
+app.include_router(discounts.router)
+app.include_router(tax_rates.router)
 
 # System / ops
 app.include_router(audit_logs.router)

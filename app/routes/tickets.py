@@ -10,9 +10,12 @@ all real work to the service layer.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
-from app.api.dependencies import require_permission
+from app.api.dependencies import require_permission, get_current_user
+from app.models.user import User
 from app.services.ticket_service import ticket_service
+from app.services.audit_log_service import audit_log_service
 from app.schemas.ticket import Ticket, TicketCreate, TicketUpdate
+from app.schemas.audit_log import AuditLog
 
 router = APIRouter(prefix="/tickets", tags=["tickets"], dependencies=[Depends(require_permission("tickets.manage"))])
 
@@ -44,41 +47,68 @@ def get_ticket(id: int, db: Session = Depends(get_db)):
     return ticket_service.get(db, id)
 
 @router.post("/", response_model=Ticket)
-def create_ticket(obj_in: TicketCreate, db: Session = Depends(get_db)):
+def create_ticket(
+    obj_in: TicketCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """
-    Create a new Ticket record.
+    Create a new Ticket record. Also records its initial status as
+    the first StatusHistory entry (see ticket_service.create()).
 
     Args:
         obj_in: Validated request body for the new record.
         db: Injected database session.
+        current_user: The authenticated user making this request --
+            recorded as who set the ticket's initial status.
 
     Returns:
         The newly created Ticket record.
     """
-    return ticket_service.create(db, obj_in)
+    return ticket_service.create(db, obj_in, current_user.id)
 
 @router.put("/{id}", response_model=Ticket)
-def update_ticket(id: int, obj_in: TicketUpdate, db: Session = Depends(get_db)):
+def update_ticket(
+    id: int,
+    obj_in: TicketUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """
-    Update an existing Ticket record.
+    Update an existing Ticket record. If status_id actually changes,
+    also records a StatusHistory entry for it (see
+    ticket_service.update()).
 
     Args:
         id: Primary key of the record to update.
         obj_in: Fields to change; unset fields are left untouched.
         db: Injected database session.
+        current_user: The authenticated user making this request --
+            recorded as who made the change, if status_id changes.
 
     Returns:
         The updated Ticket record.
     """
-    return ticket_service.update(db, id, obj_in)
+    return ticket_service.update(db, id, obj_in, current_user.id)
 
-@router.delete("/{id}")
-def delete_ticket(id: int, db: Session = Depends(get_db)):
+@router.get("/{id}/audit-log", response_model=list[AuditLog])
+def get_ticket_audit_log(id: int, db: Session = Depends(get_db)):
     """
-    Delete a Ticket record by ID.
+    List this ticket's own audit trail entries (created, updated, an
+    inbound email matching, an outbound notification sending or
+    failing), most recent first.
+
+    Deliberately gated at the same tickets.manage level as every other
+    route in this file, not superuser-only like the general
+    /audit_logs/ endpoint -- viewing one ticket's own history is
+    reasonable for any tech with access to that ticket, unlike
+    browsing the full audit log across every user and entity.
 
     Args:
-        id: Primary key of the record to delete.
+        id: The ticket to fetch audit history for.
         db: Injected database session.
+
+    Returns:
+        A list of AuditLog records for this ticket.
     """
-    return ticket_service.delete(db, id)
+    return audit_log_service.get_multi(db, entity_type="ticket", entity_id=id)

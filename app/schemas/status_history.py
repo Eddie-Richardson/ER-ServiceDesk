@@ -17,14 +17,10 @@ class StatusHistoryCreate(StatusHistoryBase):
     """Schema for creating a new StatusHistory record (client -> server)."""
     pass
 
-class StatusHistoryUpdate(BaseModel):
-    """Schema for partially updating an existing StatusHistory record. All fields optional."""
-    ticket_id: int | None = None
-    status_id: int | None = None
-    changed_by: int | None = None
-
 class StatusHistory(StatusHistoryBase):
     """Schema returned to the client for a StatusHistory record (server -> client)."""
     id: int
     changed_at: datetime
+    status_name: str | None = None
+    changed_by_name: str | None = None
     model_config = ConfigDict(from_attributes=True)

@@ -16,6 +16,24 @@ from app.schemas.system_setting import SystemSetting, SystemSettingCreate, Syste
 
 router = APIRouter(prefix="/system_settings", tags=["system_settings"], dependencies=[Depends(require_superuser)])
 
+@router.put("/by-key/{key}", response_model=SystemSetting)
+def upsert_system_setting_by_key(key: str, obj_in: SystemSettingUpdate, db: Session = Depends(get_db)):
+    """
+    Creates or updates a setting by its key name directly -- the
+    desktop Settings UI uses this rather than the id-based /{id}
+    endpoint below, since it shouldn't need to track a setting's
+    numeric id or decide whether the row already exists.
+
+    Args:
+        key: The setting's key, e.g. 'lock_timeout_minutes'.
+        obj_in: The new value to store (obj_in.value).
+        db: Injected database session.
+
+    Returns:
+        The created or updated SystemSetting record.
+    """
+    return system_setting_service.upsert(db, key, obj_in.value)
+
 @router.get("/", response_model=list[SystemSetting])
 def list_system_settings(db: Session = Depends(get_db)):
     """

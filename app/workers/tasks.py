@@ -12,6 +12,8 @@ from app.crud.ticket import crud_ticket
 from app.crud.customer import crud_customer
 from app.crud.ticket_part import crud_ticket_part
 from app.schemas.message import MessageCreate
+from app.services.audit_log_service import audit_log_service
+from app.services.background_job_service import background_job_service
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +99,7 @@ def notify_customer_of_part_status_change(ticket_part_id: int) -> None:
     from app.services.message_service import message_service
 
     db = SessionLocal()
+    job = background_job_service.start(db, "notify_customer_of_part_status_change", payload=f"ticket_part_id={ticket_part_id}")
     try:
         ticket_part = crud_ticket_part.get(db, ticket_part_id)
         if not ticket_part:
@@ -105,10 +108,12 @@ def notify_customer_of_part_status_change(ticket_part_id: int) -> None:
                 "not found -- it may have been deleted before this job ran.",
                 ticket_part_id,
             )
+            background_job_service.complete(db, job.id)
             return
 
         content = build_part_status_message(ticket_part)
         if content is None:
+            background_job_service.complete(db, job.id)
             return
 
         ticket = crud_ticket.get(db, ticket_part.ticket_id)
@@ -118,6 +123,7 @@ def notify_customer_of_part_status_change(ticket_part_id: int) -> None:
                 "references ticket_id=%s, which doesn't exist.",
                 ticket_part_id, ticket_part.ticket_id,
             )
+            background_job_service.complete(db, job.id)
             return
 
         message_service.create(db, MessageCreate(
@@ -126,6 +132,10 @@ def notify_customer_of_part_status_change(ticket_part_id: int) -> None:
             direction="outbound",
             content=content,
         ))
+        background_job_service.complete(db, job.id)
+    except Exception as e:
+        background_job_service.fail(db, job.id, str(e))
+        raise
     finally:
         db.close()
 
@@ -161,6 +171,7 @@ def poll_inbound_email() -> dict:
     unmatched = 0
 
     db = SessionLocal()
+    job = background_job_service.start(db, "poll_inbound_email")
     try:
         for inbound in fetch_unread_emails():
             if inbound.ticket_id is None:
@@ -200,8 +211,65 @@ def poll_inbound_email() -> dict:
                 direction="inbound",
                 content=inbound.body,
             ))
+            audit_log_service.log(
+                db, "inbound_email_matched", "ticket", ticket.id, user_id=None,
+                details=f"Reply from {customer.first_name} {customer.last_name} ({inbound.from_address}) auto-matched to this ticket",
+            )
             processed += 1
+    except Exception as e:
+        background_job_service.fail(db, job.id, str(e))
+        raise
+    else:
+        background_job_service.complete(db, job.id)
     finally:
         db.close()
 
     return {"processed": processed, "unmatched": unmatched}
+
+
+# ---------------------------------------------------------------------------
+# Automatic customer archiving -- the scheduled backstop alongside the
+# manual Archive action in the Customers window.
+# ---------------------------------------------------------------------------
+
+def archive_inactive_customers():
+    """
+    Archives every customer whose last real activity is older than the
+    configured "customer_inactivity_archive_months" SystemSetting
+    (defaults to 24 if never set). Genuinely system-initiated -- no
+    user_id behind these archive actions, matching the same pattern as
+    poll_inbound_email's own auto-matched replies.
+
+    Meant to be run on a recurring schedule (see
+    app.workers.scheduler), not called directly from a route --
+    there's no user waiting on this, so it doesn't need to be fast or
+    synchronous.
+
+    Returns:
+        {"archived": <count>} -- how many customers were archived this run.
+    """
+    from app.services.customer_service import customer_service
+    from app.services.system_setting_service import system_setting_service
+
+    db = SessionLocal()
+    job = background_job_service.start(db, "archive_inactive_customers")
+    archived_count = 0
+    try:
+        threshold_months = system_setting_service.get_int(db, "customer_inactivity_archive_months", 24)
+        eligible = customer_service.get_customers_eligible_for_archiving(db, threshold_months)
+
+        for customer in eligible:
+            customer_service.archive(db, customer.id, current_user_id=None)
+            archived_count += 1
+
+        if archived_count:
+            logger.info("Automatically archived %s inactive customer(s).", archived_count)
+    except Exception as e:
+        background_job_service.fail(db, job.id, str(e))
+        raise
+    else:
+        background_job_service.complete(db, job.id)
+    finally:
+        db.close()
+
+    return {"archived": archived_count}

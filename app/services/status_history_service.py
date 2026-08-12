@@ -1,19 +1,22 @@
 # ER-ServiceDesk/app/services/status_history_service.py
-# Service layer for StatusHistory.
+# Service layer for StatusHistory -- read-only.
 """
-Business logic for an audit trail entry for a ticket status transition.
+Read-only business logic for a ticket's status change history.
 
-Coordinates CRUD operations and is where entity-specific rules should live
-as they're added. Route handlers call into this layer rather than the CRUD
-layer directly, so business rules stay in one place.
+No create/update/delete here -- entries are only ever written
+internally by ticket_service.py (going straight to crud_status_history,
+not through this service), whenever a ticket's status_id genuinely
+changes. Keeping this service read-only matches the route layer (see
+routes/status_histories.py) and keeps the audit trail's integrity
+intact: nothing external can rewrite or erase history through this
+layer.
 """
 
 from sqlalchemy.orm import Session
 from app.crud.status_history import crud_status_history
-from app.schemas.status_history import StatusHistoryCreate, StatusHistoryUpdate
 
 class StatusHistoryService:
-    """Business logic for StatusHistory operations."""
+    """Read-only business logic for StatusHistory."""
 
     def get(self, db: Session, id: int):
         """
@@ -41,43 +44,5 @@ class StatusHistoryService:
             A list of StatusHistory instances.
         """
         return crud_status_history.get_multi(db, skip, limit)
-
-    def create(self, db: Session, obj_in: StatusHistoryCreate):
-        """
-        Create a new StatusHistory using validated input data.
-
-        Args:
-            db: Active database session.
-            obj_in: Validated input data for the new record.
-
-        Returns:
-            The newly created StatusHistory instance.
-        """
-        return crud_status_history.create(db, obj_in)
-
-    def update(self, db: Session, id: int, obj_in: StatusHistoryUpdate):
-        """
-        Update an existing StatusHistory using validated input data.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to update.
-            obj_in: Fields to change; unset fields are left untouched.
-
-        Returns:
-            The updated StatusHistory instance.
-        """
-        db_obj = crud_status_history.get(db, id)
-        return crud_status_history.update(db, db_obj, obj_in)
-
-    def delete(self, db: Session, id: int):
-        """
-        Delete a StatusHistory by ID.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to delete.
-        """
-        return crud_status_history.delete(db, id)
 
 status_history_service = StatusHistoryService()

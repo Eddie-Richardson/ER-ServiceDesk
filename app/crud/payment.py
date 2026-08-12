@@ -42,6 +42,19 @@ class PaymentCRUD:
         """
         return db.query(Payment).offset(skip).limit(limit).all()
 
+    def get_by_invoice(self, db: Session, invoice_id: int):
+        """
+        Fetch every payment recorded against a given invoice.
+
+        Args:
+            db: Active database session.
+            invoice_id: The invoice to look up payments for.
+
+        Returns:
+            A list of Payment instances for that invoice.
+        """
+        return db.query(Payment).filter(Payment.invoice_id == invoice_id).all()
+
     def create(self, db: Session, obj_in: PaymentCreate) -> Payment:
         """
         Insert a new Payment record.

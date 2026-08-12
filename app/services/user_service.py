@@ -16,6 +16,7 @@ from app.models.user import User
 from app.schemas.user import UserCreate, UserUpdate
 from app.core.security import generate_temp_password, hash_password
 from app.core.email import send_email
+from app.services.audit_log_service import audit_log_service
 
 class UserService:
     """Business logic for User account operations."""
@@ -47,7 +48,7 @@ class UserService:
         """
         return crud_user.get_multi(db, skip, limit)
 
-    def create(self, db: Session, obj_in: UserCreate):
+    def create(self, db: Session, obj_in: UserCreate, current_user_id: int):
         """
         Create a new User with a system-generated temporary password,
         emailed to the account's address before anything is written to
@@ -62,6 +63,8 @@ class UserService:
             db: Active database session.
             obj_in: Validated input data (no password field -- see
                 UserCreate's docstring for why).
+            current_user_id: The admin creating this account -- recorded
+                in the audit trail.
 
         Returns:
             The newly created User instance.
@@ -111,9 +114,15 @@ class UserService:
         db.add(db_obj)
         db.commit()
         db.refresh(db_obj)
+
+        audit_log_service.log(
+            db, "user_created", "user", db_obj.id, user_id=current_user_id,
+            details=f"Created account: {db_obj.email}",
+        )
+
         return db_obj
 
-    def reset_password(self, db: Session, id: int):
+    def reset_password(self, db: Session, id: int, current_user_id: int):
         """
         Generates a new temporary password for an existing user and
         emails it, following the same "email must succeed before
@@ -125,6 +134,8 @@ class UserService:
         Args:
             db: Active database session.
             id: The user whose password is being reset.
+            current_user_id: The admin performing this reset --
+                recorded in the audit trail.
 
         Returns:
             The updated User instance.
@@ -161,9 +172,15 @@ class UserService:
         db_obj.must_change_password = True
         db.commit()
         db.refresh(db_obj)
+
+        audit_log_service.log(
+            db, "user_password_reset", "user", db_obj.id, user_id=current_user_id,
+            details=f"Password reset by administrator for: {db_obj.email}",
+        )
+
         return db_obj
 
-    def update(self, db: Session, id: int, obj_in: UserUpdate):
+    def update(self, db: Session, id: int, obj_in: UserUpdate, current_user_id: int):
         """
         Update an existing User's non-password fields. Password changes
         never go through this method -- see reset_password() for
@@ -174,6 +191,8 @@ class UserService:
             db: Active database session.
             id: Primary key of the user to update.
             obj_in: Fields to change; unset fields are left untouched.
+            current_user_id: The admin making this change -- recorded
+                in the audit trail.
 
         Returns:
             The updated User instance.
@@ -195,21 +214,42 @@ class UserService:
                     detail="An account with this email address already exists.",
                 )
 
+        changed_fields = [field for field in update_data if getattr(db_obj, field) != update_data[field]]
+
         for field, value in update_data.items():
             setattr(db_obj, field, value)
 
         db.commit()
         db.refresh(db_obj)
+
+        if changed_fields:
+            audit_log_service.log(
+                db, "user_updated", "user", db_obj.id, user_id=current_user_id,
+                details=f"Changed fields: {', '.join(changed_fields)}",
+            )
+
         return db_obj
 
-    def delete(self, db: Session, id: int):
+    def delete(self, db: Session, id: int, current_user_id: int):
         """
         Delete a User by ID.
 
         Args:
             db: Active database session.
             id: Primary key of the user to delete.
+            current_user_id: The admin performing this deletion --
+                recorded in the audit trail.
         """
-        return crud_user.delete(db, id)
+        db_obj = crud_user.get(db, id)
+        deleted_email = db_obj.email if db_obj else None
+
+        result = crud_user.delete(db, id)
+
+        audit_log_service.log(
+            db, "user_deleted", "user", id, user_id=current_user_id,
+            details=f"Deleted account: {deleted_email}" if deleted_email else None,
+        )
+
+        return result
 
 user_service = UserService()

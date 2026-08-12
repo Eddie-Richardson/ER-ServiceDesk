@@ -1,19 +1,21 @@
 # ER-ServiceDesk/app/crud/status_history.py
-# CRUD operations for the StatusHistory model.
+# CRUD operations for the StatusHistory model -- get and create only.
 """
-Database access layer for an audit trail entry for a ticket status transition.
+Database access layer for a ticket's status change history.
 
-Talks directly to the database via SQLAlchemy. Contains no business logic --
-callers (the service layer) are responsible for that. Kept intentionally
-"dumb" so it stays simple to test and reuse.
+Deliberately no update() or delete() -- this is meant to be an
+immutable audit trail. Only get/get_multi/create exist, matching the
+service and route layers above this (see status_history_service.py,
+routes/status_histories.py), so there's no path anywhere in the stack
+that could rewrite or erase a recorded status change.
 """
 
 from sqlalchemy.orm import Session
 from app.models.status_history import StatusHistory
-from app.schemas.status_history import StatusHistoryCreate, StatusHistoryUpdate
+from app.schemas.status_history import StatusHistoryCreate
 
 class StatusHistoryCRUD:
-    """Direct database access for StatusHistory records."""
+    """Direct database access for StatusHistory records -- read and create only."""
 
     def get(self, db: Session, id: int) -> StatusHistory | None:
         """
@@ -44,7 +46,9 @@ class StatusHistoryCRUD:
 
     def create(self, db: Session, obj_in: StatusHistoryCreate) -> StatusHistory:
         """
-        Insert a new StatusHistory record.
+        Insert a new StatusHistory record. Only ever called internally
+        by ticket_service.py when a ticket's status_id genuinely
+        changes -- never directly from a route.
 
         Args:
             db: Active database session.
@@ -58,36 +62,5 @@ class StatusHistoryCRUD:
         db.commit()
         db.refresh(obj)
         return obj
-
-    def update(self, db: Session, db_obj: StatusHistory, obj_in: StatusHistoryUpdate) -> StatusHistory:
-        """
-        Apply a partial update to an existing StatusHistory record.
-
-        Args:
-            db: Active database session.
-            db_obj: The existing StatusHistory instance to update.
-            obj_in: Fields to change; unset fields are left untouched.
-
-        Returns:
-            The updated, refreshed StatusHistory instance.
-        """
-        for field, value in obj_in.model_dump(exclude_unset=True).items():
-            setattr(db_obj, field, value)
-        db.commit()
-        db.refresh(db_obj)
-        return db_obj
-
-    def delete(self, db: Session, id: int) -> None:
-        """
-        Delete a StatusHistory record by primary key, if it exists.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to delete.
-        """
-        obj = db.query(StatusHistory).filter(StatusHistory.id == id).first()
-        if obj:
-            db.delete(obj)
-            db.commit()
 
 crud_status_history = StatusHistoryCRUD()

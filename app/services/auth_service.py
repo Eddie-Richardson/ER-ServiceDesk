@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.security import verify_password, create_access_token
 from app.models.user import User
 from app.services.permission_service import permission_service
+from app.services.audit_log_service import audit_log_service
 
 
 class AuthService:
@@ -16,7 +17,13 @@ class AuthService:
 
     def authenticate(self, db: Session, email_in: str, password: str) -> User | None:
         """
-        Validate a user's credentials.
+        Validate a user's credentials. Logs a failed attempt to the
+        audit trail if the email matches a real account but the
+        password is wrong -- valuable security signal (a failed
+        attempt against a specific known account). A genuinely
+        unknown email isn't logged at all, since there's no valid
+        entity to log it against and this is meaningfully less
+        actionable than a targeted attempt against a real account.
 
         Args:
             db: Active database session.
@@ -28,14 +35,21 @@ class AuthService:
         """
         user = db.query(User).filter(User.email == email_in).first()
         if not user or not verify_password(password, user.hashed_password):
+            if user:
+                audit_log_service.log(
+                    db, "login_failed", "user", user.id, user_id=user.id,
+                    details="Incorrect password",
+                )
             return None
         return user
 
-    def login(self, user: User):
+    def login(self, db: Session, user: User):
         """
-        Issue an access token for an already-authenticated user.
+        Issue an access token for an already-authenticated user, and
+        record a successful login in the audit trail.
 
         Args:
+            db: Active database session.
             user: The authenticated User instance.
 
         Returns:
@@ -50,6 +64,7 @@ class AuthService:
             for an already-issued token until the user logs in again --
             acceptable for this system's scale, but worth knowing.
         """
+        audit_log_service.log(db, "login_success", "user", user.id, user_id=user.id)
         permissions = sorted(permission_service.get_user_permission_names(user))
         return {
             "access_token": create_access_token({

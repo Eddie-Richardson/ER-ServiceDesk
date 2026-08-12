@@ -12,7 +12,10 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from app.crud.ticket import crud_ticket
 from app.crud.ticket_type_stage import crud_ticket_type_stage
+from app.crud.status_history import crud_status_history
 from app.schemas.ticket import TicketCreate, TicketUpdate
+from app.schemas.status_history import StatusHistoryCreate
+from app.services.audit_log_service import audit_log_service
 
 class TicketService:
     """Business logic for Ticket operations."""
@@ -76,13 +79,17 @@ class TicketService:
         """
         return crud_ticket.get_multi(db, skip, limit)
 
-    def create(self, db: Session, obj_in: TicketCreate):
+    def create(self, db: Session, obj_in: TicketCreate, current_user_id: int):
         """
-        Create a new Ticket using validated input data.
+        Create a new Ticket using validated input data. Also records
+        the ticket's initial status as its first StatusHistory entry,
+        so a ticket's history is never missing where it started.
 
         Args:
             db: Active database session.
             obj_in: Validated input data for the new record.
+            current_user_id: The user creating this ticket -- recorded
+                as who set its initial status.
 
         Returns:
             The newly created Ticket instance.
@@ -92,16 +99,34 @@ class TicketService:
                 the ticket's type_id.
         """
         self._validate_stage_for_type(db, obj_in.type_id, obj_in.stage_id)
-        return crud_ticket.create(db, obj_in)
+        new_ticket = crud_ticket.create(db, obj_in)
 
-    def update(self, db: Session, id: int, obj_in: TicketUpdate):
+        crud_status_history.create(db, StatusHistoryCreate(
+            ticket_id=new_ticket.id,
+            status_id=new_ticket.status_id,
+            changed_by=current_user_id,
+        ))
+
+        audit_log_service.log(
+            db, "ticket_created", "ticket", new_ticket.id, user_id=current_user_id,
+            details=f"Created ticket: {new_ticket.title}",
+        )
+
+        return new_ticket
+
+    def update(self, db: Session, id: int, obj_in: TicketUpdate, current_user_id: int):
         """
-        Update an existing Ticket using validated input data.
+        Update an existing Ticket using validated input data. If
+        status_id actually changes as a result, also records a
+        StatusHistory entry for it -- who changed it, to what, and
+        when.
 
         Args:
             db: Active database session.
             id: Primary key of the record to update.
             obj_in: Fields to change; unset fields are left untouched.
+            current_user_id: The user making this change -- recorded
+                as who made the status change, if status_id changes.
 
         Returns:
             The updated Ticket instance.
@@ -111,22 +136,29 @@ class TicketService:
                 for the resulting type_id.
         """
         db_obj = crud_ticket.get(db, id)
+        previous_status_id = db_obj.status_id
 
         update_data = obj_in.model_dump(exclude_unset=True)
         effective_type_id = update_data.get("type_id", db_obj.type_id)
         effective_stage_id = update_data.get("stage_id", db_obj.stage_id)
         self._validate_stage_for_type(db, effective_type_id, effective_stage_id)
 
-        return crud_ticket.update(db, db_obj, obj_in)
+        updated = crud_ticket.update(db, db_obj, obj_in)
 
-    def delete(self, db: Session, id: int):
-        """
-        Delete a Ticket by ID.
+        if "status_id" in update_data and update_data["status_id"] != previous_status_id:
+            crud_status_history.create(db, StatusHistoryCreate(
+                ticket_id=id,
+                status_id=update_data["status_id"],
+                changed_by=current_user_id,
+            ))
 
-        Args:
-            db: Active database session.
-            id: Primary key of the record to delete.
-        """
-        return crud_ticket.delete(db, id)
+        changed_fields = list(update_data.keys())
+        if changed_fields:
+            audit_log_service.log(
+                db, "ticket_updated", "ticket", id, user_id=current_user_id,
+                details=f"Changed fields: {', '.join(changed_fields)}",
+            )
+
+        return updated
 
 ticket_service = TicketService()

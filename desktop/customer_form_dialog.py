@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -25,7 +26,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from desktop import layout
+from desktop import api_client, layout
+from desktop.api_client import ApiError
 from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.customer_save_worker import CustomerSaveWorker
 from desktop.device_edit_dialog import DeviceEditDialog
@@ -60,6 +62,7 @@ class CustomerFormDialog(QDialog):
         self.all_devices = all_devices
         self.locations = locations
         self.saved_customer: dict | None = None
+        self.deleted = False
 
         self._thread: QThread | None = None
         self._worker: CustomerSaveWorker | None = None
@@ -126,6 +129,19 @@ class CustomerFormDialog(QDialog):
         cancel_button.setFixedHeight(layout.BUTTON_HEIGHT)
         cancel_button.clicked.connect(self.reject)
 
+        self.delete_button = None
+        self.archive_button = None
+        if self.customer:
+            self.archive_button = QPushButton("Unarchive Customer" if self.customer.get("is_archived") else "Archive Customer")
+            self.archive_button.setObjectName("secondary")
+            self.archive_button.setFixedHeight(layout.BUTTON_HEIGHT)
+            self.archive_button.clicked.connect(self._attempt_archive_toggle)
+
+            self.delete_button = QPushButton("Delete Customer")
+            self.delete_button.setObjectName("danger")
+            self.delete_button.setFixedHeight(layout.BUTTON_HEIGHT)
+            self.delete_button.clicked.connect(self._attempt_delete)
+
         for label_text, widget in [
             ("First Name", self.first_name_input),
             ("Last Name", self.last_name_input),
@@ -145,6 +161,10 @@ class CustomerFormDialog(QDialog):
         outer_layout.addSpacing(layout.SPACE_SM)
         outer_layout.addWidget(self.save_button)
         outer_layout.addWidget(cancel_button)
+        if self.archive_button:
+            outer_layout.addWidget(self.archive_button)
+        if self.delete_button:
+            outer_layout.addWidget(self.delete_button)
 
         self.setLayout(outer_layout)
 
@@ -212,6 +232,13 @@ class CustomerFormDialog(QDialog):
 
         def on_closed(dialog):
             if not dialog.result():
+                return
+            if dialog.deleted:
+                # Remove it from our in-memory copy so the table
+                # reflects the deletion immediately, without needing
+                # to reload the whole window.
+                self.all_devices = [d for d in self.all_devices if d["id"] != device["id"]]
+                self._populate_devices_table()
                 return
             # Update our in-memory copy so the table reflects the edit
             # immediately, without needing to reload the whole window.
@@ -305,6 +332,32 @@ class CustomerFormDialog(QDialog):
         self.saved_customer = result
         self.accept()
 
+    # -----------------------------------------------------------------
+    # Archive / Unarchive
+    # -----------------------------------------------------------------
+    def _attempt_archive_toggle(self):
+        """
+        Archives or unarchives this customer, whichever applies given
+        their current state. No confirmation dialog -- unlike delete,
+        this is fully reversible either direction, so it doesn't carry
+        the same weight.
+        """
+        is_currently_archived = self.customer.get("is_archived")
+        self.archive_button.setEnabled(False)
+        try:
+            if is_currently_archived:
+                updated = api_client.unarchive_customer(self.customer["id"])
+            else:
+                updated = api_client.archive_customer(self.customer["id"])
+        except ApiError as e:
+            self._show_error(str(e))
+            return
+        finally:
+            self.archive_button.setEnabled(True)
+
+        self.saved_customer = updated
+        self.accept()
+
     def _show_error(self, message: str):
         """
         Args:
@@ -312,3 +365,36 @@ class CustomerFormDialog(QDialog):
         """
         self.error_label.setText(message)
         self.error_label.show()
+
+    # -----------------------------------------------------------------
+    # Delete
+    # -----------------------------------------------------------------
+    def _attempt_delete(self):
+        """
+        Confirms, then deletes this customer. Synchronous (no QThread) --
+        this is a small, infrequent action, not performance-critical.
+        Shows the real backend reason inline if blocked (e.g. still
+        has tickets or devices on file) rather than a generic failure
+        message.
+        """
+        confirmed = QMessageBox.question(
+            self,
+            "Delete Customer",
+            "Delete this customer? This can't be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if confirmed != QMessageBox.StandardButton.Yes:
+            return
+
+        self.delete_button.setEnabled(False)
+        try:
+            api_client.delete_customer(self.customer["id"])
+        except ApiError as e:
+            self._show_error(str(e))
+            return
+        finally:
+            self.delete_button.setEnabled(True)
+
+        self.deleted = True
+        self.accept()

@@ -42,6 +42,19 @@ class QuoteCRUD:
         """
         return db.query(Quote).offset(skip).limit(limit).all()
 
+    def get_by_ticket(self, db: Session, ticket_id: int):
+        """
+        Fetch every quote for a given ticket.
+
+        Args:
+            db: Active database session.
+            ticket_id: The ticket to look up quotes for.
+
+        Returns:
+            A list of Quote instances for that ticket.
+        """
+        return db.query(Quote).filter(Quote.ticket_id == ticket_id).all()
+
     def create(self, db: Session, obj_in: QuoteCreate) -> Quote:
         """
         Insert a new Quote record.

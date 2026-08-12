@@ -25,7 +25,7 @@ from app.models.system_setting import SystemSetting
 from app.core.security import hash_password
 
 
-def seed_data(db: Session, business_name: str | None = None):
+def seed_data(db: Session):
     """
     Insert initial roles, permissions, mappings, and default users.
 
@@ -34,12 +34,6 @@ def seed_data(db: Session, business_name: str | None = None):
 
     Args:
         db: Active database session.
-        business_name: The shop's display name, written to
-            system_settings if provided and not already set. Only ever
-            written once -- if an admin has already changed it via
-            Settings, seeding again (e.g. after a container restart)
-            must never silently overwrite that with whatever was in
-            .env at first-run time.
     """
 
     # -------------------------------------------------------------------
@@ -55,6 +49,7 @@ def seed_data(db: Session, business_name: str | None = None):
         "agent": "Full ticket and customer access",
         "front_desk": "Full ticket and customer access -- same permissions as agent, distinct label for job-scope clarity",
         "inventory_access": "Stackable add-on granting Inventory (assets/parts) access, independent of ticket/customer role",
+        "billing_access": "Stackable add-on granting Billing (quotes/invoices/payments) access, independent of ticket/customer role",
     }
 
     role_objs = {}
@@ -81,6 +76,7 @@ def seed_data(db: Session, business_name: str | None = None):
         ("tickets.manage", "Create, edit, and view tickets"),
         ("customers.manage", "Create, edit, and view customers"),
         ("inventory.manage", "Create and edit assets and parts"),
+        ("billing.manage", "Create and edit quotes, invoices, payments, and payment plans"),
     ]
 
     perm_objs = {}
@@ -114,10 +110,11 @@ def seed_data(db: Session, business_name: str | None = None):
     # Role -> Permission mapping
     # -------------------------------------------------------------------
     role_permission_grants = {
-        "admin": ["tickets.manage", "customers.manage", "inventory.manage"],
+        "admin": ["tickets.manage", "customers.manage", "inventory.manage", "billing.manage"],
         "agent": ["tickets.manage", "customers.manage"],
         "front_desk": ["tickets.manage", "customers.manage"],
         "inventory_access": ["inventory.manage"],
+        "billing_access": ["billing.manage"],
     }
 
     def assign_perms(role_name, perm_names):
@@ -351,12 +348,22 @@ def seed_data(db: Session, business_name: str | None = None):
     db.commit()
 
     # -------------------------------------------------------------------
-    # Business name (set once, at first setup, via the Setup Wizard)
+    # Tunable runtime settings, editable later via Settings -> System
+    # Settings. lock_timeout_minutes and inbound_email_poll_interval_seconds
+    # are seeded matching their old hardcoded defaults, so existing
+    # behavior is unchanged until an admin actually adjusts one.
+    # customer_inactivity_archive_months has no prior hardcoded
+    # equivalent -- 24 months (2 years) chosen as a reasonable default
+    # for "hasn't come in in a long while."
     # -------------------------------------------------------------------
-    if business_name:
-        existing_setting = db.query(SystemSetting).filter_by(key="business_name").first()
+    for key, default_value in [
+        ("lock_timeout_minutes", "15"),
+        ("inbound_email_poll_interval_seconds", "60"),
+        ("customer_inactivity_archive_months", "24"),
+    ]:
+        existing_setting = db.query(SystemSetting).filter_by(key=key).first()
         if not existing_setting:
-            db.add(SystemSetting(key="business_name", value=business_name))
-            db.commit()
+            db.add(SystemSetting(key=key, value=default_value))
+    db.commit()
 
     print("Seed data inserted successfully.")

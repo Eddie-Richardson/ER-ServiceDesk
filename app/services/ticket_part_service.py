@@ -46,6 +46,19 @@ class TicketPartService:
         """
         return crud_ticket_part.get_multi(db, skip, limit)
 
+    def get_by_ticket(self, db: Session, ticket_id: int):
+        """
+        Fetch every part requirement attached to a given ticket.
+
+        Args:
+            db: Active database session.
+            ticket_id: The ticket to look up part requirements for.
+
+        Returns:
+            A list of TicketPart instances for that ticket.
+        """
+        return crud_ticket_part.get_by_ticket(db, ticket_id)
+
     def create(self, db: Session, obj_in: TicketPartCreate):
         """
         Create a new TicketPart using validated input data.

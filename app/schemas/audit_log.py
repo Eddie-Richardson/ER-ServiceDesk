@@ -19,18 +19,10 @@ class AuditLogCreate(AuditLogBase):
     """Schema for creating a new AuditLog record (client -> server)."""
     pass
 
-class AuditLogUpdate(BaseModel):
-    """Schema for partially updating an existing AuditLog record. All fields optional."""
-    user_id: int | None = None
-    action: str | None = None
-    details: str | None = None
-    entity_type: str | None = None
-    entity_id: int | None = None
-    updated_at: datetime | None = None
-
 class AuditLog(AuditLogBase):
     """Schema returned to the client for a AuditLog record (server -> client)."""
     id: int
     created_at: datetime
     updated_at: datetime
+    user_name: str | None = None
     model_config = ConfigDict(from_attributes=True)

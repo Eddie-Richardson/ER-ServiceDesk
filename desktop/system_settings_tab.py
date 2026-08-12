@@ -1,0 +1,135 @@
+# ER-ServiceDesk/desktop/system_settings_tab.py
+
+"""
+Settings tab for tunable, server-side runtime settings -- values that
+used to be hardcoded constants in the backend, now editable here
+without needing file access to the server or a reinstall.
+
+Deliberately synchronous, no QThread -- this is a small, infrequent
+action (an admin occasionally tweaking a number), not something
+performance-critical, and after tonight's real, hard-won lesson about
+background-thread fragility elsewhere in this app, the simplest safe
+choice here is not introducing another one at all.
+
+Two settings live here right now:
+  - Lock timeout (minutes) -- how long before an abandoned record
+    lock becomes reclaimable. Takes effect immediately; read fresh
+    from the database on every lock attempt (see
+    record_lock_service.py).
+  - Inbound email poll interval (seconds) -- how often the server
+    checks for customer email replies. Only takes effect the next
+    time the server's scheduler process restarts (see
+    app/workers/scheduler.py) -- not instant, since rq-scheduler
+    fixes the interval at registration time and doesn't re-check it
+    afterward.
+
+Only reachable from the Settings window, which is already
+superuser-gated before it's ever opened (see settings_window.py) --
+matches the backend route's own superuser requirement.
+"""
+
+from PySide6.QtWidgets import (
+    QFormLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
+
+from desktop import api_client
+from desktop.api_client import ApiError
+
+# (settings key, display label, default shown if never set, help text)
+_SETTINGS = [
+    (
+        "lock_timeout_minutes",
+        "Lock Timeout (minutes)",
+        "15",
+        "How long before an abandoned record lock (someone editing a "
+        "ticket/customer/etc. who closed the app without releasing it) "
+        "becomes reclaimable by someone else. Takes effect immediately.",
+    ),
+    (
+        "inbound_email_poll_interval_seconds",
+        "Inbound Email Poll Interval (seconds)",
+        "60",
+        "How often the server checks for customer email replies. Only "
+        "takes effect the next time the server restarts (or the "
+        "scheduler service specifically is restarted) -- not instant.",
+    ),
+]
+
+
+class SystemSettingsTab(QWidget):
+    """Editable fields for every tunable SystemSetting, with a single Save action."""
+
+    def __init__(self):
+        """Builds one labeled field per setting, pre-filled with its current value."""
+        super().__init__()
+        self._inputs: dict[str, QLineEdit] = {}
+        self._build_ui()
+        self._load_current_values()
+
+    def _build_ui(self):
+        """Builds one form row per setting, each with its own help text underneath."""
+        layout = QVBoxLayout()
+        form = QFormLayout()
+
+        for key, label, default, help_text in _SETTINGS:
+            field = QLineEdit()
+            field.setPlaceholderText(default)
+            self._inputs[key] = field
+            form.addRow(f"{label}:", field)
+
+            help_label = QLabel(help_text)
+            help_label.setWordWrap(True)
+            help_label.setStyleSheet("color: gray; font-size: 11px;")
+            form.addRow("", help_label)
+
+        layout.addLayout(form)
+
+        self.status_label = QLabel("")
+        self.status_label.setWordWrap(True)
+        layout.addWidget(self.status_label)
+
+        save_button = QPushButton("Save")
+        save_button.clicked.connect(self._on_save)
+        layout.addWidget(save_button)
+
+        layout.addStretch()
+        self.setLayout(layout)
+
+    def _load_current_values(self):
+        """Fetches every current setting and fills in whichever of ours are already set."""
+        try:
+            settings = api_client.list_system_settings()
+        except ApiError as e:
+            self.status_label.setText(f"Could not load current values: {e}")
+            return
+
+        by_key = {s["key"]: s.get("value") for s in settings}
+        for key, field in self._inputs.items():
+            if by_key.get(key) is not None:
+                field.setText(str(by_key[key]))
+
+    def _on_save(self):
+        """Validates every field is a real, positive integer, then saves each one."""
+        values: dict[str, str] = {}
+        for key, label, default, _ in _SETTINGS:
+            field = self._inputs[key]
+            raw = field.text().strip() or default
+            if not raw.isdigit() or int(raw) <= 0:
+                QMessageBox.warning(self, "Invalid Value", f"{label} must be a positive whole number.")
+                return
+            values[key] = raw
+
+        for key, value in values.items():
+            try:
+                api_client.save_system_setting(key, value)
+            except ApiError as e:
+                QMessageBox.critical(self, "Save Failed", str(e))
+                return
+
+        self.status_label.setText("Saved.")

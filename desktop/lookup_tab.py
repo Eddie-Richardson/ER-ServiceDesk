@@ -16,7 +16,7 @@ every table that might reference a given lookup item.
 
 from typing import Callable
 
-from PySide6.QtCore import QThread, Qt
+from PySide6.QtCore import QThread, Qt, Signal
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
@@ -40,6 +40,12 @@ COLUMN_HEADERS = ["Name", "Description"]
 
 class LookupTab(QWidget):
     """A single Settings tab managing one simple name/description lookup table."""
+
+    # Emitted after a successful create, edit, or delete -- lets an
+    # embedding widget react (e.g. refreshing a picker elsewhere that
+    # depends on this list) without needing to know this class's
+    # internals.
+    data_changed = Signal()
 
     def __init__(self, display_name: str, list_func: Callable[[], list[dict]], endpoint: str, entity_type: str):
         """
@@ -171,6 +177,7 @@ class LookupTab(QWidget):
         dialog = LookupItemDialog(self.display_name, self.endpoint, item=None, parent=self)
         if dialog.exec():
             self._load_data()
+            self.data_changed.emit()
 
     def _on_row_double_clicked(self):
         """Acquires an edit lock, then opens the item form pre-filled with the double-clicked row's item."""
@@ -184,6 +191,7 @@ class LookupTab(QWidget):
         def on_closed(dialog):
             if dialog.result():
                 self._load_data()
+                self.data_changed.emit()
 
         self._lock_gate.attempt_edit(self.entity_type, item["id"], build_dialog, on_closed)
 
@@ -245,3 +253,4 @@ class LookupTab(QWidget):
             return
 
         self._load_data()
+        self.data_changed.emit()

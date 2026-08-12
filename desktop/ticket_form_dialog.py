@@ -32,19 +32,27 @@ from PySide6.QtWidgets import (
     QComboBox,
     QCompleter,
     QDialog,
+    QHeaderView,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QScrollArea,
+    QTableWidget,
+    QTableWidgetItem,
     QTextEdit,
     QVBoxLayout,
     QWidget,
 )
 
-from desktop import layout, session
+from desktop import api_client, layout, session
+from desktop.api_client import ApiError
 from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.ticket_save_worker import TicketSaveWorker
 from desktop.notes_dialog import NotesDialog
+from desktop.billing_dialog import BillingDialog
+from desktop.ticket_history_dialog import TicketHistoryDialog
+from desktop.ticket_part_dialog import TicketPartDialog
 
 PRIORITY_LEVELS = ["Low", "Medium", "High", "Urgent"]
 DEFAULT_STATUS_NAME = "Open"
@@ -128,7 +136,17 @@ class TicketFormDialog(QDialog):
         content_layout.setSpacing(layout.SPACE_SM)
 
         self.customer_combo = self._make_searchable_combo()
+        current_customer_id = self.ticket.get("customer_id") if self.ticket else None
         for customer in self.reference_data["customers"]:
+            # Archived customers are hidden from the picker for NEW
+            # selections -- per design, only active customers should
+            # be assignable to a ticket. The one exception: if this
+            # ticket is already assigned to a customer who's since
+            # been archived, that customer still needs to appear here
+            # so the dropdown correctly reflects who the ticket is
+            # actually assigned to, rather than showing nothing.
+            if customer.get("is_archived") and customer["id"] != current_customer_id:
+                continue
             label = f"{customer['first_name']} {customer['last_name']} ({customer['email']})"
             self.customer_combo.addItem(label, userData=customer["id"])
         self.customer_combo.currentIndexChanged.connect(self._on_customer_changed)
@@ -199,6 +217,13 @@ class TicketFormDialog(QDialog):
         self.description_input.setPlaceholderText("Details (optional)")
         self.description_input.setFixedHeight(100)
 
+        # Only shown when editing an EXISTING ticket -- a brand-new,
+        # unsaved ticket has no id yet for a part requirement to
+        # attach to, matching the same reasoning as Notes/History.
+        parts_section = None
+        if self.ticket:
+            parts_section = self._build_parts_section()
+
         for label_text, widget in [
             ("Customer", self.customer_combo),
             ("Device", self.device_combo),
@@ -220,6 +245,9 @@ class TicketFormDialog(QDialog):
                 field_label.setObjectName("subtitle")
                 content_layout.addWidget(field_label)
             content_layout.addWidget(widget)
+
+        if parts_section is not None:
+            content_layout.addWidget(parts_section)
 
         content_widget.setLayout(content_layout)
         scroll_area.setWidget(content_widget)
@@ -245,11 +273,23 @@ class TicketFormDialog(QDialog):
         # the ticket's been saved once and reopened, notes become
         # available.
         notes_button = None
+        history_button = None
+        billing_button = None
         if self.ticket:
             notes_button = QPushButton("Notes")
             notes_button.setObjectName("secondary")
             notes_button.setFixedHeight(layout.BUTTON_HEIGHT)
             notes_button.clicked.connect(self._open_notes_dialog)
+
+            history_button = QPushButton("History")
+            history_button.setObjectName("secondary")
+            history_button.setFixedHeight(layout.BUTTON_HEIGHT)
+            history_button.clicked.connect(self._open_history_dialog)
+
+            billing_button = QPushButton("Billing")
+            billing_button.setObjectName("secondary")
+            billing_button.setFixedHeight(layout.BUTTON_HEIGHT)
+            billing_button.clicked.connect(self._open_billing_dialog)
 
         bottom_bar = QWidget()
         bottom_layout = QVBoxLayout()
@@ -262,6 +302,10 @@ class TicketFormDialog(QDialog):
         bottom_layout.addWidget(self.save_button)
         if notes_button:
             bottom_layout.addWidget(notes_button)
+        if history_button:
+            bottom_layout.addWidget(history_button)
+        if billing_button:
+            bottom_layout.addWidget(billing_button)
         bottom_layout.addWidget(cancel_button)
         bottom_bar.setLayout(bottom_layout)
         outer_layout.addWidget(bottom_bar)
@@ -304,6 +348,110 @@ class TicketFormDialog(QDialog):
             # net and, right now, the only way to actually see what's
             # failing.
             QMessageBox.critical(self, "Notes Error", traceback.format_exc())
+
+    def _open_history_dialog(self):
+        """
+        Opens this ticket's full history -- status changes and general
+        activity, merged into one timeline. Only ever called when
+        self.ticket is set (the History button doesn't exist
+        otherwise). Modal, same reasoning as Notes (see
+        _open_notes_dialog's own docstring).
+        """
+        try:
+            dialog = TicketHistoryDialog(self.ticket["id"], self.ticket.get("title", "Ticket"), parent=self)
+            dialog.exec()
+        except Exception:
+            QMessageBox.critical(self, "History Error", traceback.format_exc())
+
+    def _open_billing_dialog(self):
+        """
+        Opens this ticket's billing screen -- every quote and invoice
+        for it. Only ever called when self.ticket is set (the Billing
+        button doesn't exist otherwise). Modal, same reasoning as
+        Notes (see _open_notes_dialog's own docstring).
+        """
+        try:
+            dialog = BillingDialog(self.ticket["id"], self.ticket.get("title", "Ticket"), parent=self)
+            dialog.exec()
+        except Exception:
+            QMessageBox.critical(self, "Billing Error", traceback.format_exc())
+
+    def _build_parts_section(self) -> QWidget:
+        """
+        Builds the expandable parts-needed table for this ticket --
+        supports multiple parts on one ticket (e.g. a repair needing
+        both a screen and a battery), each tracked separately with its
+        own status. Only ever built when self.ticket is set.
+
+        Returns:
+            The assembled parts section widget (label + Add button +
+            table), ready to add to the form's content layout.
+        """
+        section_label = QLabel("Parts Needed")
+        section_label.setObjectName("subtitle")
+
+        add_part_button = QPushButton("Add Part")
+        add_part_button.setObjectName("secondary")
+        add_part_button.clicked.connect(self._on_add_part)
+
+        self.parts_table = QTableWidget()
+        self.parts_table.setColumnCount(3)
+        self.parts_table.setHorizontalHeaderLabels(["Part", "Qty", "Status"])
+        self.parts_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.parts_table.verticalHeader().setVisible(False)
+        self.parts_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.parts_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.parts_table.setFixedHeight(120)
+        self.parts_table.doubleClicked.connect(self._on_part_row_double_clicked)
+
+        self._load_parts_table()
+
+        container_layout = QVBoxLayout()
+        container_layout.setContentsMargins(0, 0, 0, 0)
+        container_layout.addWidget(section_label)
+        container_layout.addWidget(add_part_button)
+        container_layout.addWidget(self.parts_table)
+        container = QWidget()
+        container.setLayout(container_layout)
+        return container
+
+    def _load_parts_table(self):
+        """Fetches and renders this ticket's current part requirements."""
+        try:
+            self._ticket_parts = api_client.list_ticket_parts_for_ticket(self.ticket["id"])
+        except ApiError:
+            self._ticket_parts = []
+
+        part_names_by_id = {p["id"]: p.get("name", "") for p in self.reference_data.get("parts", [])}
+
+        self.parts_table.setRowCount(len(self._ticket_parts))
+        for row, ticket_part in enumerate(self._ticket_parts):
+            values = [
+                part_names_by_id.get(ticket_part.get("part_id"), "Unknown"),
+                str(ticket_part.get("quantity_needed", 1)),
+                (ticket_part.get("status") or "needed").capitalize(),
+            ]
+            for col, value in enumerate(values):
+                item = QTableWidgetItem(value)
+                item.setData(Qt.ItemDataRole.UserRole, ticket_part)
+                self.parts_table.setItem(row, col, item)
+
+    def _on_add_part(self):
+        """Opens TicketPartDialog in create mode; refreshes the table if a part was added."""
+        dialog = TicketPartDialog(self.ticket["id"], self.reference_data.get("parts", []), None, parent=self)
+        if dialog.exec():
+            self._load_parts_table()
+
+    def _on_part_row_double_clicked(self):
+        """Opens TicketPartDialog pre-filled with the double-clicked row's part; refreshes the table if saved or removed."""
+        selected_items = self.parts_table.selectedItems()
+        if not selected_items:
+            return
+
+        ticket_part = selected_items[0].data(Qt.ItemDataRole.UserRole)
+        dialog = TicketPartDialog(self.ticket["id"], self.reference_data.get("parts", []), ticket_part, parent=self)
+        if dialog.exec():
+            self._load_parts_table()
 
     def _make_searchable_combo(self) -> QComboBox:
         """

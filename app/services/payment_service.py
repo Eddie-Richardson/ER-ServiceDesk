@@ -3,17 +3,22 @@
 """
 Business logic for a payment applied against an invoice.
 
-Coordinates CRUD operations and is where entity-specific rules should live
-as they're added. Route handlers call into this layer rather than the CRUD
-layer directly, so business rules stay in one place.
+Recording a payment automatically marks the invoice as paid once total
+payments received meet or exceed its total -- not something set
+directly on the invoice itself.
 """
+
+from decimal import Decimal
 
 from sqlalchemy.orm import Session
 from app.crud.payment import crud_payment
+from app.crud.invoice import crud_invoice
 from app.schemas.payment import PaymentCreate, PaymentUpdate
+from app.services.audit_log_service import audit_log_service
+
 
 class PaymentService:
-    """Business logic for Payment operations."""
+    """Business logic for Payment operations, including auto-updating an invoice's paid status."""
 
     def get(self, db: Session, id: int):
         """
@@ -42,42 +47,124 @@ class PaymentService:
         """
         return crud_payment.get_multi(db, skip, limit)
 
-    def create(self, db: Session, obj_in: PaymentCreate):
+    def get_by_invoice(self, db: Session, invoice_id: int):
         """
-        Create a new Payment using validated input data.
+        Fetch every payment recorded against a given invoice.
+
+        Args:
+            db: Active database session.
+            invoice_id: The invoice to look up payments for.
+
+        Returns:
+            A list of Payment instances for that invoice.
+        """
+        return crud_payment.get_by_invoice(db, invoice_id)
+
+    def create(self, db: Session, obj_in: PaymentCreate, current_user_id: int):
+        """
+        Record a new payment against an invoice, then automatically
+        marks the invoice paid if total payments now meet or exceed
+        its total.
 
         Args:
             db: Active database session.
             obj_in: Validated input data for the new record.
+            current_user_id: The user recording this payment -- recorded
+                in the audit trail.
 
         Returns:
             The newly created Payment instance.
         """
-        return crud_payment.create(db, obj_in)
+        new_payment = crud_payment.create(db, obj_in)
 
-    def update(self, db: Session, id: int, obj_in: PaymentUpdate):
+        invoice = crud_invoice.get(db, obj_in.invoice_id)
+        if invoice:
+            self._refresh_paid_status(db, invoice)
+
+            audit_log_service.log(
+                db, "payment_recorded", "ticket", invoice.ticket_id, user_id=current_user_id,
+                details=f"Recorded ${new_payment.amount} payment ({new_payment.method}) on Invoice #{invoice.id}",
+            )
+
+        return new_payment
+
+    def update(self, db: Session, id: int, obj_in: PaymentUpdate, current_user_id: int):
         """
-        Update an existing Payment using validated input data.
+        Update an existing Payment, then re-checks the invoice's paid
+        status in case the amount changed.
 
         Args:
             db: Active database session.
             id: Primary key of the record to update.
             obj_in: Fields to change; unset fields are left untouched.
+            current_user_id: The user making this change -- recorded
+                in the audit trail.
 
         Returns:
             The updated Payment instance.
         """
         db_obj = crud_payment.get(db, id)
-        return crud_payment.update(db, db_obj, obj_in)
+        updated = crud_payment.update(db, db_obj, obj_in)
 
-    def delete(self, db: Session, id: int):
+        invoice = crud_invoice.get(db, updated.invoice_id)
+        if invoice:
+            self._refresh_paid_status(db, invoice)
+
+            audit_log_service.log(
+                db, "payment_updated", "ticket", invoice.ticket_id, user_id=current_user_id,
+                details=f"Updated payment #{id} on Invoice #{invoice.id}",
+            )
+
+        return updated
+
+    def delete(self, db: Session, id: int, current_user_id: int):
         """
-        Delete a Payment by ID.
+        Delete a Payment by ID, then re-checks the invoice's paid
+        status -- removing a payment can un-mark a previously-paid
+        invoice.
 
         Args:
             db: Active database session.
             id: Primary key of the record to delete.
+            current_user_id: The user performing this deletion --
+                recorded in the audit trail.
         """
-        return crud_payment.delete(db, id)
+        db_obj = crud_payment.get(db, id)
+        invoice_id = db_obj.invoice_id if db_obj else None
+
+        result = crud_payment.delete(db, id)
+
+        if invoice_id is not None:
+            invoice = crud_invoice.get(db, invoice_id)
+            if invoice:
+                self._refresh_paid_status(db, invoice)
+
+                audit_log_service.log(
+                    db, "payment_deleted", "ticket", invoice.ticket_id, user_id=current_user_id,
+                    details=f"Deleted payment #{id} from Invoice #{invoice_id}",
+                )
+
+        return result
+
+    # -----------------------------------------------------------------
+    # Internal helpers
+    # -----------------------------------------------------------------
+    def _refresh_paid_status(self, db: Session, invoice):
+        """
+        Recomputes total payments against this invoice and updates
+        is_paid to match -- True if total payments meet or exceed the
+        invoice's total, False otherwise (covers a payment being
+        edited down or deleted un-marking a previously-paid invoice).
+
+        Args:
+            db: Active database session.
+            invoice: The Invoice instance to check (already loaded).
+        """
+        payments = crud_payment.get_by_invoice(db, invoice.id)
+        total_paid = sum((p.amount for p in payments), start=Decimal("0"))
+        is_paid_now = total_paid >= invoice.total
+        if is_paid_now != invoice.is_paid:
+            invoice.is_paid = is_paid_now
+            db.commit()
 
 payment_service = PaymentService()

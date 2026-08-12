@@ -1,19 +1,33 @@
 # ER-ServiceDesk/app/services/audit_log_service.py
-# Service layer for AuditLog.
+# Service layer for AuditLog -- read/list, plus a reusable log() helper for other services.
 """
-Business logic for a record of a user action or system event, for security review and compliance.
+Business logic for the security/compliance audit trail.
 
-Coordinates CRUD operations and is where entity-specific rules should live
-as they're added. Route handlers call into this layer rather than the CRUD
-layer directly, so business rules stay in one place.
+No update()/delete() here -- matches the CRUD layer below this (see
+crud/audit_log.py): an audit trail that could be rewritten after the
+fact isn't trustworthy.
+
+log() is the real entry point other services actually use -- a small,
+reusable helper so instrumenting a new action elsewhere in the app is
+a one-line call, not hand-rolled AuditLogCreate construction at every
+call site. Deliberately swallows its own failures (logged, not
+raised) -- a transient audit-log write failure should never be able to
+break the real operation it's trying to record (e.g. a ticket
+genuinely being created shouldn't fail just because the audit write
+that describes it had a hiccup).
 """
+
+import logging
 
 from sqlalchemy.orm import Session
 from app.crud.audit_log import crud_audit_log
-from app.schemas.audit_log import AuditLogCreate, AuditLogUpdate
+from app.schemas.audit_log import AuditLogCreate
+
+logger = logging.getLogger(__name__)
+
 
 class AuditLogService:
-    """Business logic for AuditLog operations."""
+    """Read/list access to the audit trail, plus the log() helper other services call to write to it."""
 
     def get(self, db: Session, id: int):
         """
@@ -28,56 +42,70 @@ class AuditLogService:
         """
         return crud_audit_log.get(db, id)
 
-    def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
+    def get_multi(self, db: Session, skip: int = 0, limit: int = 500, user_id: int | None = None, entity_type: str | None = None, entity_id: int | None = None):
         """
-        Fetch a page of AuditLog records.
+        Fetch a page of AuditLog records, most recent first, optionally
+        filtered.
 
         Args:
             db: Active database session.
             skip: Number of records to skip.
             limit: Maximum number of records to return.
+            user_id: If given, only entries performed by this user.
+            entity_type: If given, only entries for this kind of entity.
+            entity_id: If given (along with entity_type), only entries
+                for that one specific entity instance.
 
         Returns:
             A list of AuditLog instances.
         """
-        return crud_audit_log.get_multi(db, skip, limit)
+        return crud_audit_log.get_multi(db, skip, limit, user_id, entity_type, entity_id)
 
-    def create(self, db: Session, obj_in: AuditLogCreate):
+    def log(
+        self,
+        db: Session,
+        action: str,
+        entity_type: str,
+        entity_id: int,
+        user_id: int | None = None,
+        details: str | None = None,
+    ) -> None:
         """
-        Create a new AuditLog using validated input data.
+        Records a single audit trail entry. The real entry point every
+        other service actually calls -- e.g.
+        audit_log_service.log(db, "ticket_created", "ticket", ticket.id, user_id=current_user_id).
+
+        Never raises -- any failure here is logged to the application's
+        own logger and swallowed, so a real, successful operation
+        (a ticket actually being created, a user actually logging in)
+        can never fail just because writing its own audit trail entry
+        had a problem.
 
         Args:
             db: Active database session.
-            obj_in: Validated input data for the new record.
-
-        Returns:
-            The newly created AuditLog instance.
+            action: Short label for the action, e.g. "login_success",
+                "ticket_created", "user_deleted".
+            entity_type: The kind of entity affected, e.g. "ticket",
+                "user", "customer".
+            entity_id: The specific entity instance's ID.
+            user_id: The user who performed the action, if any --
+                omitted (None) for a genuinely system-initiated action
+                with no specific user behind it.
+            details: Optional free-text context, e.g. "priority
+                changed from Normal to High".
         """
-        return crud_audit_log.create(db, obj_in)
-
-    def update(self, db: Session, id: int, obj_in: AuditLogUpdate):
-        """
-        Update an existing AuditLog using validated input data.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to update.
-            obj_in: Fields to change; unset fields are left untouched.
-
-        Returns:
-            The updated AuditLog instance.
-        """
-        db_obj = crud_audit_log.get(db, id)
-        return crud_audit_log.update(db, db_obj, obj_in)
-
-    def delete(self, db: Session, id: int):
-        """
-        Delete a AuditLog by ID.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to delete.
-        """
-        return crud_audit_log.delete(db, id)
+        try:
+            crud_audit_log.create(db, AuditLogCreate(
+                user_id=user_id,
+                action=action,
+                entity_type=entity_type,
+                entity_id=entity_id,
+                details=details,
+            ))
+        except Exception:
+            logger.exception(
+                "Failed to write audit log entry: action=%s entity_type=%s entity_id=%s user_id=%s",
+                action, entity_type, entity_id, user_id,
+            )
 
 audit_log_service = AuditLogService()

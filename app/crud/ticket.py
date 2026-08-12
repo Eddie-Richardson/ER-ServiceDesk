@@ -6,6 +6,15 @@ Database access layer for a support/repair job tracked from intake to completion
 Talks directly to the database via SQLAlchemy. Contains no business logic --
 callers (the service layer) are responsible for that. Kept intentionally
 "dumb" so it stays simple to test and reuse.
+
+Deliberately no delete() -- a real ticket deletion attempt uncovered a
+genuine bug (every table referencing a ticket, including StatusHistory,
+has ON DELETE NO ACTION at the database level, so deleting a ticket
+with any history/notes/etc. attached would simply fail). Rather than
+picking a cascade policy for customer conversation history, confirmed
+this was never reachable from the desktop app at all, and tickets are
+meant to only ever be closed via status, never hard-deleted -- so the
+capability is removed entirely instead of patched.
 """
 
 from sqlalchemy.orm import Session
@@ -76,18 +85,5 @@ class TicketCRUD:
         db.commit()
         db.refresh(db_obj)
         return db_obj
-
-    def delete(self, db: Session, id: int) -> None:
-        """
-        Delete a Ticket record by primary key, if it exists.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to delete.
-        """
-        obj = db.query(Ticket).filter(Ticket.id == id).first()
-        if obj:
-            db.delete(obj)
-            db.commit()
 
 crud_ticket = TicketCRUD()

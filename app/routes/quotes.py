@@ -62,16 +62,6 @@ def update_quote(
     return quote_service.update(db, id, obj_in, current_user.id)
 
 
-@router.delete("/{id}")
-def delete_quote(
-    id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Delete a Quote by ID. Its own line items are cascade-deleted with it."""
-    return quote_service.delete(db, id, current_user.id)
-
-
 @router.post("/{quote_id}/line-items", response_model=QuoteLineItem)
 def add_quote_line_item(
     quote_id: int,

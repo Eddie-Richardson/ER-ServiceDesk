@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.crud.user_role import crud_user_role
 from app.crud.user import crud_user
 from app.crud.role import crud_role
-from app.schemas.user_role import UserRoleCreate, UserRoleUpdate
+from app.schemas.user_role import UserRoleCreate
 from app.services.audit_log_service import audit_log_service
 
 class UserRoleService:
@@ -68,21 +68,6 @@ class UserRoleService:
         )
 
         return result
-
-    def update(self, db: Session, id: int, obj_in: UserRoleUpdate):
-        """
-        Update an existing UserRole using validated input data.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to update.
-            obj_in: Fields to change; unset fields are left untouched.
-
-        Returns:
-            The updated UserRole instance.
-        """
-        db_obj = crud_user_role.get(db, id)
-        return crud_user_role.update(db, db_obj, obj_in)
 
     def delete(self, db: Session, id: int, current_user_id: int):
         """

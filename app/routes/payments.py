@@ -15,7 +15,7 @@ from app.api.dependencies import require_permission, get_current_user
 from app.models.user import User
 from app.services.payment_service import payment_service
 from app.services.payment_email_service import payment_email_service
-from app.schemas.payment import Payment, PaymentCreate, PaymentUpdate
+from app.schemas.payment import Payment, PaymentCreate
 
 router = APIRouter(prefix="/payments", tags=["payments"], dependencies=[Depends(require_permission("billing.manage"))])
 
@@ -49,17 +49,6 @@ def create_payment(
     # payment that was already, genuinely recorded above.
     payment_email_service.send_receipt(db, new_payment)
     return new_payment
-
-
-@router.put("/{id}", response_model=Payment)
-def update_payment(
-    id: int,
-    obj_in: PaymentUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Update an existing Payment. Re-checks the invoice's paid status in case the amount changed."""
-    return payment_service.update(db, id, obj_in, current_user.id)
 
 
 @router.delete("/{id}")

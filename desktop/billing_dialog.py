@@ -91,6 +91,10 @@ class BillingDialog(QDialog):
         invoices_label.setObjectName("subtitle")
         outer_layout.addWidget(invoices_label)
 
+        new_invoice_button = QPushButton("New Invoice")
+        new_invoice_button.clicked.connect(self._on_new_invoice)
+        outer_layout.addWidget(new_invoice_button)
+
         self.invoices_table = QTableWidget()
         self.invoices_table.setColumnCount(len(INVOICE_COLUMN_HEADERS))
         self.invoices_table.setHorizontalHeaderLabels(INVOICE_COLUMN_HEADERS)
@@ -181,12 +185,30 @@ class BillingDialog(QDialog):
     # -----------------------------------------------------------------
     # Invoices
     # -----------------------------------------------------------------
+    def _on_new_invoice(self):
+        """Creates a new, empty invoice for this ticket directly -- no quote required, for jobs settled on the spot with no need for a prior estimate. Then opens it for line-item entry."""
+        try:
+            new_invoice = api_client.create_invoice(self.ticket_id)
+        except ApiError as e:
+            QMessageBox.critical(self, "Create Failed", str(e))
+            return
+
+        self._load_invoices()
+        self._open_invoice_detail(new_invoice["id"])
+
     def _on_invoice_double_clicked(self):
         """Opens the double-clicked invoice's detail screen."""
         selected_items = self.invoices_table.selectedItems()
         if not selected_items:
             return
         invoice = selected_items[0].data(Qt.ItemDataRole.UserRole)
-        dialog = InvoiceDetailDialog(invoice["id"], self.ticket_id, self.ticket_title, parent=self)
+        self._open_invoice_detail(invoice["id"])
+
+    def _open_invoice_detail(self, invoice_id: int):
+        """
+        Args:
+            invoice_id: The invoice to open.
+        """
+        dialog = InvoiceDetailDialog(invoice_id, self.ticket_id, self.ticket_title, parent=self)
         dialog.exec()
         self._load_invoices()

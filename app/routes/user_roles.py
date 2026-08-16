@@ -13,7 +13,7 @@ from app.db.session import get_db
 from app.api.dependencies import require_superuser, get_current_user
 from app.models.user import User
 from app.services.user_role_service import user_role_service
-from app.schemas.user_role import UserRole, UserRoleCreate, UserRoleUpdate
+from app.schemas.user_role import UserRole, UserRoleCreate
 
 router = APIRouter(prefix="/user_roles", tags=["user_roles"], dependencies=[Depends(require_superuser)])
 
@@ -64,20 +64,6 @@ def create_user_role(
     """
     return user_role_service.create(db, obj_in, current_user.id)
 
-@router.put("/{id}", response_model=UserRole)
-def update_user_role(id: int, obj_in: UserRoleUpdate, db: Session = Depends(get_db)):
-    """
-    Update an existing UserRole record.
-
-    Args:
-        id: Primary key of the record to update.
-        obj_in: Fields to change; unset fields are left untouched.
-        db: Injected database session.
-
-    Returns:
-        The updated UserRole record.
-    """
-    return user_role_service.update(db, id, obj_in)
 
 @router.delete("/{id}")
 def delete_user_role(

@@ -563,11 +563,6 @@ def list_parts() -> list[dict]:
     return _authed_get("/inventory/parts/")
 
 
-def list_low_stock_parts() -> list[dict]:
-    """Returns every part currently at or below its reorder threshold. Requires an active session."""
-    return _authed_get("/inventory/parts/low-stock")
-
-
 def create_part(payload: dict) -> dict:
     """
     Creates a new part.
@@ -871,20 +866,6 @@ def update_role(role_id: int, payload: dict) -> dict:
     return _authed_put(f"/roles/{role_id}", payload)
 
 
-def delete_role(role_id: int):
-    """
-    Deletes a role by id.
-
-    Args:
-        role_id: The role's id.
-
-    Raises:
-        ApiError: If the delete fails, including if users are still
-            assigned this role.
-    """
-    delete_lookup_item("/roles/", role_id)
-
-
 def create_role_permission(role_id: int, permission_id: int) -> dict:
     """
     Grants a permission to a role.
@@ -1184,11 +1165,6 @@ def update_quote(quote_id: int, payload: dict) -> dict:
     return _authed_put(f"/quotes/{quote_id}", payload)
 
 
-def delete_quote(quote_id: int):
-    """Deletes a quote by id. Its own line items are cascade-deleted with it."""
-    delete_lookup_item("/quotes/", quote_id)
-
-
 def add_quote_line_item(quote_id: int, quantity: int, service_id: int | None = None, part_id: int | None = None) -> dict:
     """Adds a line item to a quote -- exactly one of service_id/part_id -- snapshotting its current name/price server-side."""
     params = f"service_id={service_id}" if service_id is not None else f"part_id={part_id}"
@@ -1233,11 +1209,6 @@ def get_invoice(invoice_id: int) -> dict:
 def update_invoice(invoice_id: int, payload: dict) -> dict:
     """Updates an invoice's discount/tax selection, details, or is_paid."""
     return _authed_put(f"/invoices/{invoice_id}", payload)
-
-
-def delete_invoice(invoice_id: int):
-    """Deletes an invoice by id. Its own line items are cascade-deleted with it."""
-    delete_lookup_item("/invoices/", invoice_id)
 
 
 def add_invoice_line_item(invoice_id: int, quantity: int, service_id: int | None = None, part_id: int | None = None) -> dict:

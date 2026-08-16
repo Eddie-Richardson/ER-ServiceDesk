@@ -802,30 +802,6 @@ begin
     Result := not IsClientMode();
 end;
 
-{ Wraps a value for safe inclusion in .env, escaping the two characters
-  that would otherwise corrupt the file if written raw: a literal
-  backslash (would be misread as starting an escape sequence) and a
-  literal double-quote (would prematurely close the quoted value).
-  Verified directly against python-dotenv's own documentation --
-  double-quoted values safely contain a literal # (normally a comment
-  marker) and even a genuine embedded newline, so quoting alone,
-  combined with escaping just these two characters, is sufficient to
-  let the admin type absolutely anything into these fields without
-  ever corrupting .env, no character blocked or restricted at all.
-  StringChangeEx modifies its first argument in place (a var
-  parameter) rather than returning the changed string -- its own
-  Integer return value (a count of replacements made) is deliberately
-  unused here. }
-function EscapeForEnvFile(const Value: String): String;
-var
-  Escaped: String;
-begin
-  Escaped := Value;
-  StringChangeEx(Escaped, '\', '\\', True);
-  StringChangeEx(Escaped, '"', '\"', True);
-  Result := '"' + Escaped + '"';
-end;
-
 { Basic structural email validation -- Inno's Pascal Script has no
   regex support, so this checks the real structural requirements
   manually instead: exactly one @ symbol, a non-empty part on each
@@ -866,14 +842,12 @@ end;
   pre-populated selections with no invalid state, or (ClientAddressPage)
   validated already elsewhere.
 
-  Email blocks on invalid format -- a wrong email here means the app
-  can never send messages until someone manually edits .env later,
-  worth stopping at install time rather than discovering it's broken
-  after the fact. Business name only requires non-empty -- there's no
-  meaningful invalid FORMAT for a name, and EscapeForEnvFile (used in
-  WriteEnvFiles) already makes any actual character content safe to
-  write, so nothing here needs to restrict what characters are
-  allowed. SMTP/IMAP get format-only checks (a real connection test at
+  Email blocks on invalid format -- a wrong email here means the shop
+  can never actually send anything until someone corrects it later
+  through Settings -> Business Info, worth stopping at install time
+  rather than discovering it's broken after the fact. Business name
+  only requires non-empty -- there's no meaningful invalid format for
+  a name. SMTP/IMAP get format-only checks (a real connection test at
   install time risks blocking or slowing the whole install on a
   network hiccup having nothing to do with whether the settings
   THEMSELVES are valid) -- host non-empty and space-free, port a real

@@ -125,15 +125,24 @@ def test_role_permissions_crud(client, superuser_headers, db):
 
 
 def test_user_roles_crud(client, superuser_headers, db):
+    """UserRole is a pure join record -- add/remove is the real pattern (see RoleSaveWorker/UserSaveWorker), never an in-place edit. Update is confirmed rejected rather than tested as working."""
     user = make_plain_user(db)
     role = make_role(db)
+
+    create_resp = client.post("/user_roles/", json={"user_id": user.id, "role_id": role.id}, headers=superuser_headers)
+    assert create_resp.status_code == 200, create_resp.text
+    user_role_id = create_resp.json()["id"]
+
+    list_resp = client.get("/user_roles/", headers=superuser_headers)
+    assert list_resp.status_code == 200
+    assert any(item["id"] == user_role_id for item in list_resp.json())
+
     role2 = make_role(db, name="Manager")
-    _assert_crud_lifecycle(
-        client, superuser_headers, "/user_roles",
-        {"user_id": user.id, "role_id": role.id},
-        {"role_id": role2.id},
-        update_check_field="role_id",
-    )
+    update_resp = client.put(f"/user_roles/{user_role_id}", json={"role_id": role2.id}, headers=superuser_headers)
+    assert update_resp.status_code == 405
+
+    delete_resp = client.delete(f"/user_roles/{user_role_id}", headers=superuser_headers)
+    assert delete_resp.status_code in (200, 204)
 
 
 def test_system_settings_crud(client, superuser_headers):
@@ -278,14 +287,26 @@ def test_messages_crud(client, superuser_headers, db):
 
 
 def test_quotes_crud(client, agent_headers, db):
-    """Quote creation starts empty (ticket_id only) -- line items get added separately, one at a time, via their own endpoint. See test_billing.py (if/when written) for the line-item/totals flow."""
+    """Quote creation starts empty (ticket_id only) -- line items get added separately, one at a time, via their own endpoint. Quotes are deliberately not deletable (financial record) -- no create-then-delete lifecycle here, delete is confirmed rejected instead."""
     ticket = make_full_ticket(db)
-    _assert_crud_lifecycle(
-        client, agent_headers, "/quotes",
-        {"ticket_id": ticket.id, "details": "Screen + labor"},
-        {"details": "Screen replacement + labor"},
-        update_check_field="details",
-    )
+
+    create_resp = client.post("/quotes/", json={"ticket_id": ticket.id, "details": "Screen + labor"}, headers=agent_headers)
+    assert create_resp.status_code == 200, create_resp.text
+    quote_id = create_resp.json()["id"]
+
+    list_resp = client.get("/quotes/", headers=agent_headers)
+    assert list_resp.status_code == 200
+    assert any(item["id"] == quote_id for item in list_resp.json())
+
+    get_resp = client.get(f"/quotes/{quote_id}", headers=agent_headers)
+    assert get_resp.status_code == 200
+
+    update_resp = client.put(f"/quotes/{quote_id}", json={"details": "Screen replacement + labor"}, headers=agent_headers)
+    assert update_resp.status_code == 200, update_resp.text
+    assert update_resp.json()["details"] == "Screen replacement + labor"
+
+    delete_resp = client.delete(f"/quotes/{quote_id}", headers=agent_headers)
+    assert delete_resp.status_code == 405
 
 
 def test_status_histories_is_read_only(client, agent_headers, db):
@@ -307,25 +328,46 @@ def test_status_histories_is_read_only(client, agent_headers, db):
 # ---------------------------------------------------------------------------
 
 def test_invoices_crud(client, agent_headers, db):
-    """Invoice creation starts empty (ticket_id only), same as Quote -- see test_quotes_crud."""
+    """Invoice creation starts empty (ticket_id only), same as Quote. Invoices are deliberately not deletable (financial record) -- see test_quotes_crud for the same reasoning."""
     ticket = make_full_ticket(db)
-    _assert_crud_lifecycle(
-        client, agent_headers, "/invoices",
-        {"ticket_id": ticket.id},
-        {"is_paid": True},
-        update_check_field="is_paid",
-    )
+
+    create_resp = client.post("/invoices/", json={"ticket_id": ticket.id}, headers=agent_headers)
+    assert create_resp.status_code == 200, create_resp.text
+    invoice_id = create_resp.json()["id"]
+
+    list_resp = client.get("/invoices/", headers=agent_headers)
+    assert list_resp.status_code == 200
+    assert any(item["id"] == invoice_id for item in list_resp.json())
+
+    get_resp = client.get(f"/invoices/{invoice_id}", headers=agent_headers)
+    assert get_resp.status_code == 200
+
+    update_resp = client.put(f"/invoices/{invoice_id}", json={"is_paid": True}, headers=agent_headers)
+    assert update_resp.status_code == 200, update_resp.text
+    assert update_resp.json()["is_paid"] is True
+
+    delete_resp = client.delete(f"/invoices/{invoice_id}", headers=agent_headers)
+    assert delete_resp.status_code == 405
 
 
 def test_payments_crud(client, agent_headers, db):
+    """Editing a recorded payment in place is deliberately not supported -- it would leave no trail and wouldn't trigger a corrected receipt. Delete-and-re-record is the correct pattern instead; update is confirmed rejected."""
     ticket = make_full_ticket(db)
     invoice = make_invoice(db, ticket.id)
-    _assert_crud_lifecycle(
-        client, agent_headers, "/payments",
-        {"invoice_id": invoice.id, "amount": 200.0, "method": "cash"},
-        {"method": "credit_card"},
-        update_check_field="method",
-    )
+
+    create_resp = client.post("/payments/", json={"invoice_id": invoice.id, "amount": 200.0, "method": "cash"}, headers=agent_headers)
+    assert create_resp.status_code == 200, create_resp.text
+    payment_id = create_resp.json()["id"]
+
+    list_resp = client.get("/payments/", headers=agent_headers)
+    assert list_resp.status_code == 200
+    assert any(item["id"] == payment_id for item in list_resp.json())
+
+    update_resp = client.put(f"/payments/{payment_id}", json={"method": "credit_card"}, headers=agent_headers)
+    assert update_resp.status_code == 405
+
+    delete_resp = client.delete(f"/payments/{payment_id}", headers=agent_headers)
+    assert delete_resp.status_code in (200, 204)
 
 
 # ---------------------------------------------------------------------------

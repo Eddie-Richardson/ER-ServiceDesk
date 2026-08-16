@@ -40,24 +40,6 @@ class PartCRUD:
         """
         return db.query(Part).offset(skip).limit(limit).all()
 
-    def get_low_stock(self, db: Session):
-        """
-        Fetch every part whose total quantity (summed across every
-        location it's stored at) is at or below its reorder threshold.
-
-        Computed in Python rather than as a SQL WHERE clause, since
-        quantity_on_hand is a computed property (summing part_locations
-        rows) rather than a real column -- straightforward and correct
-        at the scale of one shop's parts inventory.
-
-        Args:
-            db: Active database session.
-
-        Returns:
-            A list of Part instances that need reordering.
-        """
-        return [p for p in db.query(Part).all() if p.quantity_on_hand <= p.reorder_threshold]
-
     def create(self, db: Session, obj_in: PartCreate) -> Part:
         """
         Insert a new Part record, rejecting duplicate SKUs.

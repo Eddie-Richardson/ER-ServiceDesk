@@ -1,8 +1,8 @@
 # ER-ServiceDesk/tests/test_inventory.py
-# Tests for Asset/Part duplicate-key business rules and Part low-stock lookup.
+# Tests for Asset/Part duplicate-key business rules.
 """
 Covers the duplicate-serial-number (Asset) and duplicate-SKU (Part) checks
-ported from InventoryHub, plus the low-stock endpoint that Part adds.
+ported from InventoryHub.
 """
 
 
@@ -27,23 +27,3 @@ def test_duplicate_part_sku_rejected(client, agent_headers):
     second = client.post("/inventory/parts/", json=payload, headers=agent_headers)
     assert second.status_code == 400
 
-
-def test_low_stock_endpoint_returns_only_parts_at_or_below_threshold(client, agent_headers, db):
-    from tests.factories import make_location
-    location = make_location(db)
-    client.post(
-        "/inventory/parts/",
-        json={"name": "Low Stock Part", "sku": "SKU-LOW", "reorder_threshold": 5, "locations": [{"location_id": location.id, "quantity": 2}]},
-        headers=agent_headers,
-    )
-    client.post(
-        "/inventory/parts/",
-        json={"name": "Well Stocked Part", "sku": "SKU-HIGH", "reorder_threshold": 5, "locations": [{"location_id": location.id, "quantity": 50}]},
-        headers=agent_headers,
-    )
-
-    response = client.get("/inventory/parts/low-stock", headers=agent_headers)
-    assert response.status_code == 200
-    names = [p["name"] for p in response.json()]
-    assert "Low Stock Part" in names
-    assert "Well Stocked Part" not in names

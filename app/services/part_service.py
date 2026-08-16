@@ -48,18 +48,6 @@ class PartService:
         """
         return crud_part.get_multi(db, skip, limit)
 
-    def get_low_stock(self, db: Session):
-        """
-        Fetch every part at or below its reorder threshold.
-
-        Args:
-            db: Active database session.
-
-        Returns:
-            A list of Part instances that need reordering.
-        """
-        return crud_part.get_low_stock(db)
-
     def create(self, db: Session, obj_in: PartCreate):
         """
         Create a new Part using validated input data, then apply its

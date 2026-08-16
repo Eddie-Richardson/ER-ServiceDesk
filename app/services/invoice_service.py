@@ -125,30 +125,6 @@ class InvoiceService:
 
         return updated
 
-    def delete(self, db: Session, id: int, current_user_id: int):
-        """
-        Delete an Invoice by ID. Its own line items are cascade-deleted
-        with it, same reasoning as Quote.delete().
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to delete.
-            current_user_id: The user performing this deletion --
-                recorded in the audit trail.
-        """
-        db_obj = crud_invoice.get(db, id)
-        ticket_id = db_obj.ticket_id if db_obj else None
-
-        result = crud_invoice.delete(db, id)
-
-        if ticket_id is not None:
-            audit_log_service.log(
-                db, "invoice_deleted", "ticket", ticket_id, user_id=current_user_id,
-                details=f"Invoice #{id} deleted",
-            )
-
-        return result
-
     # -----------------------------------------------------------------
     # Line items
     # -----------------------------------------------------------------

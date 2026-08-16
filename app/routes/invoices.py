@@ -54,16 +54,6 @@ def update_invoice(
     return invoice_service.update(db, id, obj_in, current_user.id)
 
 
-@router.delete("/{id}")
-def delete_invoice(
-    id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Delete an Invoice by ID. Its own line items are cascade-deleted with it."""
-    return invoice_service.delete(db, id, current_user.id)
-
-
 @router.post("/{invoice_id}/line-items", response_model=InvoiceLineItem)
 def add_invoice_line_item(
     invoice_id: int,

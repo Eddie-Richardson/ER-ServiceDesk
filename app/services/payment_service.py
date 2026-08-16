@@ -13,7 +13,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 from app.crud.payment import crud_payment
 from app.crud.invoice import crud_invoice
-from app.schemas.payment import PaymentCreate, PaymentUpdate
+from app.schemas.payment import PaymentCreate
 from app.services.audit_log_service import audit_log_service
 
 
@@ -96,35 +96,6 @@ class PaymentService:
         # this method sends the receipt itself, at the point where its
         # own state is actually final.
         return new_payment
-
-    def update(self, db: Session, id: int, obj_in: PaymentUpdate, current_user_id: int):
-        """
-        Update an existing Payment, then re-checks the invoice's paid
-        status in case the amount changed.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to update.
-            obj_in: Fields to change; unset fields are left untouched.
-            current_user_id: The user making this change -- recorded
-                in the audit trail.
-
-        Returns:
-            The updated Payment instance.
-        """
-        db_obj = crud_payment.get(db, id)
-        updated = crud_payment.update(db, db_obj, obj_in)
-
-        invoice = crud_invoice.get(db, updated.invoice_id)
-        if invoice:
-            self._refresh_paid_status(db, invoice)
-
-            audit_log_service.log(
-                db, "payment_updated", "ticket", invoice.ticket_id, user_id=current_user_id,
-                details=f"Updated payment #{id} on Invoice #{invoice.id}",
-            )
-
-        return updated
 
     def delete(self, db: Session, id: int, current_user_id: int):
         """

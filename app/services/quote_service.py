@@ -130,31 +130,6 @@ class QuoteService:
 
         return updated
 
-    def delete(self, db: Session, id: int, current_user_id: int):
-        """
-        Delete a Quote by ID. Its own line items are cascade-deleted
-        with it (see Quote.line_items' own cascade setting) -- they're
-        a structural detail of this quote, not an independent record.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to delete.
-            current_user_id: The user performing this deletion --
-                recorded in the audit trail.
-        """
-        db_obj = crud_quote.get(db, id)
-        ticket_id = db_obj.ticket_id if db_obj else None
-
-        result = crud_quote.delete(db, id)
-
-        if ticket_id is not None:
-            audit_log_service.log(
-                db, "quote_deleted", "ticket", ticket_id, user_id=current_user_id,
-                details=f"Quote #{id} deleted",
-            )
-
-        return result
-
     # -----------------------------------------------------------------
     # Line items
     # -----------------------------------------------------------------

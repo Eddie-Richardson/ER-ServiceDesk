@@ -57,6 +57,8 @@ class CustomersWindow(QWidget):
         self.all_customers: list[dict] = []
         self.all_devices: list[dict] = []
         self.locations: list[dict] = []
+        self.all_invoices: list[dict] = []
+        self.all_tickets: list[dict] = []
         self._lock_gate = LockGate(self)
 
         self._build_ui()
@@ -166,6 +168,8 @@ class CustomersWindow(QWidget):
         self.all_customers = result["customers"]
         self.all_devices = result["devices"]
         self.locations = result["locations"]
+        self.all_invoices = result["invoices"]
+        self.all_tickets = result["tickets"]
         self._apply_search()
 
     # -----------------------------------------------------------------
@@ -226,7 +230,7 @@ class CustomersWindow(QWidget):
     # -----------------------------------------------------------------
     def _open_new_customer_dialog(self):
         """Opens the customer form in create mode; refreshes the list if a customer was saved."""
-        dialog = CustomerFormDialog(None, self.all_devices, self.locations, parent=self)
+        dialog = CustomerFormDialog(None, self.all_devices, self.locations, self.all_invoices, self.all_tickets, self.all_customers, parent=self)
         if dialog.exec():
             self._load_data()
 
@@ -239,7 +243,7 @@ class CustomersWindow(QWidget):
         customer = selected_items[0].data(Qt.ItemDataRole.UserRole)
 
         def build_dialog():
-            return CustomerFormDialog(customer, self.all_devices, self.locations, parent=self)
+            return CustomerFormDialog(customer, self.all_devices, self.locations, self.all_invoices, self.all_tickets, self.all_customers, parent=self)
 
         def on_closed(dialog):
             if dialog.result():

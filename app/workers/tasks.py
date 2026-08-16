@@ -173,7 +173,7 @@ def poll_inbound_email() -> dict:
     db = SessionLocal()
     job = background_job_service.start(db, "poll_inbound_email")
     try:
-        for inbound in fetch_unread_emails():
+        for inbound in fetch_unread_emails(db):
             if inbound.ticket_id is None:
                 logger.warning(
                     "Unmatched inbound email from %s (subject=%r): no "

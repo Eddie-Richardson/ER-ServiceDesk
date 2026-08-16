@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 from app.crud.quote import crud_quote
 from app.crud.quote_line_item import crud_quote_line_item
 from app.crud.service import crud_service
+from app.crud.part import crud_part
 from app.crud.discount import crud_discount
 from app.crud.tax_rate import crud_tax_rate
 from app.crud.invoice import crud_invoice
@@ -157,38 +158,62 @@ class QuoteService:
     # -----------------------------------------------------------------
     # Line items
     # -----------------------------------------------------------------
-    def add_line_item(self, db: Session, quote_id: int, service_id: int, quantity: int, current_user_id: int):
+    def add_line_item(self, db: Session, quote_id: int, quantity: int, current_user_id: int, service_id: int | None = None, part_id: int | None = None):
         """
-        Adds a new line item to a quote, snapshotting the service's
-        current name and price, then recalculates totals.
+        Adds a new line item to a quote -- either a service or a real
+        inventory part, snapshotting its current name and price, then
+        recalculates totals. Never touches inventory -- a quote isn't
+        a real transaction yet; see invoice_service.add_line_item()
+        for where part deduction actually happens.
 
         Args:
             db: Active database session.
             quote_id: The quote to add this line item to.
-            service_id: The service being added.
             quantity: How many units.
             current_user_id: The user adding this line item -- recorded
                 in the audit trail.
+            service_id: The service being added, if this is a service line.
+            part_id: The part being added, if this is a part line.
 
         Returns:
             The newly created QuoteLineItem instance.
 
         Raises:
-            HTTPException: 404 if the service doesn't exist.
+            HTTPException: 400 if neither or both of service_id/part_id
+                are given. 404 if the referenced service/part doesn't
+                exist. 400 if the part has no selling_price configured.
         """
-        service = crud_service.get(db, service_id)
-        if not service:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
+        if (service_id is None) == (part_id is None):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Provide exactly one of service_id or part_id.")
 
-        line_item = crud_quote_line_item.create(db, quote_id, service_id, service.name, quantity, service.price)
+        if service_id is not None:
+            service = crud_service.get(db, service_id)
+            if not service:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
+            line_item = crud_quote_line_item.create(
+                db, quote_id, quantity, service.price, service_id=service_id, service_name=service.name,
+            )
+            item_name, item_price = service.name, service.price
+        else:
+            part = crud_part.get(db, part_id)
+            if not part:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Part not found")
+            if part.selling_price is None:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"'{part.name}' has no selling price set -- add one in Inventory before billing it.")
+            line_item = crud_quote_line_item.create(
+                db, quote_id, quantity, part.selling_price, part_id=part_id, part_name=part.name,
+            )
+            item_name, item_price = part.name, part.selling_price
 
         quote = crud_quote.get(db, quote_id)
         self._recalculate(db, quote)
 
         audit_log_service.log(
             db, "quote_line_item_added", "ticket", quote.ticket_id, user_id=current_user_id,
-            details=f"Added {service.name} x{quantity} (${service.price}) to Quote #{quote_id}",
+            details=f"Added {item_name} x{quantity} (${item_price}) to Quote #{quote_id}",
         )
+
+        return line_item
 
         return line_item
 
@@ -214,7 +239,7 @@ class QuoteService:
 
         audit_log_service.log(
             db, "quote_line_item_updated", "ticket", quote.ticket_id, user_id=current_user_id,
-            details=f"Updated {updated.service_name} to x{updated.quantity} on Quote #{updated.quote_id}",
+            details=f"Updated {updated.service_name or updated.part_name} to x{updated.quantity} on Quote #{updated.quote_id}",
         )
 
         return updated
@@ -234,7 +259,7 @@ class QuoteService:
             return
 
         quote_id = db_obj.quote_id
-        service_name = db_obj.service_name
+        item_name = db_obj.service_name or db_obj.part_name
 
         crud_quote_line_item.delete(db, line_item_id)
 
@@ -243,7 +268,7 @@ class QuoteService:
 
         audit_log_service.log(
             db, "quote_line_item_removed", "ticket", quote.ticket_id, user_id=current_user_id,
-            details=f"Removed {service_name} from Quote #{quote_id}",
+            details=f"Removed {item_name} from Quote #{quote_id}",
         )
 
     # -----------------------------------------------------------------

@@ -220,21 +220,25 @@ class MigrateToServerWorker(QObject):
         """
         Reads a single KEY=value line's value directly out of the
         local .env file -- these values travel to the server as-is
-        (the exact same email credentials, mail server settings,
-        business name, SECRET_KEY, and DEVICE_ACCOUNT_ENCRYPTION_KEY),
-        matching the original design: only the Postgres password needs
-        special reconciliation on the server side, since it's baked
+        (SECRET_KEY and DEVICE_ACCOUNT_ENCRYPTION_KEY), matching the
+        original design: only the Postgres password needs special
+        reconciliation on the server side, since it's baked
         into Postgres itself rather than being a
         plain config value.
 
+        Business name, email credentials, and SMTP/IMAP settings are
+        NOT carried this way -- those are real database rows now (see
+        app/services/business_info_service.py), so the database dump
+        itself already carries them over correctly. No .env
+        involvement needed for those at all.
+
         setup.iss's own WriteEnvFiles wraps every value in double
         quotes now (EscapeForEnvFile, escaping literal " and \\ inside
-        it) -- this reverses that exactly, so a value like
-        BUSINESS_NAME="Bob's Shop" comes back as the clean Bob's Shop,
-        not the literal quoted text. Confirmed necessary directly:
-        without this, migration would send every value with its
-        surrounding quote characters baked in as part of the actual
-        data.
+        it) -- this reverses that exactly, so a value comes back
+        clean, not as the literal quoted text. Confirmed necessary
+        directly: without this, migration would send every value with
+        its surrounding quote characters baked in as part of the
+        actual data.
         """
         env_path = os.path.join(self.compose_dir, ".env")
         with open(env_path, "r") as f:
@@ -275,21 +279,9 @@ class MigrateToServerWorker(QObject):
         """
         headers = {
             "X-Migration-Token": self.migration_token,
-            "X-Email-Address": self._read_env_value("EMAIL_ADDRESS"),
-            "X-Email-Password": self._read_env_value("EMAIL_PASSWORD"),
-            "X-Business-Name": self._read_env_value("BUSINESS_NAME"),
             "X-Secret-Key": self._read_env_value("SECRET_KEY"),
             "X-Device-Account-Encryption-Key": self._read_env_value("DEVICE_ACCOUNT_ENCRYPTION_KEY"),
             "X-Postgres-Password": self._read_env_value("POSTGRES_PASSWORD"),
-            # Carried through so a migrated server keeps whatever real
-            # mail provider the original Local install was configured
-            # for -- without this, the server would silently fall back
-            # to config.py's own Gmail-matching defaults regardless of
-            # what the admin actually set up on Local.
-            "X-Smtp-Host": self._read_env_value("SMTP_HOST"),
-            "X-Smtp-Port": self._read_env_value("SMTP_PORT"),
-            "X-Imap-Host": self._read_env_value("IMAP_HOST"),
-            "X-Imap-Port": self._read_env_value("IMAP_PORT"),
         }
         url = f"http://{self.server_address}:8001/migrate/"
 

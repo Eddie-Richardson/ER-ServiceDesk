@@ -90,6 +90,7 @@ class UserService:
 
         try:
             send_email(
+                db=db,
                 to_address=obj_in.email,
                 subject="Your ER-ServiceDesk account",
                 body=(
@@ -153,6 +154,7 @@ class UserService:
 
         try:
             send_email(
+                db=db,
                 to_address=db_obj.email,
                 subject="Your ER-ServiceDesk password has been reset",
                 body=(

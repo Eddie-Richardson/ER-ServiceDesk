@@ -38,24 +38,31 @@ class InvoiceLineItemCRUD:
         """
         return db.query(InvoiceLineItem).filter(InvoiceLineItem.invoice_id == invoice_id).all()
 
-    def create(self, db: Session, invoice_id: int, service_id: int, service_name: str, quantity: int, unit_price) -> InvoiceLineItem:
+    def create(self, db: Session, invoice_id: int, quantity: int, unit_price, service_id: int | None = None, service_name: str | None = None, part_id: int | None = None, part_name: str | None = None) -> InvoiceLineItem:
         """
         Insert a new InvoiceLineItem record. Takes explicit fields
-        rather than a schema, since service_name and unit_price are
-        server-computed snapshots never accepted from the client.
+        rather than a schema, since the *_name fields and unit_price
+        are server-computed snapshots never accepted from the client.
 
         Args:
             db: Active database session.
             invoice_id: The invoice this line item belongs to.
-            service_id: The service being billed.
-            service_name: The service's name at this moment, snapshotted.
             quantity: How many units.
-            unit_price: The service's price at this moment, snapshotted.
+            unit_price: The service's price or the part's
+                selling_price at this moment, snapshotted.
+            service_id: The service being billed, if this is a service line.
+            service_name: The service's name at this moment, snapshotted.
+            part_id: The part being billed, if this is a part line.
+            part_name: The part's name at this moment, snapshotted.
 
         Returns:
             The newly created, refreshed InvoiceLineItem instance.
         """
-        obj = InvoiceLineItem(invoice_id=invoice_id, service_id=service_id, service_name=service_name, quantity=quantity, unit_price=unit_price)
+        obj = InvoiceLineItem(
+            invoice_id=invoice_id, quantity=quantity, unit_price=unit_price,
+            service_id=service_id, service_name=service_name,
+            part_id=part_id, part_name=part_name,
+        )
         db.add(obj)
         db.commit()
         db.refresh(obj)

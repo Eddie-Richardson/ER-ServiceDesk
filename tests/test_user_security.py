@@ -7,8 +7,9 @@ were fixed; these tests exist so neither regresses silently.
 """
 
 
-def test_create_user_response_excludes_hashed_password(client, superuser_headers):
+def test_create_user_response_excludes_hashed_password(client, superuser_headers, monkeypatch):
     """Creating a user never echoes back the hash, even though it accepts a plaintext password."""
+    monkeypatch.setattr("app.services.user_service.send_email", lambda db, **kwargs: None)
     response = client.post(
         "/users/",
         json={
@@ -25,8 +26,9 @@ def test_create_user_response_excludes_hashed_password(client, superuser_headers
     assert "password" not in body
 
 
-def test_list_users_excludes_hashed_password(client, superuser_headers, db):
+def test_list_users_excludes_hashed_password(client, superuser_headers, db, monkeypatch):
     """Listing users never includes the hash for any account, including seeded ones."""
+    monkeypatch.setattr("app.services.user_service.send_email", lambda db, **kwargs: None)
     client.post(
         "/users/",
         json={
@@ -44,9 +46,10 @@ def test_list_users_excludes_hashed_password(client, superuser_headers, db):
         assert "hashed_password" not in user
 
 
-def test_created_user_password_is_actually_hashed_in_db(client, superuser_headers, db):
+def test_created_user_password_is_actually_hashed_in_db(client, superuser_headers, db, monkeypatch):
     """The stored hashed_password is never the plaintext password itself."""
     from app.models.user import User
+    monkeypatch.setattr("app.services.user_service.send_email", lambda db, **kwargs: None)
 
     client.post(
         "/users/",

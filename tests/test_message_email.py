@@ -41,7 +41,7 @@ def test_outbound_message_sends_email_with_ticket_subject(db, monkeypatch):
 
     sent = {}
 
-    def fake_send_email(to_address, subject, body):
+    def fake_send_email(db, to_address, subject, body):
         sent["to_address"] = to_address
         sent["subject"] = subject
         sent["body"] = body
@@ -69,7 +69,7 @@ def test_inbound_message_does_not_send_email(db, monkeypatch):
 
     called = {"count": 0}
 
-    def fake_send_email(to_address, subject, body):
+    def fake_send_email(db, to_address, subject, body):
         called["count"] += 1
 
     monkeypatch.setattr("app.services.message_service.send_email", fake_send_email)
@@ -91,7 +91,7 @@ def test_outbound_message_persists_even_if_send_fails(db, monkeypatch):
     deps = make_ticket_dependencies(db)
     ticket = _make_ticket(db, deps)
 
-    def failing_send_email(to_address, subject, body):
+    def failing_send_email(db, to_address, subject, body):
         raise RuntimeError("SMTP connection refused")
 
     monkeypatch.setattr("app.services.message_service.send_email", failing_send_email)
@@ -123,7 +123,7 @@ def test_failed_send_is_logged_with_full_content_for_manual_followup(db, monkeyp
     deps = make_ticket_dependencies(db)
     ticket = _make_ticket(db, deps)
 
-    def failing_send_email(to_address, subject, body):
+    def failing_send_email(db, to_address, subject, body):
         raise RuntimeError("SMTP connection refused")
 
     monkeypatch.setattr("app.services.message_service.send_email", failing_send_email)

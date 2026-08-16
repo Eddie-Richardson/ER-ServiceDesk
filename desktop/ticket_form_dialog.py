@@ -285,6 +285,7 @@ class TicketFormDialog(QDialog):
         notes_button = None
         history_button = None
         billing_button = None
+        waiver_button = None
         if self.ticket:
             notes_button = QPushButton("Notes")
             notes_button.setObjectName("secondary")
@@ -301,6 +302,11 @@ class TicketFormDialog(QDialog):
             billing_button.setFixedHeight(layout.BUTTON_HEIGHT)
             billing_button.clicked.connect(self._open_billing_dialog)
 
+            waiver_button = QPushButton("Send Waiver")
+            waiver_button.setObjectName("secondary")
+            waiver_button.setFixedHeight(layout.BUTTON_HEIGHT)
+            waiver_button.clicked.connect(self._on_send_waiver)
+
         bottom_bar = QWidget()
         bottom_layout = QVBoxLayout()
         bottom_layout.setContentsMargins(
@@ -316,6 +322,11 @@ class TicketFormDialog(QDialog):
             bottom_layout.addWidget(history_button)
         if billing_button:
             bottom_layout.addWidget(billing_button)
+        if waiver_button:
+            bottom_layout.addWidget(waiver_button)
+            self.waiver_status_label = QLabel(self._format_waiver_status())
+            self.waiver_status_label.setObjectName("subtitle")
+            bottom_layout.addWidget(self.waiver_status_label)
         bottom_layout.addWidget(cancel_button)
         bottom_bar.setLayout(bottom_layout)
         outer_layout.addWidget(bottom_bar)
@@ -385,6 +396,45 @@ class TicketFormDialog(QDialog):
             dialog.exec()
         except Exception:
             QMessageBox.critical(self, "Billing Error", traceback.format_exc())
+
+    def _format_waiver_status(self) -> str:
+        """
+        Returns:
+            "Waiver sent on YYYY-MM-DD." if it's ever been sent, or a
+            plain "not yet sent" message otherwise. Only ever called
+            when self.ticket is set (the waiver button doesn't exist
+            otherwise).
+        """
+        sent_at = self.ticket.get("waiver_sent_at")
+        if sent_at:
+            return f"Waiver sent on {sent_at[:10]}."
+        return "Waiver not yet sent."
+
+    def _on_send_waiver(self):
+        """
+        Confirms, then emails the liability waiver to this ticket's
+        customer -- email-only, no print/signature path (see the
+        design discussion this came out of). Only ever called when
+        self.ticket is set (the waiver button doesn't exist otherwise).
+        """
+        confirmed = QMessageBox.question(
+            self,
+            "Send Liability Waiver",
+            "Email the liability waiver to this customer? Their reply will come back as a note on this ticket, same as any other customer email.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if confirmed != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            updated_ticket = api_client.send_waiver(self.ticket["id"])
+        except ApiError as e:
+            QMessageBox.critical(self, "Send Failed", str(e))
+            return
+
+        self.ticket = updated_ticket
+        self.waiver_status_label.setText(self._format_waiver_status())
 
     def _build_parts_section(self) -> QWidget:
         """

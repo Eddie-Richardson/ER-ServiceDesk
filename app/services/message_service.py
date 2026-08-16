@@ -119,7 +119,7 @@ class MessageService:
         subject = format_ticket_subject(ticket.id, ticket.title)
 
         try:
-            send_email(customer.email, subject, message.content)
+            send_email(db, customer.email, subject, message.content)
         except Exception:
             logger.exception(
                 "FAILED TO SEND Message id=%s (ticket_id=%s) to customer %s. "

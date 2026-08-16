@@ -24,6 +24,8 @@ from app.core.security import create_access_token, hash_password
 from app.models.user import User
 from app.models.role import Role
 from app.models.user_role import UserRole
+from app.models.permission import Permission
+from app.models.role_permission import RolePermission
 
 TEST_DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL",
@@ -118,12 +120,43 @@ def superuser_headers(db):
 @pytest.fixture
 def agent_headers(db):
     """
-    Create a non-superuser (regular staff) user and return an
+    Create a non-superuser (regular staff) user, grant it every
+    ordinary (non-superuser-only) permission, and return an
     Authorization header dict for it.
 
-    Use this in tests that need standard authenticated access but should
-    be rejected from admin-only routes.
+    Use this in tests that need standard authenticated staff access to
+    genuinely succeed (customers/tickets/inventory/billing routes,
+    etc.) but should still be correctly rejected from admin-only
+    routes, since this user stays is_superuser=False. Creates its own
+    Permission/Role/RolePermission rows directly rather than relying
+    on seed data, since the test database is never seeded (only
+    migrated) -- this needs to work regardless of seeding.
     """
     user = _make_user(db, "agent_test@example.com", is_superuser=False)
+
+    role = db.query(Role).filter_by(name="_test_full_agent").first()
+    if role is None:
+        role = Role(name="_test_full_agent", description="Test-only role granting every ordinary permission")
+        db.add(role)
+        db.commit()
+        db.refresh(role)
+
+    for permission_name in ("tickets.manage", "customers.manage", "inventory.manage", "billing.manage"):
+        permission = db.query(Permission).filter_by(name=permission_name).first()
+        if permission is None:
+            permission = Permission(name=permission_name, description="Test-created permission")
+            db.add(permission)
+            db.commit()
+            db.refresh(permission)
+
+        existing_grant = db.query(RolePermission).filter_by(role_id=role.id, permission_id=permission.id).first()
+        if existing_grant is None:
+            db.add(RolePermission(role_id=role.id, permission_id=permission.id))
+
+    db.commit()
+
+    db.add(UserRole(user_id=user.id, role_id=role.id))
+    db.commit()
+
     token = create_access_token({"sub": str(user.id)})
     return {"Authorization": f"Bearer {token}"}

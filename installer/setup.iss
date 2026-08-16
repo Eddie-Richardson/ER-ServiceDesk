@@ -970,29 +970,14 @@ begin
     'SECRET_KEY=' + SecretKey + #13#10 +
     'DEVICE_ACCOUNT_ENCRYPTION_KEY=' + DeviceAccountEncryptionKey + #13#10;
 
-  { Migration Target deliberately gets none of this -- the real email
-    credentials and business name arrive later via the migration
-    itself, not typed in here.
-
-    Every value here goes through EscapeForEnvFile now, not just
-    business name -- an email address or business name containing a
-    genuine # or embedded quote is rare but not impossible, and
-    there's no reason to leave those values unprotected just because
-    they're less likely to need it than business name. SMTP_PORT is
-    a plain number (never needs quoting) but escaping it too costs
-    nothing and keeps every line in this block handled the same,
-    uniform way. }
-  if IsLocalMode() or IsNewServerSetup() then
-  begin
-    EnvContent := EnvContent +
-      'EMAIL_ADDRESS=' + EscapeForEnvFile(CredentialsPage.Values[0]) + #13#10 +
-      'EMAIL_PASSWORD=' + EscapeForEnvFile(CredentialsPage.Values[1]) + #13#10 +
-      'BUSINESS_NAME=' + EscapeForEnvFile(CredentialsPage.Values[2]) + #13#10 +
-      'SMTP_HOST=' + EscapeForEnvFile(MailServerPage.Values[0]) + #13#10 +
-      'SMTP_PORT=' + EscapeForEnvFile(MailServerPage.Values[1]) + #13#10 +
-      'IMAP_HOST=' + EscapeForEnvFile(MailServerPage.Values[2]) + #13#10 +
-      'IMAP_PORT=' + EscapeForEnvFile(MailServerPage.Values[3]) + #13#10;
-  end;
+  { Business name, email credentials, and SMTP/IMAP settings are NOT
+    written to .env at all anymore, not even for Local/new Server --
+    they're real SystemSetting rows in the database now (see the
+    Saving business info installer step, which runs
+    app.db.seed_business_info after migrations), edited from then on
+    only through Settings -> Business Info. Migration Target gets
+    none of this either way -- the real values arrive later via the
+    migration itself, carried in the database dump. }
 
   { Migration Target's one-time token, authenticating the later
     "Migrate to Server" request that actually transfers real data.
@@ -1125,46 +1110,80 @@ end;
   entire scenario this feature exists to handle, not something that
   should ever pop up a "Setup step failed" dialog. Using RunCommand
   for that specific check was a real bug, caught by a real test. }
+{ Full path a command's actual stdout/stderr gets redirected to and
+  read back from -- the Program Files root, not the temp folder, since
+  the temp folder can be cleaned up by the OS before anyone gets a
+  chance to look at it, and this needs to survive at least until the
+  user reads it. }
+function CommandOutputPath(): String;
+begin
+  Result := ExpandConstant('{autopf}\ER-ServiceDesk-Command-Output.txt');
+end;
+
+{ Runs Params via cmd.exe with its real stdout/stderr redirected to
+  CommandOutputPath(), then reads that file back so the caller can log
+  or display what the command actually printed -- Exec() itself only
+  ever exposes an exit code, never the output, which is why every
+  earlier failure here showed nothing but "exit code 1" and nothing
+  about what actually went wrong. }
+function RunCommandCapturingOutput(const Params, WorkingDir: String; var ResultCode: Integer): String;
+var
+  OutputPath: String;
+  FullParams: String;
+  RawOutput: AnsiString;
+begin
+  OutputPath := CommandOutputPath();
+  DeleteFile(OutputPath);
+  FullParams := '/C ' + Params + ' > "' + OutputPath + '" 2>&1';
+  Exec('cmd.exe', FullParams, WorkingDir, SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  if LoadStringFromFile(OutputPath, RawOutput) then
+    Result := String(RawOutput)
+  else
+    Result := '(no output captured)';
+end;
+
 function RunCommandSilent(const Params, WorkingDir: String): Boolean;
 var
   ResultCode: Integer;
   ResultText: String;
+  Output: String;
 begin
   LogStep('RunCommandSilent attempting: ' + Params);
-  Result := Exec('cmd.exe', '/C ' + Params, WorkingDir, SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  if Result then
-    Result := ResultCode = 0;
+  Output := RunCommandCapturingOutput(Params, WorkingDir, ResultCode);
+  Result := ResultCode = 0;
   if Result then
     ResultText := 'True'
   else
     ResultText := 'False';
   LogStep('RunCommandSilent result: ' + ResultText + ' (exit code ' + IntToStr(ResultCode) + '): ' + Params);
+  LogStep('RunCommandSilent output: ' + Output);
 end;
 
 { Runs a command via cmd.exe (so PATH-based tool resolution works the
   same as typing it in a real command prompt), waits for it to finish,
-  and shows a clear error naming exactly what failed and what command
-  to try manually if it did -- rather than leaving someone with a
-  silently half-configured install and no idea why. }
+  and shows a clear error naming exactly what failed, the command that
+  was run, AND its actual output -- not just an exit code, which on
+  its own never says why something failed. }
 function RunCommand(const Description, Params, WorkingDir: String): Boolean;
 var
   ResultCode: Integer;
   ResultText: String;
+  Output: String;
 begin
   LogStep('RunCommand attempting [' + Description + ']: ' + Params);
-  Result := Exec('cmd.exe', '/C ' + Params, WorkingDir, SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  if Result then
-    Result := ResultCode = 0;
+  Output := RunCommandCapturingOutput(Params, WorkingDir, ResultCode);
+  Result := ResultCode = 0;
   if Result then
     ResultText := 'True'
   else
     ResultText := 'False';
   LogStep('RunCommand result for [' + Description + ']: ' + ResultText + ' (exit code ' + IntToStr(ResultCode) + ')');
+  LogStep('RunCommand output for [' + Description + ']: ' + Output);
   if not Result then
     MsgBox('Setup step failed: ' + Description + #13#13 +
       'ER-ServiceDesk is installed at ' + ExpandConstant('{app}') + '. ' +
-      'You may be able to fix this by running the following manually ' +
-      'from that folder:' + #13#13 + Params, mbError, MB_OK);
+      'Command that failed:' + #13#13 + Params + #13#13 +
+      'What it actually printed:' + #13#13 + Output, mbError, MB_OK);
 end;
 
 { Wraps a string in double quotes -- needed for command-line/registry
@@ -1963,6 +1982,27 @@ begin
 
     if not RunCommand('Seeding initial data', EnvPrefix + 'docker-compose exec -T api python -m app.db.run_seed', ExpandConstant('{app}')) then
       Exit;
+
+    { Business name/phone, email account, and SMTP/IMAP settings go
+      straight into the database as real SystemSetting rows -- never
+      written to .env at all, not even for a moment. Passed as -e
+      environment variables to this one-time seed command rather than
+      command-line arguments, since EMAIL_PASSWORD is a real secret
+      and env vars aren't exposed to `ps aux` the way CLI arguments
+      are. business_phone is deliberately not collected here at all
+      -- Settings -> Business Info only, no installer involvement for
+      that one specifically. }
+    if not RunCommand('Saving business info',
+      EnvPrefix + 'docker-compose exec -T ' +
+      '-e BUSINESS_NAME=' + Quote(CredentialsPage.Values[2]) + ' ' +
+      '-e EMAIL_ADDRESS=' + Quote(CredentialsPage.Values[0]) + ' ' +
+      '-e EMAIL_PASSWORD=' + Quote(CredentialsPage.Values[1]) + ' ' +
+      '-e SMTP_HOST=' + Quote(MailServerPage.Values[0]) + ' ' +
+      '-e SMTP_PORT=' + Quote(MailServerPage.Values[1]) + ' ' +
+      '-e IMAP_HOST=' + Quote(MailServerPage.Values[2]) + ' ' +
+      '-e IMAP_PORT=' + Quote(MailServerPage.Values[3]) + ' ' +
+      'api python -m app.db.seed_business_info', ExpandConstant('{app}')) then
+      Exit;
   end;
 end;
 
@@ -2235,25 +2275,69 @@ begin
   end;
 end;
 
-{ Cleans up the two things this installer writes outside of Inno's own
-  automatic tracking (.env's backup copy and the deployment registry
-  values) -- Inno's uninstaller only auto-removes things declared in
-  the Files, Dirs, or Registry sections, not anything written
-  imperatively via Pascal code like SaveStringToFile/ForceDirectories/
-  RegWriteStringValue, so this has to be done explicitly.
+{ Full uninstall cleanup -- everything this installer creates outside
+  of Inno's own automatic tracking. Inno's uninstaller only auto-removes
+  things declared in the Files, Dirs, or Registry sections; anything
+  written imperatively via Pascal code (SaveStringToFile/
+  ForceDirectories/RegWriteStringValue), or anything created by an
+  external script this installer ran (the Hyper-V VM, the WSL2 distro),
+  has to be torn down explicitly here instead.
 
-  Deliberately scoped to just the backup folder and the 'deployment'
-  registry subkey specifically -- not the whole ER-ServiceDesk registry
-  tree, which also holds harmless preferences (theme, window geometry)
-  that have no reason to be wiped on an ordinary uninstall. The backup
+  Confirmed as a real, genuine gap before this was added -- caused an
+  actual migration failure on a real dev machine, where an old
+  install's leftover Docker/WSL2/Hyper-V resources collided with a
+  fresh one.
+
+  The registry cleanup is deliberately scoped to just the 'deployment'
+  subkey specifically -- not the whole ER-ServiceDesk registry tree,
+  which also holds harmless preferences (theme, window geometry) that
+  have no reason to be wiped on an ordinary uninstall. The backup
   folder and deployment values are different: they hold live secrets
   (the Postgres password, SECRET_KEY, email password) that protect
   nothing once the app itself is gone, so leaving them behind would be
   a liability, not a convenience. }
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  ResultCode: Integer;
 begin
   if CurUninstallStep = usPostUninstall then
   begin
+    { Server mode's Hyper-V VM, its dedicated internal switch, and the
+      NAT mapping on it -- see create_server_vm.ps1 for where these
+      are originally created, with the exact same names used here.
+      -ErrorAction SilentlyContinue on every cmdlet makes this whole
+      block a safe no-op on a Local or Client install, where none of
+      this was ever created at all. Deleting the VM this way already
+      wipes out everything that was running inside it -- Docker,
+      every container, every volume -- there is nothing separate to
+      tear down on the Docker side for Server mode. Remove-VM does
+      NOT delete the underlying VHDX disk file itself, so the whole
+      install folder (VHDX included) is removed explicitly right
+      after via DelTree, same as the WSL side below. }
+    Exec('powershell.exe',
+      '-Command "Stop-VM -Name ''ER-ServiceDesk-Server'' -Force -ErrorAction SilentlyContinue; ' +
+      'Remove-VM -Name ''ER-ServiceDesk-Server'' -Force -ErrorAction SilentlyContinue; ' +
+      'Remove-VMSwitch -Name ''ER-ServiceDesk-NAT'' -Force -ErrorAction SilentlyContinue; ' +
+      'Remove-NetNat -Name ''ER-ServiceDesk-NAT'' -Confirm:$false -ErrorAction SilentlyContinue"',
+      ExpandConstant('{tmp}'), SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+    DelTree(ExpandConstant('{autopf}\ER-ServiceDesk-VM'), True, True, True);
+
+    { Local mode's WSL2 distro -- see the WSLDistroName constant and
+      RunDockerSetup for where this is originally created. A single
+      `wsl --unregister` removes the distro registration AND its
+      underlying virtual disk in one step, which already wipes out
+      everything Docker had running inside it (containers, volumes,
+      all of it) -- there is nothing separate to tear down on the
+      Docker side for Local mode either. Exit code is deliberately
+      ignored (no RunCommand, no Exit-on-failure check) -- unregistering
+      a distro that was never registered at all (Server or Client mode)
+      fails harmlessly, and that failure must never interrupt the rest
+      of this uninstall. }
+    Exec('wsl.exe', '--unregister ER-ServiceDesk-Docker', ExpandConstant('{tmp}'), SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+    DelTree(ExpandConstant('{autopf}\ER-ServiceDesk-WSL'), True, True, True);
+
     DelTree(ExpandConstant('{autopf}\ER-ServiceDesk-Backup'), True, True, True);
     RegDeleteKeyIncludingSubkeys(HKEY_LOCAL_MACHINE, RegPath);
   end;

@@ -19,6 +19,7 @@ from app.db.session import get_db
 from app.api.dependencies import require_permission, get_current_user
 from app.models.user import User
 from app.services.quote_service import quote_service
+from app.services.quote_email_service import quote_email_service
 from app.schemas.quote import Quote, QuoteCreate, QuoteUpdate
 from app.schemas.quote_line_item import QuoteLineItem, QuoteLineItemUpdate
 from app.schemas.invoice import Invoice as InvoiceSchema
@@ -74,13 +75,14 @@ def delete_quote(
 @router.post("/{quote_id}/line-items", response_model=QuoteLineItem)
 def add_quote_line_item(
     quote_id: int,
-    service_id: int,
+    service_id: int | None = None,
+    part_id: int | None = None,
     quantity: int = 1,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Adds a new line item to a quote, snapshotting the service's current name/price, then recalculates totals."""
-    return quote_service.add_line_item(db, quote_id, service_id, quantity, current_user.id)
+    """Adds a new line item to a quote -- exactly one of service_id/part_id -- snapshotting its current name/price, then recalculates totals."""
+    return quote_service.add_line_item(db, quote_id, quantity, current_user.id, service_id=service_id, part_id=part_id)
 
 
 @router.put("/line-items/{line_item_id}", response_model=QuoteLineItem)
@@ -112,3 +114,13 @@ def convert_quote_to_invoice(
 ):
     """Converts an approved quote into a real Invoice -- copies its line items and discount/tax selection."""
     return quote_service.convert_to_invoice(db, quote_id, current_user.id)
+
+
+@router.post("/{quote_id}/send", response_model=Quote)
+def send_quote(
+    quote_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Emails this quote to its ticket's customer, and records when it was sent. Rejects an empty quote (no line items)."""
+    return quote_email_service.send(db, quote_id, current_user.id)

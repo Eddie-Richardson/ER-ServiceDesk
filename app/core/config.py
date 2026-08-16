@@ -24,29 +24,6 @@ class Settings(BaseSettings):
     # SECRET_KEY is (GenerateRandomString(48) written to .env).
     DEVICE_ACCOUNT_ENCRYPTION_KEY: str = ""
 
-    # SMTP (outbound) / IMAP (inbound) -- see app/core/email.py.
-    # Provider-agnostic: only the connection METHOD is hardcoded there
-    # (STARTTLS for SMTP, implicit SSL for IMAP, both confirmed close
-    # to universal standards), not the host/port/credentials, which
-    # setup.iss now collects as real installer fields. Defaults here
-    # still match Gmail, since that's the common case and what the
-    # installer pre-fills -- but any provider's real settings work
-    # once actually configured, not just Gmail's.
-    EMAIL_ADDRESS: str = ""
-    EMAIL_PASSWORD: str = ""
-    SMTP_HOST: str = "smtp.gmail.com"
-    SMTP_PORT: int = 587
-    IMAP_HOST: str = "imap.gmail.com"
-    IMAP_PORT: int = 993
-
-    # The shop's display name, collected as a real installer field and
-    # written to .env, but never actually declared as a Settings field
-    # here until now -- meaning it was silently dropped on load the
-    # entire time (extra="ignore" below drops any undeclared .env key).
-    # Used in email.py for the outbound "From" display name and a
-    # signature line.
-    BUSINESS_NAME: str = ""
-
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
 settings = Settings()

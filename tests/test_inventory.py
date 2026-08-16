@@ -28,16 +28,17 @@ def test_duplicate_part_sku_rejected(client, agent_headers):
     assert second.status_code == 400
 
 
-def test_low_stock_endpoint_returns_only_parts_at_or_below_threshold(client, agent_headers):
-    """The low-stock endpoint returns parts at/below reorder_threshold, and excludes well-stocked ones."""
+def test_low_stock_endpoint_returns_only_parts_at_or_below_threshold(client, agent_headers, db):
+    from tests.factories import make_location
+    location = make_location(db)
     client.post(
         "/inventory/parts/",
-        json={"name": "Low Stock Part", "sku": "SKU-LOW", "quantity_on_hand": 2, "reorder_threshold": 5},
+        json={"name": "Low Stock Part", "sku": "SKU-LOW", "reorder_threshold": 5, "locations": [{"location_id": location.id, "quantity": 2}]},
         headers=agent_headers,
     )
     client.post(
         "/inventory/parts/",
-        json={"name": "Well Stocked Part", "sku": "SKU-HIGH", "quantity_on_hand": 50, "reorder_threshold": 5},
+        json={"name": "Well Stocked Part", "sku": "SKU-HIGH", "reorder_threshold": 5, "locations": [{"location_id": location.id, "quantity": 50}]},
         headers=agent_headers,
     )
 

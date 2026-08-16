@@ -5,6 +5,11 @@ Dialog for adding a new line item to a quote or invoice, or editing an
 existing one's quantity -- shared by both QuoteDetailDialog and
 InvoiceDetailDialog, parameterized by which add/update/remove
 functions to call rather than two near-identical dialog classes.
+
+A line item is either a Service or a real inventory Part -- a type
+toggle switches which picker is shown. Only Parts with a selling_price
+configured are offered, since one without would just be rejected
+server-side; better to never show it as an option at all.
 """
 
 from PySide6.QtWidgets import (
@@ -13,6 +18,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QMessageBox,
     QPushButton,
+    QRadioButton,
     QSpinBox,
     QVBoxLayout,
 )
@@ -39,13 +45,15 @@ class BillingLineItemDialog(QDialog):
         remove_func,
         line_item: dict | None = None,
         parent=None,
+        parts: list[dict] | None = None,
     ):
         """
         Args:
             parent_id: The quote or invoice id this line item belongs to.
             services: Every active service, for the picker.
-            add_func: Called as add_func(parent_id, service_id, quantity)
-                to create a new line item.
+            add_func: Called as add_func(parent_id, quantity,
+                service_id=..., part_id=...) to create a new line item
+                -- exactly one of service_id/part_id is passed.
             update_func: Called as update_func(line_item_id, quantity)
                 to update an existing one.
             remove_func: Called as remove_func(line_item_id) to remove
@@ -53,10 +61,14 @@ class BillingLineItemDialog(QDialog):
             line_item: An existing line item dict to edit, or None to
                 add a new one.
             parent: The parent widget, per normal Qt dialog convention.
+            parts: Every part with a selling_price configured, for the
+                picker. Empty/None means the Part option is hidden --
+                nothing to pick from.
         """
         super().__init__(parent)
         self.parent_id = parent_id
         self.services = services
+        self.parts = parts or []
         self.add_func = add_func
         self.update_func = update_func
         self.remove_func = remove_func
@@ -72,7 +84,7 @@ class BillingLineItemDialog(QDialog):
             self._prefill_from_line_item(line_item)
 
     def _build_ui(self):
-        """Builds the Service picker and Quantity fields."""
+        """Builds the type toggle, Service/Part pickers, and Quantity field."""
         outer_layout = QVBoxLayout()
         outer_layout.setContentsMargins(
             layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
@@ -80,12 +92,33 @@ class BillingLineItemDialog(QDialog):
         )
         outer_layout.setSpacing(layout.SPACE_SM)
 
+        self.service_type_radio = QRadioButton("Service")
+        self.part_type_radio = QRadioButton("Part")
+        self.service_type_radio.setChecked(True)
+        self.service_type_radio.toggled.connect(self._on_type_toggled)
+
+        outer_layout.addWidget(self.service_type_radio)
+        outer_layout.addWidget(self.part_type_radio)
+
         self.service_combo = QComboBox()
         for service in self.services:
             price_label = f"{service['name']} (${service['price']})"
             self.service_combo.addItem(price_label, userData=service["id"])
+
+        self.part_combo = QComboBox()
+        for part in self.parts:
+            price_label = f"{part['name']} (${part['selling_price']}) -- {part['quantity_on_hand']} on hand"
+            self.part_combo.addItem(price_label, userData=part["id"])
+
+        if not self.parts:
+            self.part_type_radio.setEnabled(False)
+            self.part_type_radio.setToolTip("No parts have a selling price configured yet -- set one in Inventory first.")
+
         if self.line_item:
+            self.service_type_radio.setEnabled(False)
+            self.part_type_radio.setEnabled(False)
             self.service_combo.setEnabled(False)
+            self.part_combo.setEnabled(False)
 
         self.quantity_input = QSpinBox()
         self.quantity_input.setMinimum(1)
@@ -114,14 +147,13 @@ class BillingLineItemDialog(QDialog):
             self.delete_button.setFixedHeight(layout.BUTTON_HEIGHT)
             self.delete_button.clicked.connect(self._attempt_delete)
 
-        for label_text, widget in [
-            ("Service", self.service_combo),
-            ("Quantity", self.quantity_input),
-        ]:
-            field_label = QLabel(label_text)
-            field_label.setObjectName("subtitle")
-            outer_layout.addWidget(field_label)
-            outer_layout.addWidget(widget)
+        outer_layout.addWidget(self.service_combo)
+        outer_layout.addWidget(self.part_combo)
+
+        quantity_label = QLabel("Quantity")
+        quantity_label.setObjectName("subtitle")
+        outer_layout.addWidget(quantity_label)
+        outer_layout.addWidget(self.quantity_input)
 
         outer_layout.addWidget(self.error_label)
         outer_layout.addSpacing(layout.SPACE_SM)
@@ -131,15 +163,29 @@ class BillingLineItemDialog(QDialog):
             outer_layout.addWidget(self.delete_button)
 
         self.setLayout(outer_layout)
+        self._on_type_toggled()
+
+    def _on_type_toggled(self):
+        """Shows only the picker matching the currently-selected type."""
+        self.service_combo.setVisible(self.service_type_radio.isChecked())
+        self.part_combo.setVisible(self.part_type_radio.isChecked())
 
     def _prefill_from_line_item(self, line_item: dict):
         """
         Args:
             line_item: The line item dict being edited.
         """
-        index = self.service_combo.findData(line_item.get("service_id"))
-        if index >= 0:
-            self.service_combo.setCurrentIndex(index)
+        if line_item.get("part_id") is not None:
+            self.part_type_radio.setChecked(True)
+            index = self.part_combo.findData(line_item.get("part_id"))
+            if index >= 0:
+                self.part_combo.setCurrentIndex(index)
+        else:
+            self.service_type_radio.setChecked(True)
+            index = self.service_combo.findData(line_item.get("service_id"))
+            if index >= 0:
+                self.service_combo.setCurrentIndex(index)
+        self._on_type_toggled()
         self.quantity_input.setValue(line_item.get("quantity", 1))
 
     # -----------------------------------------------------------------
@@ -147,9 +193,10 @@ class BillingLineItemDialog(QDialog):
     # -----------------------------------------------------------------
     def _attempt_save(self):
         """Validates the form, then saves synchronously -- a small, infrequent action, matching the same no-QThread reasoning used elsewhere tonight."""
-        service_id = self.service_combo.currentData()
-        if service_id is None:
-            self._show_error("Select a service.")
+        is_part = self.part_type_radio.isChecked()
+        selected_id = self.part_combo.currentData() if is_part else self.service_combo.currentData()
+        if selected_id is None:
+            self._show_error(f"Select a {'part' if is_part else 'service'}.")
             return
 
         self.save_button.setEnabled(False)
@@ -159,8 +206,10 @@ class BillingLineItemDialog(QDialog):
         try:
             if self.line_item:
                 result = self.update_func(self.line_item["id"], self.quantity_input.value())
+            elif is_part:
+                result = self.add_func(self.parent_id, self.quantity_input.value(), part_id=selected_id)
             else:
-                result = self.add_func(self.parent_id, service_id, self.quantity_input.value())
+                result = self.add_func(self.parent_id, self.quantity_input.value(), service_id=selected_id)
         except ApiError as e:
             self.save_button.setEnabled(True)
             self.save_button.setText("Save")

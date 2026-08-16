@@ -37,17 +37,21 @@ LINE_ITEM_COLUMN_HEADERS = ["Service", "Qty", "Unit Price", "Line Total"]
 class QuoteDetailDialog(QDialog):
     """Modal dialog for viewing and managing a single quote."""
 
-    def __init__(self, quote_id: int, ticket_title: str, parent=None):
+    def __init__(self, quote_id: int, ticket_id: int, ticket_title: str, parent=None):
         """
         Args:
             quote_id: The quote to display.
+            ticket_id: The ticket this quote is for, shown for
+                traceability back to the job.
             ticket_title: Shown in the window title for context.
             parent: The parent widget, per normal Qt dialog convention.
         """
         super().__init__(parent)
         self.quote_id = quote_id
+        self.ticket_id = ticket_id
         self.quote: dict | None = None
         self.services: list[dict] = []
+        self.parts: list[dict] = []
         self.converted = False  # tracked so the caller (BillingDialog) knows to refresh its invoice list too
 
         self.setWindowTitle(f"Quote - {ticket_title}")
@@ -74,6 +78,10 @@ class QuoteDetailDialog(QDialog):
             layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
         )
         outer_layout.setSpacing(layout.SPACE_SM)
+
+        self.ticket_ref_label = QLabel(f"Ticket #{self.ticket_id}")
+        self.ticket_ref_label.setObjectName("subtitle")
+        outer_layout.addWidget(self.ticket_ref_label)
 
         items_label = QLabel("Line Items")
         items_label.setObjectName("subtitle")
@@ -109,6 +117,15 @@ class QuoteDetailDialog(QDialog):
         self.totals_label.setObjectName("subtitle")
         outer_layout.addWidget(self.totals_label)
 
+        self.send_button = QPushButton("Send Quote")
+        self.send_button.setObjectName("secondary")
+        self.send_button.clicked.connect(self._on_send_quote)
+        outer_layout.addWidget(self.send_button)
+
+        self.send_status_label = QLabel("")
+        self.send_status_label.setObjectName("subtitle")
+        outer_layout.addWidget(self.send_status_label)
+
         self.convert_button = QPushButton("Convert to Invoice")
         self.convert_button.clicked.connect(self._on_convert_to_invoice)
         outer_layout.addWidget(self.convert_button)
@@ -129,12 +146,18 @@ class QuoteDetailDialog(QDialog):
     # Loading
     # -----------------------------------------------------------------
     def _load_services(self):
-        """Loads every active service for the line-item picker."""
+        """Loads every active service and every priced part for the line-item picker."""
         try:
             all_services = api_client.list_services()
         except ApiError:
             all_services = []
         self.services = [s for s in all_services if s.get("is_active", True)]
+
+        try:
+            all_parts = api_client.list_parts()
+        except ApiError:
+            all_parts = []
+        self.parts = [p for p in all_parts if p.get("selling_price") is not None]
 
     def _load_quote(self):
         """Fetches the quote, populates the discount/tax pickers, and renders the line items and totals."""
@@ -148,6 +171,7 @@ class QuoteDetailDialog(QDialog):
         self._render_line_items()
         self._render_totals()
         self._update_convert_visibility()
+        self._render_send_status()
 
     def _populate_discount_tax_pickers(self):
         """Fills the Discount/Tax dropdowns with active options, plus the currently-selected one even if it's since been deactivated."""
@@ -189,7 +213,7 @@ class QuoteDetailDialog(QDialog):
         for row, item in enumerate(line_items):
             line_total = float(item["unit_price"]) * item["quantity"]
             values = [
-                item["service_name"],
+                item["service_name"] or item["part_name"],
                 str(item["quantity"]),
                 f"${item['unit_price']}",
                 f"${line_total:.2f}",
@@ -218,19 +242,27 @@ class QuoteDetailDialog(QDialog):
         else:
             self.converted_label.hide()
 
+    def _render_send_status(self):
+        """Shows whether this quote has ever been emailed, and when."""
+        sent_at = self.quote.get("quote_sent_at")
+        if sent_at:
+            self.send_status_label.setText(f"Quote sent on {sent_at[:10]}.")
+        else:
+            self.send_status_label.setText("Quote not yet sent.")
+
     # -----------------------------------------------------------------
     # Line items
     # -----------------------------------------------------------------
     def _on_add_line_item(self):
         """Opens BillingLineItemDialog in add mode; reloads the quote if a line item was added."""
-        if not self.services:
-            QMessageBox.information(self, "No Services", "No active services are configured yet -- add one in Settings first.")
+        if not self.services and not self.parts:
+            QMessageBox.information(self, "No Billable Items", "No active services or priced parts are configured yet -- add one in Settings/Inventory first.")
             return
 
         dialog = BillingLineItemDialog(
             self.quote_id, self.services,
             api_client.add_quote_line_item, api_client.update_quote_line_item, api_client.remove_quote_line_item,
-            None, parent=self,
+            None, parent=self, parts=self.parts,
         )
         if dialog.exec():
             self._load_quote()
@@ -245,7 +277,7 @@ class QuoteDetailDialog(QDialog):
         dialog = BillingLineItemDialog(
             self.quote_id, self.services,
             api_client.add_quote_line_item, api_client.update_quote_line_item, api_client.remove_quote_line_item,
-            line_item, parent=self,
+            line_item, parent=self, parts=self.parts,
         )
         if dialog.exec():
             self._load_quote()
@@ -301,4 +333,31 @@ class QuoteDetailDialog(QDialog):
             return
 
         self.converted = True
+        self._load_quote()
+
+    # -----------------------------------------------------------------
+    # Sending
+    # -----------------------------------------------------------------
+    def _on_send_quote(self):
+        """Emails this quote to the customer, after confirmation. Blocks sending an empty quote -- same guard as convert-to-invoice, plus the backend enforces this too."""
+        if not self.quote.get("line_items"):
+            QMessageBox.information(self, "No Line Items", "Add at least one line item before sending this quote.")
+            return
+
+        confirmed = QMessageBox.question(
+            self,
+            "Send Quote",
+            f"Email this quote (total ${self.quote['total']}) to the customer?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if confirmed != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            api_client.send_quote(self.quote_id)
+        except ApiError as e:
+            QMessageBox.critical(self, "Send Failed", str(e))
+            return
+
         self._load_quote()

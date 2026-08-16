@@ -38,26 +38,34 @@ class QuoteLineItemCRUD:
         """
         return db.query(QuoteLineItem).filter(QuoteLineItem.quote_id == quote_id).all()
 
-    def create(self, db: Session, quote_id: int, service_id: int, service_name: str, quantity: int, unit_price) -> QuoteLineItem:
+    def create(self, db: Session, quote_id: int, quantity: int, unit_price, service_id: int | None = None, service_name: str | None = None, part_id: int | None = None, part_name: str | None = None) -> QuoteLineItem:
         """
         Insert a new QuoteLineItem record. Takes explicit fields
-        rather than a schema, since service_name and unit_price are
-        server-computed snapshots never accepted from the client --
-        see quote_service.add_line_item() for where this actually
-        gets called from.
+        rather than a schema, since the *_name fields and unit_price
+        are server-computed snapshots never accepted from the client
+        -- see quote_service.add_line_item() for where this actually
+        gets called from, including the "exactly one of service/part"
+        validation this layer doesn't enforce itself.
 
         Args:
             db: Active database session.
             quote_id: The quote this line item belongs to.
-            service_id: The service being quoted.
-            service_name: The service's name at this moment, snapshotted.
             quantity: How many units.
-            unit_price: The service's price at this moment, snapshotted.
+            unit_price: The service's price or the part's
+                selling_price at this moment, snapshotted.
+            service_id: The service being quoted, if this is a service line.
+            service_name: The service's name at this moment, snapshotted.
+            part_id: The part being quoted, if this is a part line.
+            part_name: The part's name at this moment, snapshotted.
 
         Returns:
             The newly created, refreshed QuoteLineItem instance.
         """
-        obj = QuoteLineItem(quote_id=quote_id, service_id=service_id, service_name=service_name, quantity=quantity, unit_price=unit_price)
+        obj = QuoteLineItem(
+            quote_id=quote_id, quantity=quantity, unit_price=unit_price,
+            service_id=service_id, service_name=service_name,
+            part_id=part_id, part_name=part_name,
+        )
         db.add(obj)
         db.commit()
         db.refresh(obj)

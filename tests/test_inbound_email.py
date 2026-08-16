@@ -45,7 +45,7 @@ def test_matched_reply_becomes_inbound_message(db, monkeypatch):
         body="Sounds good, thanks!",
     )
     monkeypatch.setattr(
-        "app.workers.tasks.fetch_unread_emails", lambda: [fake_email]
+        "app.workers.tasks.fetch_unread_emails", lambda db: [fake_email]
     )
     # tasks.py uses its own SessionLocal internally; point it at the same
     # test database the `db` fixture uses.
@@ -74,7 +74,7 @@ def test_reply_with_no_ticket_marker_is_unmatched(db, monkeypatch):
         body="Hey, quick question...",
     )
     monkeypatch.setattr(
-        "app.workers.tasks.fetch_unread_emails", lambda: [fake_email]
+        "app.workers.tasks.fetch_unread_emails", lambda db: [fake_email]
     )
     import app.workers.tasks as tasks_module
     from tests.conftest import TestSessionLocal
@@ -98,7 +98,7 @@ def test_reply_from_unknown_address_is_unmatched(db, monkeypatch):
         body="Wait, is this even my ticket?",
     )
     monkeypatch.setattr(
-        "app.workers.tasks.fetch_unread_emails", lambda: [fake_email]
+        "app.workers.tasks.fetch_unread_emails", lambda db: [fake_email]
     )
     import app.workers.tasks as tasks_module
     from tests.conftest import TestSessionLocal
@@ -119,7 +119,7 @@ def test_reply_referencing_nonexistent_ticket_is_unmatched(db, monkeypatch):
         body="Following up on this",
     )
     monkeypatch.setattr(
-        "app.workers.tasks.fetch_unread_emails", lambda: [fake_email]
+        "app.workers.tasks.fetch_unread_emails", lambda db: [fake_email]
     )
     import app.workers.tasks as tasks_module
     from tests.conftest import TestSessionLocal

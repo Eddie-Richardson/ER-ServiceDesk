@@ -172,7 +172,7 @@ class BillingDialog(QDialog):
         Args:
             quote_id: The quote to open.
         """
-        dialog = QuoteDetailDialog(quote_id, self.ticket_title, parent=self)
+        dialog = QuoteDetailDialog(quote_id, self.ticket_id, self.ticket_title, parent=self)
         dialog.exec()
         self._load_quotes()
         if dialog.converted:

@@ -37,6 +37,14 @@ class Ticket(Base):
         accessories_included: What was physically brought in with the
             device at drop-off for this visit (e.g. "charger, no bag")
             -- also varies per visit, not a permanent Device fact.
+        waiver_sent_at: Timestamp the liability waiver email was last
+            sent for this ticket, or None if never sent. Email-only --
+            there's no signed-paper path to attach a record of (see
+            the design discussion this came out of). The customer's
+            "I AGREE" reply, if any, comes back as a normal Note on
+            this ticket through the existing inbound-email system,
+            same as any other reply -- this field only tracks whether
+            the request itself went out, not whether it was answered.
         created_at: Timestamp the record was created.
         updated_at: Timestamp the record was last updated.
     """
@@ -55,6 +63,7 @@ class Ticket(Base):
     priority = Column(String, nullable=False, index=True)
     pickup_person = Column(String, nullable=True)
     accessories_included = Column(String, nullable=True)
+    waiver_sent_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)
     customer = relationship("Customer", back_populates="tickets")

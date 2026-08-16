@@ -14,6 +14,7 @@ from app.api.dependencies import require_permission, get_current_user
 from app.models.user import User
 from app.services.ticket_service import ticket_service
 from app.services.audit_log_service import audit_log_service
+from app.services.waiver_service import waiver_service
 from app.schemas.ticket import Ticket, TicketCreate, TicketUpdate
 from app.schemas.audit_log import AuditLog
 
@@ -112,3 +113,22 @@ def get_ticket_audit_log(id: int, db: Session = Depends(get_db)):
         A list of AuditLog records for this ticket.
     """
     return audit_log_service.get_multi(db, entity_type="ticket", entity_id=id)
+
+
+@router.post("/{id}/send-waiver", response_model=Ticket)
+def send_waiver(id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """
+    Emails the liability waiver to this ticket's customer, and records
+    when it was sent. Email-only -- there's no print/signature path.
+    The customer's "I AGREE" reply, if any, comes back as a normal
+    Note on the ticket through the existing inbound-email system.
+
+    Args:
+        id: The ticket to send the waiver for.
+        db: Injected database session.
+        current_user: The user sending this -- recorded in the audit trail.
+
+    Returns:
+        The updated Ticket, with waiver_sent_at set.
+    """
+    return waiver_service.send(db, id, current_user.id)

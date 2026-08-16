@@ -48,6 +48,7 @@ class TicketUpdate(BaseModel):
 class Ticket(TicketBase):
     """Schema returned to the client for a Ticket record (server -> client)."""
     id: int
+    waiver_sent_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
     model_config = ConfigDict(from_attributes=True)

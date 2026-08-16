@@ -354,12 +354,21 @@ def seed_data(db: Session):
     # behavior is unchanged until an admin actually adjusts one.
     # customer_inactivity_archive_months has no prior hardcoded
     # equivalent -- 24 months (2 years) chosen as a reasonable default
-    # for "hasn't come in in a long while."
+    # for "hasn't come in in a long while." part_deduction_location_id
+    # seeds to the real "Parts Shelf" location created just above, so
+    # adding a part to an invoice has somewhere sensible to deduct
+    # from out of the box -- admin-configurable since the right
+    # location genuinely differs per shop. business_phone seeds empty
+    # -- no sensible default exists, purely optional, shown to
+    # customers on emailed quotes/invoices/etc. once those are built.
     # -------------------------------------------------------------------
+    parts_shelf_location = db.query(Location).filter_by(name="Parts Shelf").first()
     for key, default_value in [
         ("lock_timeout_minutes", "15"),
         ("inbound_email_poll_interval_seconds", "60"),
         ("customer_inactivity_archive_months", "24"),
+        ("part_deduction_location_id", str(parts_shelf_location.id) if parts_shelf_location else ""),
+        ("business_phone", ""),
     ]:
         existing_setting = db.query(SystemSetting).filter_by(key=key).first()
         if not existing_setting:

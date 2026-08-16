@@ -31,9 +31,11 @@ from desktop.api_client import ApiError
 from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.customer_save_worker import CustomerSaveWorker
 from desktop.device_edit_dialog import DeviceEditDialog
+from desktop.invoice_detail_dialog import InvoiceDetailDialog
 from desktop.lock_gate import LockGate
 
 DEVICE_COLUMN_HEADERS = ["Type", "Brand", "Model", "Serial Number"]
+INVOICE_COLUMN_HEADERS = ["Invoice #", "Ticket #", "Total", "Paid"]
 
 
 class CustomerFormDialog(QDialog):
@@ -46,7 +48,7 @@ class CustomerFormDialog(QDialog):
     `self.saved_customer`.
     """
 
-    def __init__(self, customer: dict | None, all_devices: list[dict], locations: list[dict], parent=None):
+    def __init__(self, customer: dict | None, all_devices: list[dict], locations: list[dict], all_invoices: list[dict], all_tickets: list[dict], all_customers: list[dict], parent=None):
         """
         Args:
             customer: An existing customer dict to edit, or None to
@@ -55,12 +57,28 @@ class CustomerFormDialog(QDialog):
                 this customer's own devices for the sub-table.
             locations: The full locations list, passed through to
                 DeviceEditDialog for its Location dropdown.
+            all_invoices: Every invoice in the system; filtered down to
+                this customer's own invoices for the sub-table
+                (cross-referenced via ticket_id, since Invoice has no
+                customer_id of its own). May be empty if the logged-in
+                user lacks billing.manage -- the section still renders,
+                just with nothing in it, rather than failing.
+            all_tickets: Every ticket in the system; used only to
+                resolve which invoices belong to this customer.
+            all_customers: Every customer in the system, passed
+                through to DeviceEditDialog for its reassignment
+                picker -- moving a device to the correct customer
+                record (e.g. cleaning up a duplicate) means picking
+                from the full list, not just this one customer.
             parent: The parent widget, per normal Qt dialog convention.
         """
         super().__init__(parent)
         self.customer = customer
         self.all_devices = all_devices
         self.locations = locations
+        self.all_invoices = all_invoices
+        self.all_tickets = all_tickets
+        self.all_customers = all_customers
         self.saved_customer: dict | None = None
         self.deleted = False
 
@@ -156,6 +174,7 @@ class CustomerFormDialog(QDialog):
 
         if self.customer:
             outer_layout.addWidget(self._build_devices_section())
+            outer_layout.addWidget(self._build_invoices_section())
 
         outer_layout.addWidget(self.error_label)
         outer_layout.addSpacing(layout.SPACE_SM)
@@ -228,7 +247,7 @@ class CustomerFormDialog(QDialog):
         device = selected_items[0].data(Qt.ItemDataRole.UserRole)
 
         def build_dialog():
-            return DeviceEditDialog(device, self.locations, parent=self)
+            return DeviceEditDialog(device, self.locations, self.all_customers, parent=self)
 
         def on_closed(dialog):
             if not dialog.result():
@@ -249,6 +268,90 @@ class CustomerFormDialog(QDialog):
             self._populate_devices_table()
 
         self._lock_gate.attempt_edit("device", device["id"], build_dialog, on_closed)
+
+    def _build_invoices_section(self) -> QWidget:
+        """
+        Builds the read-only-at-a-glance invoices table for this
+        customer, cross-referenced via ticket_id (Invoice has no
+        customer_id of its own -- it belongs to a Ticket, which
+        belongs to a Customer). Double-clicking a row opens
+        InvoiceDetailDialog, the exact same detail screen used
+        everywhere else invoices are shown.
+
+        Returns:
+            The assembled invoices QTableWidget.
+        """
+        invoices_label = QLabel("Invoices")
+        invoices_label.setObjectName("subtitle")
+
+        self.invoices_table = QTableWidget()
+        self.invoices_table.setColumnCount(len(INVOICE_COLUMN_HEADERS))
+        self.invoices_table.setHorizontalHeaderLabels(INVOICE_COLUMN_HEADERS)
+        self.invoices_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.invoices_table.verticalHeader().setVisible(False)
+        self.invoices_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.invoices_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.invoices_table.setFixedHeight(140)
+        self.invoices_table.doubleClicked.connect(self._on_invoice_row_double_clicked)
+
+        self._populate_invoices_table()
+
+        container_layout = QVBoxLayout()
+        container_layout.setContentsMargins(0, 0, 0, 0)
+        container_layout.addWidget(invoices_label)
+        container_layout.addWidget(self.invoices_table)
+        container = QWidget()
+        container.setLayout(container_layout)
+        return container
+
+    def _my_ticket_ids(self) -> set[int]:
+        """
+        Returns:
+            The ids of every ticket belonging to this customer, used
+            to figure out which invoices are theirs.
+        """
+        customer_id = self.customer["id"]
+        return {t["id"] for t in self.all_tickets if t.get("customer_id") == customer_id}
+
+    def _populate_invoices_table(self):
+        """Fills the invoices table with this customer's invoices, across all their tickets."""
+        my_ticket_ids = self._my_ticket_ids()
+        my_invoices = [inv for inv in self.all_invoices if inv["ticket_id"] in my_ticket_ids]
+
+        self.invoices_table.setRowCount(len(my_invoices))
+        for row, invoice in enumerate(my_invoices):
+            values = [
+                f"#{invoice['id']}",
+                f"#{invoice['ticket_id']}",
+                f"${invoice['total']}",
+                "Yes" if invoice.get("is_paid") else "No",
+            ]
+            for col, value in enumerate(values):
+                item = QTableWidgetItem(value)
+                item.setData(Qt.ItemDataRole.UserRole, invoice)
+                self.invoices_table.setItem(row, col, item)
+
+    def _on_invoice_row_double_clicked(self):
+        """Opens InvoiceDetailDialog for the double-clicked invoice; refreshes the table on close."""
+        selected_items = self.invoices_table.selectedItems()
+        if not selected_items:
+            return
+
+        invoice = selected_items[0].data(Qt.ItemDataRole.UserRole)
+        ticket = next((t for t in self.all_tickets if t["id"] == invoice["ticket_id"]), {})
+
+        dialog = InvoiceDetailDialog(invoice["id"], invoice["ticket_id"], ticket.get("title", "Ticket"), parent=self)
+        dialog.exec()
+
+        try:
+            refreshed = api_client.get_invoice(invoice["id"])
+        except ApiError:
+            return
+        for i, inv in enumerate(self.all_invoices):
+            if inv["id"] == refreshed["id"]:
+                self.all_invoices[i] = refreshed
+                break
+        self._populate_invoices_table()
 
     # -----------------------------------------------------------------
     # Prefill (edit mode)

@@ -14,6 +14,7 @@ from app.db.session import get_db
 from app.api.dependencies import require_permission, get_current_user
 from app.models.user import User
 from app.services.payment_service import payment_service
+from app.services.payment_email_service import payment_email_service
 from app.schemas.payment import Payment, PaymentCreate, PaymentUpdate
 
 router = APIRouter(prefix="/payments", tags=["payments"], dependencies=[Depends(require_permission("billing.manage"))])
@@ -40,7 +41,14 @@ def create_payment(
     current_user: User = Depends(get_current_user),
 ):
     """Record a new payment against an invoice. Automatically marks the invoice paid if this brings total payments up to its total."""
-    return payment_service.create(db, obj_in, current_user.id)
+    new_payment = payment_service.create(db, obj_in, current_user.id)
+    # Fired unconditionally, no confirmation -- unlike waiver/quote/
+    # invoice sending, a payment receipt has no real judgment call
+    # left, it just confirms something that already happened. Never
+    # raises, so a receipt-email problem can never undo or block the
+    # payment that was already, genuinely recorded above.
+    payment_email_service.send_receipt(db, new_payment)
+    return new_payment
 
 
 @router.put("/{id}", response_model=Payment)

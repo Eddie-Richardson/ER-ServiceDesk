@@ -239,7 +239,7 @@ def test_notify_job_creates_outbound_message(db, monkeypatch):
 
     sent = {}
 
-    def fake_send_email(to_address, subject, body):
+    def fake_send_email(db, to_address, subject, body):
         sent["to_address"] = to_address
         sent["body"] = body
 

@@ -17,6 +17,7 @@ from app.routes import (
     auth,
     background_jobs,
     business_info,
+    business_info_settings,
     customers,
     devices,
     device_user_accounts,
@@ -96,6 +97,7 @@ app.include_router(tax_rates.router)
 app.include_router(audit_logs.router)
 app.include_router(background_jobs.router)
 app.include_router(business_info.router)
+app.include_router(business_info_settings.router)
 app.include_router(system_settings.router)
 
 # Inventory (merged from InventoryHub)

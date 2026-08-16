@@ -61,8 +61,20 @@ services:
       - "8000:8000"        # Expose API on localhost:8000
     env_file: .env         # Load environment variables
     depends_on:
-      - db                 # Ensure database starts first
-      - redis              # Ensure Redis is available
+      db:
+        condition: service_healthy  # Waits for Postgres to actually
+                                     # accept connections, not just for
+                                     # the container process to start --
+                                     # "started" and "ready to accept
+                                     # connections" are genuinely
+                                     # different moments, and the gap
+                                     # between them is exactly what was
+                                     # causing alembic to fail against a
+                                     # database that looked "up" in
+                                     # `docker-compose up`'s own output
+                                     # but wasn't actually connectable yet.
+      redis:
+        condition: service_started
 
   # -------------------------------------------------------------------------
   # PostgreSQL Database
@@ -80,6 +92,17 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres-data:/var/lib/postgresql/data  # Persist database files
+    healthcheck:
+      # pg_isready is Postgres's own real readiness check -- checks
+      # the actual server process is accepting connections, not just
+      # that the container is running. -U/-d use the same values the
+      # rest of this file already pulls from .env, so this never
+      # drifts out of sync with the real credentials.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   # -------------------------------------------------------------------------
   # Redis (for RQ queues)

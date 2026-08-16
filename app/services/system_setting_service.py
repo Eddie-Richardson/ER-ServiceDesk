@@ -56,6 +56,26 @@ class SystemSettingService:
         except ValueError:
             return default
 
+    def get_str(self, db: Session, key: str, default: str) -> str:
+        """
+        Reads a setting's value as a plain string, with a safe
+        fallback. Same reasoning as get_int, for settings that are
+        genuinely text (business name, email address, SMTP/IMAP host,
+        etc.) rather than a tunable number.
+
+        Args:
+            db: Active database session.
+            key: The setting's key, e.g. 'business_name'.
+            default: Value to use if the setting is missing.
+
+        Returns:
+            The setting's current value, or default.
+        """
+        setting = crud_system_setting.get_by_key(db, key)
+        if setting is None or setting.value is None:
+            return default
+        return setting.value
+
     def upsert(self, db: Session, key: str, value: str):
         """
         Creates a setting if it doesn't exist yet, or updates it if it

@@ -37,6 +37,11 @@ class Invoice(Base):
         source_quote_id: The Quote this invoice was converted from, if
             any -- null for an invoice created directly, not via
             quote conversion.
+        invoice_sent_at: Timestamp this invoice was last emailed to
+            the customer, or None if never sent. Email-only, same
+            design as Ticket.waiver_sent_at / Quote.quote_sent_at.
+            Sendable even after is_paid is true -- re-sending a paid
+            invoice serves as a receipt, not blocked.
         created_at: Timestamp the record was created.
         updated_at: Timestamp the record was last updated.
     """
@@ -56,6 +61,7 @@ class Invoice(Base):
     details = Column(Text, nullable=True)
     is_paid = Column(Boolean, default=False)
     source_quote_id = Column(Integer, ForeignKey("quotes.id"), nullable=True)
+    invoice_sent_at = Column(DateTime(timezone=True), nullable=True)
 
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)

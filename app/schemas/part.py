@@ -14,6 +14,7 @@ diff individual entries.
 """
 
 from datetime import datetime
+from decimal import Decimal
 from pydantic import BaseModel, ConfigDict
 from app.schemas.part_location import PartLocationInput, PartLocationOut
 
@@ -24,6 +25,7 @@ class PartBase(BaseModel):
     sku: str | None = None
     reorder_threshold: int = 0
     unit_cost: float | None = None
+    selling_price: Decimal | None = None
     supplier: str | None = None
     notes: str | None = None
 
@@ -53,6 +55,7 @@ class PartUpdate(BaseModel):
     sku: str | None = None
     reorder_threshold: int | None = None
     unit_cost: float | None = None
+    selling_price: Decimal | None = None
     supplier: str | None = None
     notes: str | None = None
     locations: list[PartLocationInput] | None = None

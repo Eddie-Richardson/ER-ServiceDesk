@@ -31,6 +31,7 @@ from app.crud.payment import crud_payment
 from app.schemas.payment_plan import PaymentPlanCreate
 from app.schemas.payment import PaymentCreate
 from app.services.payment_service import payment_service
+from app.services.payment_email_service import payment_email_service
 from app.services.audit_log_service import audit_log_service
 
 VALID_FREQUENCIES = ("weekly", "biweekly", "monthly")
@@ -194,6 +195,15 @@ class PaymentPlanService:
             db, "payment_plan_installment_paid", "ticket", invoice.ticket_id, user_id=current_user_id,
             details=f"Paid ${actual_amount} on installment #{installment.sequence_number} of Payment Plan #{plan.id}",
         )
+
+        # Sent here, not from payment_service.create() or the /payments/
+        # route, deliberately -- everything above (installment linking,
+        # redistribution or plan completion) must be fully settled
+        # first, or the receipt's "next payment due" lookup would still
+        # see the installment just paid as unpaid and report the wrong
+        # date. Never raises, so a receipt-email problem can never
+        # undo or block the payment already, genuinely recorded above.
+        payment_email_service.send_receipt(db, new_payment)
 
         db.refresh(installment)
         return installment

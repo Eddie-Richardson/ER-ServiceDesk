@@ -5,16 +5,24 @@ Email integration over standard SMTP/IMAP -- not tied to any one
 provider. Only the connection METHOD is hardcoded (STARTTLS for SMTP,
 implicit SSL for IMAP), confirmed close to universal standards across
 major providers (Gmail, Outlook/365, Yahoo, iCloud all verified
-working). The actual host/port/credentials come from settings/.env,
-collected as real installer fields -- Gmail was the original design
-and is still the pre-filled default, but any provider with standard
-SMTP/IMAP settings works the same way.
+working). The actual host/port/credentials/business name are real
+SystemSetting rows, editable anytime through Settings -> Business Info
+-- never .env, never read once at process startup and held stale for
+that process's whole lifetime. Every function here takes a db session
+and reads these fresh, on every single call, specifically so a
+password/host change made through the UI takes effect on the very
+next send/poll, not only after every backend process happens to
+restart.
 
-Outbound: smtplib with STARTTLS, authenticated with EMAIL_PASSWORD --
-for providers like Gmail that require one, this is an App Password
-(not the account's real login password; generated separately and
-often requiring 2-Step Verification to be enabled first). Other
+Outbound: smtplib with STARTTLS, authenticated with the stored email
+password -- for providers like Gmail that require one, this is an App
+Password (not the account's real login password; generated separately
+and often requiring 2-Step Verification to be enabled first). Other
 providers may accept the account's normal password directly instead.
+The password itself is stored encrypted at rest (see
+app/core/encryption.py, the same mechanism already used for Device
+User Account passwords) and only decrypted in memory for the instant
+of an actual SMTP/IMAP login.
 
 Inbound: imaplib polling the inbox for unread messages. A customer
 reply is matched back to the right ticket via a ticket ID embedded in the
@@ -30,7 +38,34 @@ import email as email_lib
 from email.message import EmailMessage
 from email.utils import parseaddr
 
-from app.core.config import settings
+from sqlalchemy.orm import Session
+from app.core.encryption import decrypt_password
+from app.services.system_setting_service import system_setting_service
+
+
+def _get_email_config(db: Session) -> dict:
+    """
+    Reads every business-info email setting fresh from the database in
+    one pass, decrypting the password.
+
+    Args:
+        db: Active database session.
+
+    Returns:
+        A dict with keys: business_name, email_address, email_password
+        (decrypted plaintext, or "" if never set), smtp_host, smtp_port,
+        imap_host, imap_port.
+    """
+    encrypted_password = system_setting_service.get_str(db, "email_password_encrypted", "")
+    return {
+        "business_name": system_setting_service.get_str(db, "business_name", ""),
+        "email_address": system_setting_service.get_str(db, "email_address", ""),
+        "email_password": decrypt_password(encrypted_password) if encrypted_password else "",
+        "smtp_host": system_setting_service.get_str(db, "smtp_host", "smtp.gmail.com"),
+        "smtp_port": system_setting_service.get_int(db, "smtp_port", 587),
+        "imap_host": system_setting_service.get_str(db, "imap_host", "imap.gmail.com"),
+        "imap_port": system_setting_service.get_int(db, "imap_port", 993),
+    }
 
 # ---------------------------------------------------------------------------
 # Subject-line ticket ID convention
@@ -77,40 +112,43 @@ def extract_ticket_id(subject: str) -> int | None:
 # Outbound (SMTP)
 # ---------------------------------------------------------------------------
 
-def send_email(to_address: str, subject: str, body: str) -> None:
+def send_email(db: Session, to_address: str, subject: str, body: str) -> None:
     """
     Send a plain-text email over SMTP.
 
     Args:
+        db: Active database session -- used to read the current
+            email/business-info settings fresh, not a cached value.
         to_address: Recipient email address.
         subject: Full subject line (use format_ticket_subject first if this
             is tied to a ticket).
         body: Plain-text message body.
 
     Raises:
-        RuntimeError: If EMAIL_ADDRESS or EMAIL_PASSWORD are not
-            configured in settings/.env.
+        RuntimeError: If email address or password aren't configured
+            yet in Settings -> Business Info.
         smtplib.SMTPException: If the send itself fails (auth failure,
             connection issue, etc.) -- allowed to propagate so the caller
             (or an RQ job's retry logic) can decide how to handle it.
     """
-    if not settings.EMAIL_ADDRESS or not settings.EMAIL_PASSWORD:
+    config = _get_email_config(db)
+    if not config["email_address"] or not config["email_password"]:
         raise RuntimeError(
-            "EMAIL_ADDRESS and EMAIL_PASSWORD must be set in .env "
-            "before sending email."
+            "Email address and password must be set in Settings -> "
+            "Business Info before sending email."
         )
 
     msg = EmailMessage()
-    msg["From"] = f"{settings.BUSINESS_NAME} <{settings.EMAIL_ADDRESS}>" if settings.BUSINESS_NAME else settings.EMAIL_ADDRESS
+    msg["From"] = f"{config['business_name']} <{config['email_address']}>" if config["business_name"] else config["email_address"]
     msg["To"] = to_address
     msg["Subject"] = subject
-    if settings.BUSINESS_NAME:
-        body = f"{body}\n\n-- \n{settings.BUSINESS_NAME}"
+    if config["business_name"]:
+        body = f"{body}\n\n-- \n{config['business_name']}"
     msg.set_content(body)
 
-    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+    with smtplib.SMTP(config["smtp_host"], config["smtp_port"]) as server:
         server.starttls()
-        server.login(settings.EMAIL_ADDRESS, settings.EMAIL_PASSWORD)
+        server.login(config["email_address"], config["email_password"])
         server.send_message(msg)
 
 
@@ -150,13 +188,17 @@ def _extract_plain_body(msg: email_lib.message.Message) -> str:
         return payload.decode(charset, errors="replace") if payload else ""
 
 
-def fetch_unread_emails() -> list[InboundEmail]:
+def fetch_unread_emails(db: Session) -> list[InboundEmail]:
     """
     Connect to the inbox via IMAP, fetch all unread messages, and
     mark them as read.
 
     Intended to be called from an RQ job on a schedule (polling), not
     directly from a request handler.
+
+    Args:
+        db: Active database session -- used to read the current
+            email settings fresh, not a cached value.
 
     Returns:
         A list of InboundEmail objects, one per unread message found.
@@ -166,20 +208,21 @@ def fetch_unread_emails() -> list[InboundEmail]:
         than silently dropping it.
 
     Raises:
-        RuntimeError: If EMAIL_ADDRESS or EMAIL_PASSWORD are not
-            configured.
+        RuntimeError: If email address or password aren't configured
+            yet in Settings -> Business Info.
         imaplib.IMAP4.error: If the IMAP connection/login/fetch fails.
     """
-    if not settings.EMAIL_ADDRESS or not settings.EMAIL_PASSWORD:
+    config = _get_email_config(db)
+    if not config["email_address"] or not config["email_password"]:
         raise RuntimeError(
-            "EMAIL_ADDRESS and EMAIL_PASSWORD must be set in .env "
-            "before polling email."
+            "Email address and password must be set in Settings -> "
+            "Business Info before polling email."
         )
 
     results: list[InboundEmail] = []
 
-    with imaplib.IMAP4_SSL(settings.IMAP_HOST, settings.IMAP_PORT) as imap:
-        imap.login(settings.EMAIL_ADDRESS, settings.EMAIL_PASSWORD)
+    with imaplib.IMAP4_SSL(config["imap_host"], config["imap_port"]) as imap:
+        imap.login(config["email_address"], config["email_password"])
         imap.select("INBOX")
 
         status, data = imap.search(None, "UNSEEN")

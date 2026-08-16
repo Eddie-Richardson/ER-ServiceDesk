@@ -7,6 +7,7 @@ actually under test instead of repeating setup boilerplate.
 """
 
 from app.models.customer import Customer
+from app.models.location import Location
 from app.models.device import Device
 from app.models.ticket import Ticket
 from app.models.ticket_category import TicketCategory
@@ -74,8 +75,16 @@ def make_full_ticket(db) -> Ticket:
 
 
 def make_invoice(db, ticket_id: int) -> Invoice:
-    """Create and persist a minimal Invoice record for the given ticket."""
-    obj = Invoice(ticket_id=ticket_id, amount=100.0, is_paid=False)
+    """Create and persist a minimal Invoice record for the given ticket. Starts with no line items -- totals default to 0, matching a genuinely fresh Invoice."""
+    obj = Invoice(ticket_id=ticket_id, is_paid=False)
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def make_location(db, name="Bench 1") -> Location:
+    obj = Location(name=name)
     db.add(obj)
     db.commit()
     db.refresh(obj)

@@ -86,6 +86,15 @@ class PaymentService:
                 details=f"Recorded ${new_payment.amount} payment ({new_payment.method}) on Invoice #{invoice.id}",
             )
 
+        # Deliberately NOT sending the payment receipt here. A caller
+        # that links this payment to a payment-plan installment (see
+        # payment_plan_service.record_installment_payment()) needs
+        # that linking -- and any resulting redistribution -- fully
+        # settled BEFORE the receipt's "next payment due" lookup runs,
+        # or it would find the just-paid installment still showing as
+        # unpaid and report the wrong due date. Each real caller of
+        # this method sends the receipt itself, at the point where its
+        # own state is actually final.
         return new_payment
 
     def update(self, db: Session, id: int, obj_in: PaymentUpdate, current_user_id: int):

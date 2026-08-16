@@ -16,6 +16,7 @@ discount/tax selection changes.
 from datetime import datetime
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict
+from app.schemas.quote_line_item import QuoteLineItem as QuoteLineItemSchema
 
 class QuoteBase(BaseModel):
     """Shared fields for Quote across create/read/update."""
@@ -44,6 +45,8 @@ class Quote(QuoteBase):
     tax_amount: Decimal
     total: Decimal
     converted_invoice_id: int | None = None
+    quote_sent_at: datetime | None = None
+    line_items: list[QuoteLineItemSchema] = []
     created_at: datetime
     updated_at: datetime
     model_config = ConfigDict(from_attributes=True)

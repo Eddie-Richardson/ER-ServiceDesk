@@ -12,6 +12,7 @@ from app.db.session import get_db
 from app.api.dependencies import require_permission, get_current_user
 from app.models.user import User
 from app.services.invoice_service import invoice_service
+from app.services.invoice_email_service import invoice_email_service
 from app.schemas.invoice import Invoice, InvoiceCreate, InvoiceUpdate
 from app.schemas.invoice_line_item import InvoiceLineItem, InvoiceLineItemUpdate
 
@@ -66,13 +67,14 @@ def delete_invoice(
 @router.post("/{invoice_id}/line-items", response_model=InvoiceLineItem)
 def add_invoice_line_item(
     invoice_id: int,
-    service_id: int,
+    service_id: int | None = None,
+    part_id: int | None = None,
     quantity: int = 1,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Adds a new line item to an invoice, snapshotting the service's current name/price, then recalculates totals."""
-    return invoice_service.add_line_item(db, invoice_id, service_id, quantity, current_user.id)
+    """Adds a new line item to an invoice -- exactly one of service_id/part_id -- snapshotting its current name/price, then recalculates totals. A part line item deducts real inventory."""
+    return invoice_service.add_line_item(db, invoice_id, quantity, current_user.id, service_id=service_id, part_id=part_id)
 
 
 @router.put("/line-items/{line_item_id}", response_model=InvoiceLineItem)
@@ -94,3 +96,13 @@ def remove_invoice_line_item(
 ):
     """Removes a line item from an invoice, then recalculates totals."""
     return invoice_service.remove_line_item(db, line_item_id, current_user.id)
+
+
+@router.post("/{invoice_id}/send", response_model=Invoice)
+def send_invoice(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Emails this invoice to its ticket's customer, and records when it was sent. Rejects an empty invoice (no line items). Sendable even after is_paid -- serves as a receipt."""
+    return invoice_email_service.send(db, invoice_id, current_user.id)

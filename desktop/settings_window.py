@@ -48,6 +48,7 @@ from desktop.server_backup_tab import ServerBackupTab
 from desktop.server_resources_tab import ServerResourcesTab
 from desktop.services_tab import ServicesTab
 from desktop.settings_manager import get_install_mode
+from desktop.business_info_tab import BusinessInfoTab
 from desktop.system_settings_tab import SystemSettingsTab
 from desktop.ticket_types_stages_tab import TicketTypesStagesTab
 from desktop.window_geometry import restore_geometry, save_geometry
@@ -100,6 +101,7 @@ class SettingsWindow(QWidget):
         )
         tabs.addTab(TicketTypesStagesTab(), "Ticket Types & Stages")
         tabs.addTab(RolesTab(), "Roles")
+        tabs.addTab(BusinessInfoTab(), "Business Info")
         tabs.addTab(SystemSettingsTab(), "System Settings")
         tabs.addTab(AuditLogTab(), "Audit Log")
         tabs.addTab(BackgroundJobsTab(), "Background Jobs")

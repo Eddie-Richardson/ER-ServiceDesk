@@ -36,6 +36,15 @@ class Part(Base):
         reorder_threshold: Total quantity (summed across every location)
             at/below which this part should be reordered.
         unit_cost: Cost per unit.
+        selling_price: What this part is billed to a customer at when
+            used as a line item on a quote/invoice -- set once here,
+            used every time, separate from unit_cost (what the shop
+            pays for it) so there's a real, intentional margin rather
+            than billing customers at cost. Nullable -- not every part
+            in inventory is necessarily meant to be sold to a customer
+            (some are shop-internal only); the billing service layer
+            requires this to be set before a part can actually be
+            added to a line item, rather than requiring it here.
         supplier: Optional preferred supplier name.
         notes: Optional free-text notes.
         created_at: Timestamp the record was created.
@@ -49,6 +58,7 @@ class Part(Base):
     sku = Column(String, unique=True, nullable=True)
     reorder_threshold = Column(Integer, nullable=False, default=0)
     unit_cost = Column(Numeric, nullable=True)
+    selling_price = Column(Numeric, nullable=True)
     supplier = Column(String, nullable=True)
     notes = Column(String, nullable=True)
 

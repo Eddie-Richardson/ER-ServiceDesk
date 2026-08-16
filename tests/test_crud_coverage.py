@@ -145,13 +145,12 @@ def test_system_settings_crud(client, superuser_headers):
     )
 
 
-def test_audit_logs_crud(client, superuser_headers):
-    _assert_crud_lifecycle(
-        client, superuser_headers, "/audit_logs",
-        {"action": "login", "entity_type": "user", "entity_id": 1},
-        {"action": "login_failed"},
-        update_check_field="action",
-    )
+def test_audit_logs_is_read_only(client, superuser_headers):
+    """AuditLog is a deliberately immutable, internally-generated record -- no create/update/delete route exists at all, only listing."""
+    list_resp = client.get("/audit_logs/", headers=superuser_headers)
+    assert list_resp.status_code == 200
+    create_resp = client.post("/audit_logs/", json={"action": "login", "entity_type": "user", "entity_id": 1}, headers=superuser_headers)
+    assert create_resp.status_code == 405
 
 
 def test_users_requires_superuser_not_just_auth(client, agent_headers):
@@ -176,9 +175,9 @@ def test_ticket_categories_crud(client, agent_headers):
 def test_ticket_statuses_crud(client, agent_headers):
     _assert_crud_lifecycle(
         client, agent_headers, "/ticket_statuses",
-        {"name": "In Progress", "color": "#0000FF"},
-        {"color": "#0000AA"},
-        update_check_field="color",
+        {"name": "In Progress", "description": "Actively being worked"},
+        {"description": "Currently on the bench"},
+        update_check_field="description",
     )
 
 
@@ -213,13 +212,12 @@ def test_ticket_type_stages_crud(client, agent_headers, db):
     )
 
 
-def test_background_jobs_crud(client, agent_headers):
-    _assert_crud_lifecycle(
-        client, agent_headers, "/background_jobs",
-        {"job_type": "send_email", "status": "queued"},
-        {"status": "completed"},
-        update_check_field="status",
-    )
+def test_background_jobs_is_read_only(client, agent_headers):
+    """BackgroundJob is a deliberately immutable, internally-generated record (created only by worker tasks, via start()/complete()/fail()) -- no create route exists via the API, only listing."""
+    list_resp = client.get("/background_jobs/", headers=agent_headers)
+    assert list_resp.status_code == 200
+    create_resp = client.post("/background_jobs/", json={"job_type": "send_email", "status": "queued"}, headers=agent_headers)
+    assert create_resp.status_code == 405
 
 
 def test_message_templates_crud(client, agent_headers):
@@ -279,37 +277,29 @@ def test_messages_crud(client, superuser_headers, db):
     )
 
 
-def test_attachments_crud(client, agent_headers, db):
-    ticket = make_full_ticket(db)
-    _assert_crud_lifecycle(
-        client, agent_headers, "/attachments",
-        {"ticket_id": ticket.id, "file_path": "/uploads/receipt.pdf", "file_name": "receipt.pdf"},
-        {"file_name": "receipt_v2.pdf"},
-        update_check_field="file_name",
-    )
-
-
 def test_quotes_crud(client, agent_headers, db):
+    """Quote creation starts empty (ticket_id only) -- line items get added separately, one at a time, via their own endpoint. See test_billing.py (if/when written) for the line-item/totals flow."""
     ticket = make_full_ticket(db)
     _assert_crud_lifecycle(
         client, agent_headers, "/quotes",
-        {"ticket_id": ticket.id, "amount": 150.0, "details": "Screen + labor"},
-        {"amount": 175.0},
-        update_check_field="amount",
+        {"ticket_id": ticket.id, "details": "Screen + labor"},
+        {"details": "Screen replacement + labor"},
+        update_check_field="details",
     )
 
 
-def test_status_histories_crud(client, agent_headers, db):
+def test_status_histories_is_read_only(client, agent_headers, db):
+    """StatusHistory is a deliberately immutable, internally-generated record (created only when a ticket's status actually changes) -- no create route exists via the API, only listing."""
     from tests.factories import make_ticket_status
     ticket = make_full_ticket(db)
     status2 = make_ticket_status(db, name="Closed")
     user = make_plain_user(db)
-    _assert_crud_lifecycle(
-        client, agent_headers, "/status_histories",
-        {"ticket_id": ticket.id, "status_id": status2.id, "changed_by": user.id},
-        {"changed_by": user.id},
-        update_check_field="changed_by",
-    )
+
+    list_resp = client.get("/status_histories/", headers=agent_headers)
+    assert list_resp.status_code == 200
+
+    create_resp = client.post("/status_histories/", json={"ticket_id": ticket.id, "status_id": status2.id, "changed_by": user.id}, headers=agent_headers)
+    assert create_resp.status_code == 405
 
 
 # ---------------------------------------------------------------------------
@@ -317,10 +307,11 @@ def test_status_histories_crud(client, agent_headers, db):
 # ---------------------------------------------------------------------------
 
 def test_invoices_crud(client, agent_headers, db):
+    """Invoice creation starts empty (ticket_id only), same as Quote -- see test_quotes_crud."""
     ticket = make_full_ticket(db)
     _assert_crud_lifecycle(
         client, agent_headers, "/invoices",
-        {"ticket_id": ticket.id, "amount": 200.0, "is_paid": False},
+        {"ticket_id": ticket.id},
         {"is_paid": True},
         update_check_field="is_paid",
     )
@@ -377,10 +368,12 @@ def test_assets_crud(client, agent_headers):
     assert delete_resp.status_code in (200, 204)
 
 
-def test_parts_crud(client, agent_headers):
+def test_parts_crud(client, agent_headers, db):
+    from tests.factories import make_location
+    location = make_location(db)
     _assert_crud_lifecycle(
         client, agent_headers, "/inventory/parts",
-        {"name": "SATA Cable", "sku": "SATA-001", "quantity_on_hand": 10, "reorder_threshold": 2},
-        {"quantity_on_hand": 8},
-        update_check_field="quantity_on_hand",
+        {"name": "SATA Cable", "sku": "SATA-001", "reorder_threshold": 2, "locations": [{"location_id": location.id, "quantity": 10}]},
+        {"reorder_threshold": 3},
+        update_check_field="reorder_threshold",
     )

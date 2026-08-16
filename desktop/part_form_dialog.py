@@ -96,6 +96,10 @@ class PartFormDialog(QDialog):
         self.unit_cost_input.setPlaceholderText("e.g. 12.99 (optional)")
         self.unit_cost_input.setFixedHeight(layout.INPUT_HEIGHT)
 
+        self.selling_price_input = QLineEdit()
+        self.selling_price_input.setPlaceholderText("e.g. 24.99 -- what a customer is billed when this part is used on an invoice (optional, but required before it can actually be billed)")
+        self.selling_price_input.setFixedHeight(layout.INPUT_HEIGHT)
+
         self.supplier_input = QLineEdit()
         self.supplier_input.setFixedHeight(layout.INPUT_HEIGHT)
 
@@ -123,6 +127,7 @@ class PartFormDialog(QDialog):
             ("SKU", self.sku_input),
             ("Reorder Threshold (total across all locations)", self.reorder_threshold_input),
             ("Unit Cost", self.unit_cost_input),
+            ("Selling Price", self.selling_price_input),
             ("Supplier", self.supplier_input),
         ]:
             field_label = QLabel(label_text)
@@ -258,6 +263,9 @@ class PartFormDialog(QDialog):
         self.unit_cost_input.setText(
             "" if part.get("unit_cost") is None else str(part["unit_cost"])
         )
+        self.selling_price_input.setText(
+            "" if part.get("selling_price") is None else str(part["selling_price"])
+        )
         self.supplier_input.setText(part.get("supplier") or "")
         self.notes_input.setPlainText(part.get("notes") or "")
 
@@ -317,6 +325,14 @@ class PartFormDialog(QDialog):
             except ValueError:
                 return {}, "Unit cost must be a number, e.g. 12.99."
 
+        selling_price_text = self.selling_price_input.text().strip()
+        selling_price = None
+        if selling_price_text:
+            try:
+                selling_price = float(selling_price_text)
+            except ValueError:
+                return {}, "Selling price must be a number, e.g. 24.99."
+
         locations = []
         seen_location_ids = set()
         for row in self.location_rows:
@@ -334,6 +350,7 @@ class PartFormDialog(QDialog):
             "sku": self.sku_input.text().strip() or None,
             "reorder_threshold": self.reorder_threshold_input.value(),
             "unit_cost": unit_cost,
+            "selling_price": selling_price,
             "supplier": self.supplier_input.text().strip() or None,
             "notes": self.notes_input.toPlainText().strip() or None,
             "locations": locations,

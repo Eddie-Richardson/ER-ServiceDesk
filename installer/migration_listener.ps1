@@ -153,22 +153,13 @@ while ($Listener.IsListening) {
         $Request.InputStream.CopyTo($FileStream)
         $FileStream.Close()
 
-        $NewEmailAddress = $Request.Headers["X-Email-Address"]
-        $NewEmailPassword = $Request.Headers["X-Email-Password"]
-        $NewBusinessName = $Request.Headers["X-Business-Name"]
         $NewSecretKey = $Request.Headers["X-Secret-Key"]
         $NewDeviceAccountEncryptionKey = $Request.Headers["X-Device-Account-Encryption-Key"]
         $NewPostgresPassword = $Request.Headers["X-Postgres-Password"]
-        # Carried through so this migrated server keeps whatever real
-        # mail provider the original Local install was configured for
-        # -- confirmed necessary, otherwise the migrated .env would
-        # have no SMTP_HOST/SMTP_PORT/IMAP_HOST lines at all and
-        # config.py's own defaults (which match Gmail) would silently
-        # take over regardless of what the admin actually set up.
-        $NewSmtpHost = $Request.Headers["X-Smtp-Host"]
-        $NewSmtpPort = $Request.Headers["X-Smtp-Port"]
-        $NewImapHost = $Request.Headers["X-Imap-Host"]
-        $NewImapPort = $Request.Headers["X-Imap-Port"]
+        # Business name, email credentials, and SMTP/IMAP settings are
+        # NOT carried this way anymore -- those are real database rows
+        # now, so the migrated database dump itself already carries
+        # them over correctly. No .env involvement for those at all.
 
         # The CURRENT (bootstrap) password is needed to authenticate
         # the ALTER USER call -- you have to already be connected to
@@ -230,13 +221,6 @@ POSTGRES_PASSWORD=$NewPostgresPassword
 POSTGRES_DB=erservicedesk
 SECRET_KEY=$NewSecretKey
 DEVICE_ACCOUNT_ENCRYPTION_KEY=$NewDeviceAccountEncryptionKey
-EMAIL_ADDRESS=$NewEmailAddress
-EMAIL_PASSWORD=$NewEmailPassword
-BUSINESS_NAME=$NewBusinessName
-SMTP_HOST=$NewSmtpHost
-SMTP_PORT=$NewSmtpPort
-IMAP_HOST=$NewImapHost
-IMAP_PORT=$NewImapPort
 "@
             Set-Content -Path $EnvPath -Value $NewEnvContent -NoNewline
 

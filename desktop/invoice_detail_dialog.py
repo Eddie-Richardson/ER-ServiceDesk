@@ -53,6 +53,7 @@ class InvoiceDetailDialog(QDialog):
         self.ticket_id = ticket_id
         self.invoice: dict | None = None
         self.services: list[dict] = []
+        self.parts: list[dict] = []
         self.payments: list[dict] = []
         self.payment_plan: dict | None = None
 
@@ -123,6 +124,15 @@ class InvoiceDetailDialog(QDialog):
         self.paid_status_label = QLabel("")
         outer_layout.addWidget(self.paid_status_label)
 
+        self.send_button = QPushButton("Send Invoice")
+        self.send_button.setObjectName("secondary")
+        self.send_button.clicked.connect(self._on_send_invoice)
+        outer_layout.addWidget(self.send_button)
+
+        self.send_status_label = QLabel("")
+        self.send_status_label.setObjectName("subtitle")
+        outer_layout.addWidget(self.send_status_label)
+
         payments_label = QLabel("Payments")
         payments_label.setObjectName("subtitle")
         outer_layout.addWidget(payments_label)
@@ -171,12 +181,18 @@ class InvoiceDetailDialog(QDialog):
     # Loading
     # -----------------------------------------------------------------
     def _load_services(self):
-        """Loads every active service for the line-item picker."""
+        """Loads every active service and every priced part for the line-item picker."""
         try:
             all_services = api_client.list_services()
         except ApiError:
             all_services = []
         self.services = [s for s in all_services if s.get("is_active", True)]
+
+        try:
+            all_parts = api_client.list_parts()
+        except ApiError:
+            all_parts = []
+        self.parts = [p for p in all_parts if p.get("selling_price") is not None]
 
     def _load_invoice(self):
         """Fetches the invoice and every related section, then refreshes the display."""
@@ -194,6 +210,7 @@ class InvoiceDetailDialog(QDialog):
         self._populate_discount_tax_pickers()
         self._render_line_items()
         self._render_totals()
+        self._render_send_status()
         self._render_payments()
         self._load_payment_plan()
 
@@ -237,7 +254,7 @@ class InvoiceDetailDialog(QDialog):
         for row, item in enumerate(line_items):
             line_total = float(item["unit_price"]) * item["quantity"]
             values = [
-                item["service_name"],
+                item["service_name"] or item["part_name"],
                 str(item["quantity"]),
                 f"${item['unit_price']}",
                 f"${line_total:.2f}",
@@ -259,6 +276,14 @@ class InvoiceDetailDialog(QDialog):
             self.paid_status_label.setText("PAID IN FULL")
         else:
             self.paid_status_label.setText(f"Balance due: ${self._remaining_balance():.2f}")
+
+    def _render_send_status(self):
+        """Shows whether this invoice has ever been emailed, and when."""
+        sent_at = self.invoice.get("invoice_sent_at")
+        if sent_at:
+            self.send_status_label.setText(f"Invoice sent on {sent_at[:10]}.")
+        else:
+            self.send_status_label.setText("Invoice not yet sent.")
 
     def _render_payments(self):
         """Renders the payment history list."""
@@ -291,14 +316,14 @@ class InvoiceDetailDialog(QDialog):
     # -----------------------------------------------------------------
     def _on_add_line_item(self):
         """Opens BillingLineItemDialog in add mode; reloads the invoice if a line item was added."""
-        if not self.services:
-            QMessageBox.information(self, "No Services", "No active services are configured yet -- add one in Settings first.")
+        if not self.services and not self.parts:
+            QMessageBox.information(self, "No Billable Items", "No active services or priced parts are configured yet -- add one in Settings/Inventory first.")
             return
 
         dialog = BillingLineItemDialog(
             self.invoice_id, self.services,
             api_client.add_invoice_line_item, api_client.update_invoice_line_item, api_client.remove_invoice_line_item,
-            None, parent=self,
+            None, parent=self, parts=self.parts,
         )
         if dialog.exec():
             self._load_invoice()
@@ -313,7 +338,7 @@ class InvoiceDetailDialog(QDialog):
         dialog = BillingLineItemDialog(
             self.invoice_id, self.services,
             api_client.add_invoice_line_item, api_client.update_invoice_line_item, api_client.remove_invoice_line_item,
-            line_item, parent=self,
+            line_item, parent=self, parts=self.parts,
         )
         if dialog.exec():
             self._load_invoice()
@@ -346,6 +371,33 @@ class InvoiceDetailDialog(QDialog):
     # -----------------------------------------------------------------
     # Payments
     # -----------------------------------------------------------------
+    # -----------------------------------------------------------------
+    # Sending
+    # -----------------------------------------------------------------
+    def _on_send_invoice(self):
+        """Emails this invoice to the customer, after confirmation. Blocks sending an empty invoice. Deliberately allowed even when is_paid -- re-sending serves as a receipt."""
+        if not self.invoice.get("line_items"):
+            QMessageBox.information(self, "No Line Items", "Add at least one line item before sending this invoice.")
+            return
+
+        confirmed = QMessageBox.question(
+            self,
+            "Send Invoice",
+            f"Email this invoice (total ${self.invoice['total']}) to the customer?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if confirmed != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            api_client.send_invoice(self.invoice_id)
+        except ApiError as e:
+            QMessageBox.critical(self, "Send Failed", str(e))
+            return
+
+        self._load_invoice()
+
     def _on_record_payment(self):
         """Opens PaymentDialog; reloads the invoice if a payment was recorded."""
         dialog = PaymentDialog(self.invoice_id, self._remaining_balance(), parent=self)

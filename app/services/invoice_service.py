@@ -18,12 +18,15 @@ from sqlalchemy.orm import Session
 from app.crud.invoice import crud_invoice
 from app.crud.invoice_line_item import crud_invoice_line_item
 from app.crud.service import crud_service
+from app.crud.part import crud_part
 from app.crud.discount import crud_discount
 from app.crud.tax_rate import crud_tax_rate
+from app.models.part_location import PartLocation
 from app.schemas.invoice import InvoiceCreate, InvoiceUpdate
 from app.schemas.invoice_line_item import InvoiceLineItemUpdate
 from app.services.billing_calculations import calculate_totals
 from app.services.audit_log_service import audit_log_service
+from app.services.system_setting_service import system_setting_service
 
 
 class InvoiceService:
@@ -149,38 +152,65 @@ class InvoiceService:
     # -----------------------------------------------------------------
     # Line items
     # -----------------------------------------------------------------
-    def add_line_item(self, db: Session, invoice_id: int, service_id: int, quantity: int, current_user_id: int):
+    def add_line_item(self, db: Session, invoice_id: int, quantity: int, current_user_id: int, service_id: int | None = None, part_id: int | None = None):
         """
-        Adds a new line item to an invoice, snapshotting the service's
-        current name and price, then recalculates totals.
+        Adds a new line item to an invoice -- either a service or a
+        real inventory part, snapshotting its current name and price,
+        then recalculates totals. Adding a PART line item is what
+        actually deducts real inventory, at the Admin-configured
+        deduction location (SystemSetting "part_deduction_location_id")
+        -- a service line never touches inventory at all.
 
         Args:
             db: Active database session.
             invoice_id: The invoice to add this line item to.
-            service_id: The service being added.
             quantity: How many units.
             current_user_id: The user adding this line item -- recorded
                 in the audit trail.
+            service_id: The service being added, if this is a service line.
+            part_id: The part being added, if this is a part line.
 
         Returns:
             The newly created InvoiceLineItem instance.
 
         Raises:
-            HTTPException: 404 if the service doesn't exist.
+            HTTPException: 400 if neither or both of service_id/part_id
+                are given. 404 if the referenced service/part doesn't
+                exist. 400 if the part has no selling_price configured,
+                or no deduction location is configured.
         """
-        service = crud_service.get(db, service_id)
-        if not service:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
+        if (service_id is None) == (part_id is None):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Provide exactly one of service_id or part_id.")
 
-        line_item = crud_invoice_line_item.create(db, invoice_id, service_id, service.name, quantity, service.price)
+        if service_id is not None:
+            service = crud_service.get(db, service_id)
+            if not service:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
+            line_item = crud_invoice_line_item.create(
+                db, invoice_id, quantity, service.price, service_id=service_id, service_name=service.name,
+            )
+            item_name, item_price = service.name, service.price
+        else:
+            part = crud_part.get(db, part_id)
+            if not part:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Part not found")
+            if part.selling_price is None:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"'{part.name}' has no selling price set -- add one in Inventory before billing it.")
+            line_item = crud_invoice_line_item.create(
+                db, invoice_id, quantity, part.selling_price, part_id=part_id, part_name=part.name,
+            )
+            item_name, item_price = part.name, part.selling_price
+            self._deduct_part_stock(db, part_id, quantity)
 
         invoice = crud_invoice.get(db, invoice_id)
         self._recalculate(db, invoice)
 
         audit_log_service.log(
             db, "invoice_line_item_added", "ticket", invoice.ticket_id, user_id=current_user_id,
-            details=f"Added {service.name} x{quantity} (${service.price}) to Invoice #{invoice_id}",
+            details=f"Added {item_name} x{quantity} (${item_price}) to Invoice #{invoice_id}",
         )
+
+        return line_item
 
         return line_item
 
@@ -199,14 +229,24 @@ class InvoiceService:
             The updated InvoiceLineItem instance.
         """
         db_obj = crud_invoice_line_item.get(db, line_item_id)
+        old_quantity = db_obj.quantity
+        is_part_line = db_obj.part_id is not None
+
         updated = crud_invoice_line_item.update(db, db_obj, obj_in)
+
+        if is_part_line and obj_in.quantity is not None and obj_in.quantity != old_quantity:
+            delta = obj_in.quantity - old_quantity
+            if delta > 0:
+                self._deduct_part_stock(db, updated.part_id, delta)
+            else:
+                self._restore_part_stock(db, updated.part_id, -delta)
 
         invoice = crud_invoice.get(db, updated.invoice_id)
         self._recalculate(db, invoice)
 
         audit_log_service.log(
             db, "invoice_line_item_updated", "ticket", invoice.ticket_id, user_id=current_user_id,
-            details=f"Updated {updated.service_name} to x{updated.quantity} on Invoice #{updated.invoice_id}",
+            details=f"Updated {updated.service_name or updated.part_name} to x{updated.quantity} on Invoice #{updated.invoice_id}",
         )
 
         return updated
@@ -226,7 +266,10 @@ class InvoiceService:
             return
 
         invoice_id = db_obj.invoice_id
-        service_name = db_obj.service_name
+        item_name = db_obj.service_name or db_obj.part_name
+
+        if db_obj.part_id is not None:
+            self._restore_part_stock(db, db_obj.part_id, db_obj.quantity)
 
         crud_invoice_line_item.delete(db, line_item_id)
 
@@ -235,12 +278,80 @@ class InvoiceService:
 
         audit_log_service.log(
             db, "invoice_line_item_removed", "ticket", invoice.ticket_id, user_id=current_user_id,
-            details=f"Removed {service_name} from Invoice #{invoice_id}",
+            details=f"Removed {item_name} from Invoice #{invoice_id}",
         )
 
     # -----------------------------------------------------------------
     # Internal helpers
     # -----------------------------------------------------------------
+    def _deduction_location_id(self, db: Session) -> int:
+        """
+        Reads the Admin-configured part_deduction_location_id
+        SystemSetting.
+
+        Args:
+            db: Active database session.
+
+        Returns:
+            The configured Location id.
+
+        Raises:
+            HTTPException: 400 if no deduction location is configured
+                -- deliberately a hard failure rather than silently
+                skipping the deduction, since a part being billed
+                without inventory actually moving would be a silent
+                data-integrity problem, not just a missing convenience.
+        """
+        location_id = system_setting_service.get_int(db, "part_deduction_location_id", 0)
+        if not location_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No part deduction location is configured -- set one in Settings -> System Settings before billing parts.",
+            )
+        return location_id
+
+    def _deduct_part_stock(self, db: Session, part_id: int, quantity: int):
+        """
+        Deducts quantity from the configured deduction location's
+        stock for this part, creating a zero-quantity PartLocation row
+        there first if none exists yet.
+
+        Args:
+            db: Active database session.
+            part_id: The part to deduct stock for.
+            quantity: How many units to deduct.
+        """
+        location_id = self._deduction_location_id(db)
+        part_location = db.query(PartLocation).filter(
+            PartLocation.part_id == part_id, PartLocation.location_id == location_id,
+        ).first()
+        if not part_location:
+            part_location = PartLocation(part_id=part_id, location_id=location_id, quantity=0)
+            db.add(part_location)
+        part_location.quantity -= quantity
+        db.commit()
+
+    def _restore_part_stock(self, db: Session, part_id: int, quantity: int):
+        """
+        Reverses a prior deduction -- adds quantity back to the
+        configured deduction location's stock for this part. Called
+        when a part line item is removed, or its quantity is reduced.
+
+        Args:
+            db: Active database session.
+            part_id: The part to restore stock for.
+            quantity: How many units to add back.
+        """
+        location_id = self._deduction_location_id(db)
+        part_location = db.query(PartLocation).filter(
+            PartLocation.part_id == part_id, PartLocation.location_id == location_id,
+        ).first()
+        if not part_location:
+            part_location = PartLocation(part_id=part_id, location_id=location_id, quantity=0)
+            db.add(part_location)
+        part_location.quantity += quantity
+        db.commit()
+
     def _recalculate(self, db: Session, invoice):
         """
         Recomputes and stores subtotal/discount_amount/tax_amount/total

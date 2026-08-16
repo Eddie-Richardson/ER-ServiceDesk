@@ -29,6 +29,7 @@ matches the backend route's own superuser requirement.
 """
 
 from PySide6.QtWidgets import (
+    QComboBox,
     QFormLayout,
     QLabel,
     QLineEdit,
@@ -88,6 +89,18 @@ class SystemSettingsTab(QWidget):
             help_label.setStyleSheet("color: gray; font-size: 11px;")
             form.addRow("", help_label)
 
+        self.location_combo = QComboBox()
+        form.addRow("Part Deduction Location:", self.location_combo)
+
+        location_help_label = QLabel(
+            "Where inventory is deducted from when a part is added as a "
+            "line item on an invoice (never on a quote -- a quote isn't "
+            "a real transaction yet). Takes effect immediately."
+        )
+        location_help_label.setWordWrap(True)
+        location_help_label.setStyleSheet("color: gray; font-size: 11px;")
+        form.addRow("", location_help_label)
+
         layout.addLayout(form)
 
         self.status_label = QLabel("")
@@ -102,7 +115,7 @@ class SystemSettingsTab(QWidget):
         self.setLayout(layout)
 
     def _load_current_values(self):
-        """Fetches every current setting and fills in whichever of ours are already set."""
+        """Fetches every current setting and fills in whichever of ours are already set, plus every location for the deduction-location picker."""
         try:
             settings = api_client.list_system_settings()
         except ApiError as e:
@@ -114,8 +127,24 @@ class SystemSettingsTab(QWidget):
             if by_key.get(key) is not None:
                 field.setText(str(by_key[key]))
 
+        try:
+            locations = api_client.list_locations()
+        except ApiError as e:
+            self.status_label.setText(f"Could not load locations: {e}")
+            return
+
+        self.location_combo.clear()
+        for location in locations:
+            self.location_combo.addItem(location["name"], userData=location["id"])
+
+        current_location_id_str = by_key.get("part_deduction_location_id")
+        if current_location_id_str:
+            index = self.location_combo.findData(int(current_location_id_str))
+            if index >= 0:
+                self.location_combo.setCurrentIndex(index)
+
     def _on_save(self):
-        """Validates every field is a real, positive integer, then saves each one."""
+        """Validates every numeric field is a real, positive integer, then saves each one plus the selected deduction location."""
         values: dict[str, str] = {}
         for key, label, default, _ in _SETTINGS:
             field = self._inputs[key]
@@ -124,6 +153,10 @@ class SystemSettingsTab(QWidget):
                 QMessageBox.warning(self, "Invalid Value", f"{label} must be a positive whole number.")
                 return
             values[key] = raw
+
+        selected_location_id = self.location_combo.currentData()
+        if selected_location_id is not None:
+            values["part_deduction_location_id"] = str(selected_location_id)
 
         for key, value in values.items():
             try:

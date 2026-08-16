@@ -8,6 +8,7 @@ ticket. Same shape and reasoning as Quote -- see schemas/quote.py.
 from datetime import datetime
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict
+from app.schemas.invoice_line_item import InvoiceLineItem as InvoiceLineItemSchema
 
 class InvoiceBase(BaseModel):
     """Shared fields for Invoice across create/read/update."""
@@ -38,6 +39,8 @@ class Invoice(InvoiceBase):
     total: Decimal
     is_paid: bool
     source_quote_id: int | None = None
+    invoice_sent_at: datetime | None = None
+    line_items: list[InvoiceLineItemSchema] = []
     created_at: datetime
     updated_at: datetime
     model_config = ConfigDict(from_attributes=True)

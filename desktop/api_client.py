@@ -219,6 +219,11 @@ def _authed_write(method: str, path: str, payload: dict) -> dict:
     return response.json()
 
 
+def send_waiver(ticket_id: int) -> dict:
+    """Emails the liability waiver to this ticket's customer, and returns the updated ticket with waiver_sent_at set."""
+    return _authed_post(f"/tickets/{ticket_id}/send-waiver", {})
+
+
 def list_tickets() -> list[dict]:
     """Returns all tickets. Requires an active session."""
     return _authed_get("/tickets/")
@@ -1138,6 +1143,21 @@ def delete_ticket_part(ticket_part_id: int):
     delete_lookup_item("/ticket_parts/", ticket_part_id)
 
 
+def list_quotes() -> list[dict]:
+    """Returns every quote across the whole business. Requires billing_access."""
+    return _authed_get("/quotes/")
+
+
+def send_invoice(invoice_id: int) -> dict:
+    """Emails this invoice to its ticket's customer, and returns the updated invoice with invoice_sent_at set. Sendable even after is_paid -- serves as a receipt."""
+    return _authed_post(f"/invoices/{invoice_id}/send", {})
+
+
+def list_invoices() -> list[dict]:
+    """Returns every invoice across the whole business. Requires billing_access."""
+    return _authed_get("/invoices/")
+
+
 def list_quotes_for_ticket(ticket_id: int) -> list[dict]:
     """Returns every quote for a single ticket, filtered server-side. Requires billing_access."""
     return _authed_get(f"/quotes/?ticket_id={ticket_id}")
@@ -1169,9 +1189,10 @@ def delete_quote(quote_id: int):
     delete_lookup_item("/quotes/", quote_id)
 
 
-def add_quote_line_item(quote_id: int, service_id: int, quantity: int) -> dict:
-    """Adds a line item to a quote, snapshotting the service's current name/price server-side."""
-    return _authed_post(f"/quotes/{quote_id}/line-items?service_id={service_id}&quantity={quantity}", {})
+def add_quote_line_item(quote_id: int, quantity: int, service_id: int | None = None, part_id: int | None = None) -> dict:
+    """Adds a line item to a quote -- exactly one of service_id/part_id -- snapshotting its current name/price server-side."""
+    params = f"service_id={service_id}" if service_id is not None else f"part_id={part_id}"
+    return _authed_post(f"/quotes/{quote_id}/line-items?{params}&quantity={quantity}", {})
 
 
 def update_quote_line_item(line_item_id: int, quantity: int) -> dict:
@@ -1182,6 +1203,11 @@ def update_quote_line_item(line_item_id: int, quantity: int) -> dict:
 def remove_quote_line_item(line_item_id: int):
     """Removes a line item from a quote."""
     delete_lookup_item("/quotes/line-items/", line_item_id)
+
+
+def send_quote(quote_id: int) -> dict:
+    """Emails this quote to its ticket's customer, and returns the updated quote with quote_sent_at set."""
+    return _authed_post(f"/quotes/{quote_id}/send", {})
 
 
 def convert_quote_to_invoice(quote_id: int) -> dict:
@@ -1214,9 +1240,10 @@ def delete_invoice(invoice_id: int):
     delete_lookup_item("/invoices/", invoice_id)
 
 
-def add_invoice_line_item(invoice_id: int, service_id: int, quantity: int) -> dict:
-    """Adds a line item to an invoice, snapshotting the service's current name/price server-side."""
-    return _authed_post(f"/invoices/{invoice_id}/line-items?service_id={service_id}&quantity={quantity}", {})
+def add_invoice_line_item(invoice_id: int, quantity: int, service_id: int | None = None, part_id: int | None = None) -> dict:
+    """Adds a line item to an invoice -- exactly one of service_id/part_id -- snapshotting its current name/price server-side. A part line item deducts real inventory."""
+    params = f"service_id={service_id}" if service_id is not None else f"part_id={part_id}"
+    return _authed_post(f"/invoices/{invoice_id}/line-items?{params}&quantity={quantity}", {})
 
 
 def update_invoice_line_item(line_item_id: int, quantity: int) -> dict:
@@ -1290,6 +1317,20 @@ def update_device_user_account(account_id: int, payload: dict) -> dict:
 def delete_device_user_account(account_id: int):
     """Removes a user account from a device."""
     delete_lookup_item("/device_user_accounts/", account_id)
+
+
+def get_business_info() -> dict:
+    """Fetches the shop's full business info. Never includes the actual email password, only whether one is set. Requires superuser."""
+    return _authed_get("/business_info_settings/")
+
+
+def save_business_info(business_name: str, business_phone: str, email_address: str, email_password: str | None, smtp_host: str, smtp_port: int, imap_host: str, imap_port: int) -> dict:
+    """Saves the shop's business info. Pass email_password=None to leave the currently-stored password unchanged. Requires superuser."""
+    return _authed_put("/business_info_settings/", {
+        "business_name": business_name, "business_phone": business_phone,
+        "email_address": email_address, "email_password": email_password,
+        "smtp_host": smtp_host, "smtp_port": smtp_port, "imap_host": imap_host, "imap_port": imap_port,
+    })
 
 
 def list_services() -> list[dict]:

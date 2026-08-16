@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 
 from desktop import layout, session
 from desktop.dashboard_worker import DashboardWorker
+from desktop.billing_window import BillingWindow
 from desktop.customers_window import CustomersWindow
 from desktop.settings_window import SettingsWindow
 from desktop.users_roles_window import UsersRolesWindow
@@ -30,13 +31,13 @@ from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.settings_manager import get_saved_theme, get_business_name
 from desktop.theme import MONO_FONT_FAMILY, get_status_color
 
-NAV_ITEMS = ["Tickets", "Inventory", "Customers", "Users & Roles", "Settings"]
+NAV_ITEMS = ["Tickets", "Inventory", "Customers", "Billing", "Users & Roles", "Settings"]
 
 
 class DashboardWindow(QWidget):
     """Main landing window shown after a successful login."""
 
-    _WINDOW_BACKED_NAV_ITEMS = {"Tickets", "Inventory", "Customers", "Users & Roles", "Settings"}  # all five nav destinations now built
+    _WINDOW_BACKED_NAV_ITEMS = {"Tickets", "Inventory", "Customers", "Billing", "Users & Roles", "Settings"}  # all six nav destinations now built
 
     def __init__(self):
         """
@@ -135,10 +136,11 @@ class DashboardWindow(QWidget):
         "Users & Roles" and "Settings" both map to superuser-only
         backend endpoints, so they're hidden entirely for everyone else
         rather than shown and then rejected. "Tickets", "Customers",
-        and "Inventory" are each gated on their matching permission
-        (tickets.manage / customers.manage / inventory.manage) for the
-        same reason -- showing a nav item that just 403s when clicked
-        is the wrong default, not just for the superuser-only windows.
+        "Inventory", and "Billing" are each gated on their matching
+        permission (tickets.manage / customers.manage /
+        inventory.manage / billing.manage) for the same reason --
+        showing a nav item that just 403s when clicked is the wrong
+        default, not just for the superuser-only windows.
 
         Returns:
             The subset of NAV_ITEMS this session is allowed to see.
@@ -150,6 +152,7 @@ class DashboardWindow(QWidget):
             "Tickets": "tickets.manage",
             "Customers": "customers.manage",
             "Inventory": "inventory.manage",
+            "Billing": "billing.manage",
         }
 
         visible = []
@@ -181,6 +184,10 @@ class DashboardWindow(QWidget):
 
         if name == "Customers":
             self._open_customers_window()
+            return
+
+        if name == "Billing":
+            self._open_billing_window()
             return
 
         if name == "Users & Roles":
@@ -251,6 +258,23 @@ class DashboardWindow(QWidget):
             )
 
         self._customers_window.show()
+
+    def _open_billing_window(self):
+        """
+        Opens the Billing window and keeps its nav button highlighted
+        for exactly as long as the window is actually open, same
+        pattern as every other feature window.
+        """
+        self._billing_window = BillingWindow()
+
+        billing_button = self._nav_buttons.get("Billing")
+        if billing_button:
+            billing_button.setChecked(True)
+            self._billing_window.window_closed.connect(
+                lambda: billing_button.setChecked(False)
+            )
+
+        self._billing_window.show()
 
     def _open_users_roles_window(self):
         """

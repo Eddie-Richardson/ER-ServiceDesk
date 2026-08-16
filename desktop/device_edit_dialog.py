@@ -13,6 +13,7 @@ clicking a device in a customer's device list.
 from PySide6.QtCore import QThread, Qt
 from PySide6.QtWidgets import (
     QComboBox,
+    QCompleter,
     QDialog,
     QHeaderView,
     QLabel,
@@ -40,16 +41,22 @@ class DeviceEditDialog(QDialog):
     record is available via `self.saved_device`.
     """
 
-    def __init__(self, device: dict, locations: list[dict], parent=None):
+    def __init__(self, device: dict, locations: list[dict], all_customers: list[dict], parent=None):
         """
         Args:
             device: The existing device dict to edit.
             locations: The full locations list, for the Location dropdown.
+            all_customers: Every customer in the system, for the
+                reassignment picker -- moving a device to the correct
+                customer record (e.g. cleaning up a duplicate) means
+                picking from the full list, not just the one this
+                dialog was opened from.
             parent: The parent widget, per normal Qt dialog convention.
         """
         super().__init__(parent)
         self.device = device
         self.locations = locations
+        self.all_customers = all_customers
         self.saved_device: dict | None = None
         self.deleted = False
 
@@ -110,6 +117,27 @@ class DeviceEditDialog(QDialog):
         for location in self.locations:
             self.location_combo.addItem(location["name"], userData=location["id"])
 
+        self.customer_combo = QComboBox()
+        self.customer_combo.setFixedHeight(layout.INPUT_HEIGHT)
+        self.customer_combo.setEditable(True)
+        self.customer_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        completer = self.customer_combo.completer()
+        completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
+        completer.setFilterMode(Qt.MatchFlag.MatchContains)
+        completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        current_customer_id = self.device.get("customer_id")
+        for customer in self.all_customers:
+            # Archived customers are hidden from the picker for NEW
+            # selections, same reasoning as the ticket form's own
+            # customer picker -- the one exception is the device's
+            # current owner, so the dropdown correctly reflects who
+            # it's actually assigned to even if that customer's since
+            # been archived, rather than showing nothing.
+            if customer.get("is_archived") and customer["id"] != current_customer_id:
+                continue
+            label = f"{customer['first_name']} {customer['last_name']} ({customer['email']})"
+            self.customer_combo.addItem(label, userData=customer["id"])
+
         self.error_label = QLabel("")
         self.error_label.setObjectName("subtitle")
         self.error_label.setStyleSheet("color: #DC2626;")
@@ -131,6 +159,7 @@ class DeviceEditDialog(QDialog):
         self.delete_button.clicked.connect(self._attempt_delete)
 
         for label_text, widget in [
+            ("Owner", self.customer_combo),
             ("Device Type", self.device_type_input),
             ("Brand", self.brand_input),
             ("Model", self.model_input),
@@ -159,6 +188,10 @@ class DeviceEditDialog(QDialog):
         Args:
             device: The device dict being edited.
         """
+        customer_index = self.customer_combo.findData(device.get("customer_id"))
+        if customer_index >= 0:
+            self.customer_combo.setCurrentIndex(customer_index)
+
         self.device_type_input.setText(device.get("device_type", ""))
         self.brand_input.setText(device.get("brand") or "")
         self.model_input.setText(device.get("model") or "")
@@ -174,11 +207,23 @@ class DeviceEditDialog(QDialog):
     # Save
     # -----------------------------------------------------------------
     def _attempt_save(self):
-        """Validates the form, then starts the save request on a background thread."""
+        """Validates the form, then starts the save request on a background thread. Confirms first if the owner is actually being changed -- reassigning a device is a real, meaningful action, not a routine edit."""
         payload, error = self._build_payload()
         if error:
             self._show_error(error)
             return
+
+        if payload["customer_id"] != self.device.get("customer_id"):
+            new_owner_label = self.customer_combo.currentText()
+            confirmed = QMessageBox.question(
+                self,
+                "Reassign Device",
+                f"Reassign this device to {new_owner_label}? It will no longer show up under its current customer's device list.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if confirmed != QMessageBox.StandardButton.Yes:
+                return
 
         self.save_button.setEnabled(False)
         self.save_button.setText("Saving...")
@@ -206,7 +251,12 @@ class DeviceEditDialog(QDialog):
         if not device_type:
             return {}, "Enter a device type."
 
+        customer_id = self.customer_combo.currentData()
+        if customer_id is None:
+            return {}, "Select an owner."
+
         payload = {
+            "customer_id": customer_id,
             "device_type": device_type,
             "brand": self.brand_input.text().strip() or None,
             "model": self.model_input.text().strip() or None,

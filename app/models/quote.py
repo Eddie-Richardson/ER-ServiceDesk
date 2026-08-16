@@ -41,6 +41,13 @@ class Quote(Base):
         converted_invoice_id: The Invoice this quote became, once
             approved and converted -- null until that happens. See
             quote_service.convert_to_invoice().
+        quote_sent_at: Timestamp this quote was last emailed to the
+            customer, or None if never sent. Email-only, same design
+            as Ticket.waiver_sent_at -- the customer's "I APPROVE"
+            reply, if any, comes back as a normal Note on the ticket
+            through the existing inbound-email system, not tracked
+            here. This field only tracks whether the quote itself went
+            out, not whether it was answered.
         created_at: Timestamp the record was created.
         updated_at: Timestamp the record was last updated.
     """
@@ -58,7 +65,20 @@ class Quote(Base):
     total = Column(Numeric, nullable=False, default=0)
 
     details = Column(Text, nullable=True)
-    converted_invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=True)
+    quote_sent_at = Column(DateTime(timezone=True), nullable=True)
+    # Quote <-> Invoice is a genuine mutual reference (this points at
+    # invoices.id, and Invoice.source_quote_id points back at
+    # quotes.id) -- name= and use_alter=True are required so
+    # SQLAlchemy's own metadata can resolve the cycle (e.g. sorting
+    # tables for a test-teardown delete). name= matches the constraint
+    # name Postgres already auto-generated for this column, confirmed
+    # directly against a real database -- this is a Python-model-only
+    # fix, not an actual schema change, so no migration is needed.
+    converted_invoice_id = Column(
+        Integer,
+        ForeignKey("invoices.id", name="quotes_converted_invoice_id_fkey", use_alter=True),
+        nullable=True,
+    )
 
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)

@@ -16,56 +16,15 @@ class SystemSettingCRUD:
     """Direct database access for SystemSetting records."""
 
     def get(self, db: Session, id: int) -> SystemSetting | None:
-        """
-        Fetch a single SystemSetting by primary key.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to fetch.
-
-        Returns:
-            The matching SystemSetting instance, or None if no record exists.
-        """
         return db.query(SystemSetting).filter(SystemSetting.id == id).first()
 
     def get_by_key(self, db: Session, key: str) -> SystemSetting | None:
-        """
-        Fetch a single SystemSetting by its unique key name.
-
-        Args:
-            db: Active database session.
-            key: The setting's key, e.g. 'lock_timeout_minutes'.
-
-        Returns:
-            The matching SystemSetting instance, or None if not set.
-        """
         return db.query(SystemSetting).filter(SystemSetting.key == key).first()
 
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
-        """
-        Fetch multiple SystemSetting records with simple offset pagination.
-
-        Args:
-            db: Active database session.
-            skip: Number of records to skip.
-            limit: Maximum number of records to return.
-
-        Returns:
-            A list of SystemSetting instances.
-        """
         return db.query(SystemSetting).offset(skip).limit(limit).all()
 
     def create(self, db: Session, obj_in: SystemSettingCreate) -> SystemSetting:
-        """
-        Insert a new SystemSetting record.
-
-        Args:
-            db: Active database session.
-            obj_in: Validated input data for the new record.
-
-        Returns:
-            The newly created, refreshed SystemSetting instance.
-        """
         obj = SystemSetting(**obj_in.model_dump())
         db.add(obj)
         db.commit()
@@ -73,17 +32,6 @@ class SystemSettingCRUD:
         return obj
 
     def update(self, db: Session, db_obj: SystemSetting, obj_in: SystemSettingUpdate) -> SystemSetting:
-        """
-        Apply a partial update to an existing SystemSetting record.
-
-        Args:
-            db: Active database session.
-            db_obj: The existing SystemSetting instance to update.
-            obj_in: Fields to change; unset fields are left untouched.
-
-        Returns:
-            The updated, refreshed SystemSetting instance.
-        """
         for field, value in obj_in.model_dump(exclude_unset=True).items():
             setattr(db_obj, field, value)
         db.commit()
@@ -91,13 +39,6 @@ class SystemSettingCRUD:
         return db_obj
 
     def delete(self, db: Session, id: int) -> None:
-        """
-        Delete a SystemSetting record by primary key, if it exists.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to delete.
-        """
         obj = db.query(SystemSetting).filter(SystemSetting.id == id).first()
         if obj:
             db.delete(obj)

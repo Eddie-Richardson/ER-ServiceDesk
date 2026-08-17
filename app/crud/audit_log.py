@@ -18,16 +18,6 @@ class AuditLogCRUD:
     """Direct database access for AuditLog records -- read and create only."""
 
     def get(self, db: Session, id: int) -> AuditLog | None:
-        """
-        Fetch a single AuditLog by primary key.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to fetch.
-
-        Returns:
-            The matching AuditLog instance, or None if no record exists.
-        """
         return db.query(AuditLog).filter(AuditLog.id == id).first()
 
     def get_multi(self, db: Session, skip: int = 0, limit: int = 500, user_id: int | None = None, entity_type: str | None = None, entity_id: int | None = None):
@@ -36,21 +26,15 @@ class AuditLogCRUD:
         newest first, optionally filtered.
 
         Args:
-            db: Active database session.
-            skip: Number of records to skip.
-            limit: Maximum number of records to return. Defaults higher
-                than most other lookups (500, not 100) since this is
-                meant to be reviewed as a real log, not paged through
-                a handful at a time.
+            limit: Defaults higher than most other lookups (500, not
+                100) since this is meant to be reviewed as a real log,
+                not paged through a handful at a time.
             user_id: If given, only entries performed by this user.
             entity_type: If given, only entries for this kind of
                 entity (e.g. "ticket", "user").
             entity_id: If given (along with entity_type), only entries
                 for that one specific entity instance -- e.g. a single
                 ticket's own history, not every ticket's entries.
-
-        Returns:
-            A list of AuditLog instances, most recent first.
         """
         query = db.query(AuditLog)
         if user_id is not None:
@@ -62,18 +46,7 @@ class AuditLogCRUD:
         return query.order_by(AuditLog.created_at.desc()).offset(skip).limit(limit).all()
 
     def create(self, db: Session, obj_in: AuditLogCreate) -> AuditLog:
-        """
-        Insert a new AuditLog record. Only ever called internally by
-        other services logging a real action -- never directly from a
-        route.
-
-        Args:
-            db: Active database session.
-            obj_in: Validated input data for the new record.
-
-        Returns:
-            The newly created, refreshed AuditLog instance.
-        """
+        """Only ever called internally by other services logging a real action -- never directly from a route."""
         obj = AuditLog(**obj_in.model_dump())
         db.add(obj)
         db.commit()

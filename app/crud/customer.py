@@ -16,16 +16,6 @@ class CustomerCRUD:
     """Direct database access for Customer records."""
 
     def get(self, db: Session, id: int) -> Customer | None:
-        """
-        Fetch a single Customer by primary key.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to fetch.
-
-        Returns:
-            The matching Customer instance, or None if no record exists.
-        """
         return db.query(Customer).filter(Customer.id == id).first()
 
     def get_by_email(self, db: Session, email: str) -> Customer | None:
@@ -37,41 +27,13 @@ class CustomerCRUD:
         are effectively case-insensitive in practice (most providers
         treat them that way), and a customer's stored
         address may not exactly match the casing their mail client sends.
-
-        Args:
-            db: Active database session.
-            email: The email address to look up.
-
-        Returns:
-            The matching Customer instance, or None if no record exists.
         """
         return db.query(Customer).filter(Customer.email.ilike(email)).first()
 
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
-        """
-        Fetch multiple Customer records with simple offset pagination.
-
-        Args:
-            db: Active database session.
-            skip: Number of records to skip.
-            limit: Maximum number of records to return.
-
-        Returns:
-            A list of Customer instances.
-        """
         return db.query(Customer).offset(skip).limit(limit).all()
 
     def create(self, db: Session, obj_in: CustomerCreate) -> Customer:
-        """
-        Insert a new Customer record.
-
-        Args:
-            db: Active database session.
-            obj_in: Validated input data for the new record.
-
-        Returns:
-            The newly created, refreshed Customer instance.
-        """
         obj = Customer(**obj_in.model_dump())
         db.add(obj)
         db.commit()
@@ -79,17 +41,6 @@ class CustomerCRUD:
         return obj
 
     def update(self, db: Session, db_obj: Customer, obj_in: CustomerUpdate) -> Customer:
-        """
-        Apply a partial update to an existing Customer record.
-
-        Args:
-            db: Active database session.
-            db_obj: The existing Customer instance to update.
-            obj_in: Fields to change; unset fields are left untouched.
-
-        Returns:
-            The updated, refreshed Customer instance.
-        """
         for field, value in obj_in.model_dump(exclude_unset=True).items():
             setattr(db_obj, field, value)
         db.commit()
@@ -97,13 +48,6 @@ class CustomerCRUD:
         return db_obj
 
     def delete(self, db: Session, id: int) -> None:
-        """
-        Delete a Customer record by primary key, if it exists.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to delete.
-        """
         obj = db.query(Customer).filter(Customer.id == id).first()
         if obj:
             db.delete(obj)

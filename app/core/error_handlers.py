@@ -9,18 +9,7 @@ JSON shape. Ported from InventoryHub and applied app-wide.
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ValidationError
-
-
-class ErrorDetail(BaseModel):
-    """Inner structure of an error response."""
-    code: str
-    message: str
-
-
-class ErrorResponse(BaseModel):
-    """Top-level error response shape: wraps ErrorDetail under "error"."""
-    error: ErrorDetail
+from pydantic import ValidationError
 
 
 def error_response(status_code: int, code: str, message: str):

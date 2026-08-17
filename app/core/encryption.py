@@ -19,7 +19,7 @@ installer-side change to generate base64-specific bytes.
 import base64
 import hashlib
 
-from cryptography.fernet import Fernet, InvalidToken
+from cryptography.fernet import Fernet
 
 from app.core.config import settings
 

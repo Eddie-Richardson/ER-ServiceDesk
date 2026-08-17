@@ -20,7 +20,7 @@ protect against isn't much of a safety net.
 
 from urllib.parse import urlparse
 
-from PySide6.QtCore import QSettings, QThread, QTimer
+from PySide6.QtCore import QSettings, QThread
 from PySide6.QtWidgets import (
     QFileDialog,
     QFormLayout,

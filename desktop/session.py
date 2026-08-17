@@ -60,14 +60,6 @@ def clear():
     _claims = {}
 
 
-def is_logged_in() -> bool:
-    """
-    Returns:
-        Whether a session is currently active.
-    """
-    return _access_token is not None
-
-
 def is_superuser() -> bool:
     """Returns whether the current session belongs to a superuser account."""
     return bool(_claims.get("is_superuser", False))
@@ -101,14 +93,6 @@ def has_permission(permission_name: str) -> bool:
     if is_superuser():
         return True
     return permission_name in current_permissions()
-
-
-def current_email() -> str | None:
-    """
-    Returns:
-        The current session's email address, or None if not logged in.
-    """
-    return _claims.get("email")
 
 
 def current_full_name() -> str | None:

@@ -8,7 +8,7 @@ of ticket counts by status on the backend, with clickable status cards
 that open Tickets pre-filtered.
 """
 
-from PySide6.QtCore import Qt, QThread
+from PySide6.QtCore import QThread
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QHBoxLayout,

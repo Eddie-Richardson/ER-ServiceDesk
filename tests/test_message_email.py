@@ -10,8 +10,6 @@ send_email is monkeypatched throughout so these tests never touch a real
 SMTP server.
 """
 
-import pytest
-
 from app.services.message_service import message_service
 from app.schemas.message import MessageCreate
 from app.models.ticket import Ticket

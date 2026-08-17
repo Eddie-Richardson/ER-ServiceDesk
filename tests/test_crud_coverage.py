@@ -16,17 +16,13 @@ given resource, so each resource's test is a short, readable call rather
 than a hand-written near-duplicate of the same five HTTP calls.
 """
 
-from app.models.role import Role
-from app.models.permission import Permission
 from tests.factories import (
     make_customer,
-    make_device,
     make_role,
     make_permission,
     make_plain_user,
     make_full_ticket,
     make_invoice,
-    make_ticket_dependencies,
 )
 
 

@@ -9,7 +9,6 @@ server-side); the notification is genuinely wired to this action, not
 just decorative.
 """
 
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,

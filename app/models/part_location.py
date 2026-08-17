@@ -21,12 +21,6 @@ from app.db.base import Base
 class PartLocation(Base):
     """
     Represents the quantity of one Part stored at one Location.
-
-    Attributes:
-        id: Primary key.
-        part_id: The Part this quantity belongs to.
-        location_id: The Location this quantity is stored at.
-        quantity: How many units of the part are at this location.
     """
     __tablename__ = "part_locations"
     __table_args__ = (

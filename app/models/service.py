@@ -21,9 +21,6 @@ class Service(Base):
     Represents one billable service the shop offers, with its current price.
 
     Attributes:
-        id: Primary key.
-        name: The service's display name, e.g. "Screen Replacement".
-        description: Optional longer explanation of what this covers.
         price: Current price for this service. Existing line items
             keep their own snapshotted name and price regardless of
             later changes here -- see QuoteLineItem/InvoiceLineItem.
@@ -34,8 +31,6 @@ class Service(Base):
             line items snapshot their own name/price and stay correct
             regardless of whether this service is later deactivated
             or even deleted entirely.
-        created_at: Timestamp the record was created.
-        updated_at: Timestamp the record was last updated.
     """
     __tablename__ = "services"
     id = Column(Integer, primary_key=True, index=True)

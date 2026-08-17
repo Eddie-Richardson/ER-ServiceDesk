@@ -12,13 +12,6 @@ from app.db.base import Base
 class StatusHistory(Base):
     """
     Represents a single status change on a ticket: what it changed to, who changed it, and when.
-
-    Attributes:
-        id: Primary key.
-        ticket_id: The ticket whose status changed.
-        status_id: The new status.
-        changed_by: The user who made the change.
-        changed_at: Timestamp of the status change.
     """
     __tablename__ = "status_history"
     id = Column(Integer, primary_key=True, index=True)

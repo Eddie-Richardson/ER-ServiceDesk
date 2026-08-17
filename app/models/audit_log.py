@@ -14,16 +14,11 @@ class AuditLog(Base):
     Represents a single logged action taken by a user or the system, tied to the entity it affected.
 
     Attributes:
-        id: Primary key.
         user_id: The user who performed the action, if any -- null
             for a genuinely system-initiated action with no specific
             user behind it.
         action: Short label for the action (e.g. 'login', 'update_ticket').
-        details: Additional free-text context about the action.
         entity_type: The kind of entity affected (e.g. 'ticket', 'user').
-        entity_id: The ID of the specific entity instance affected.
-        created_at: Timestamp the record was created.
-        updated_at: Timestamp the record was last updated.
     """
     __tablename__ = "audit_logs"
     id = Column(Integer, primary_key=True, index=True)

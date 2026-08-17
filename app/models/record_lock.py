@@ -28,11 +28,6 @@ class RecordLock(Base):
     Represents an active check-out lock on a record being edited.
 
     Attributes:
-        id: Primary key.
-        entity_type: Short identifier for the kind of record locked,
-            e.g. "ticket", "customer", "asset".
-        entity_id: The primary key of the locked record within its own table.
-        locked_by_user_id: The user currently holding the lock.
         locked_at: When the lock was acquired. Used to determine
             whether a lock has gone stale (see RecordLockService).
     """

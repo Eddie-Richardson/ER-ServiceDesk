@@ -11,11 +11,6 @@ from app.db.base import Base
 class TicketType(Base):
     """
     Represents a ticket classification (e.g. 'Bug Report', 'Feature Request') used for routing.
-
-    Attributes:
-        id: Primary key.
-        name: Unique type name.
-        description: Optional explanation of this ticket type.
     """
     __tablename__ = "ticket_types"
     id = Column(Integer, primary_key=True, index=True)

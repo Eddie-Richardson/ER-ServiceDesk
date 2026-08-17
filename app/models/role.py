@@ -13,9 +13,7 @@ class Role(Base):
     Represents a named collection of permissions that can be assigned to users.
 
     Attributes:
-        id: Primary key.
         name: Unique role name (e.g. 'admin', 'agent').
-        description: Optional explanation of what the role represents.
     """
     __tablename__ = "roles"
     id = Column(Integer, primary_key=True, index=True)

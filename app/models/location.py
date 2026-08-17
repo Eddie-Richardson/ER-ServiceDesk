@@ -17,9 +17,7 @@ class Location(Base):
     a shelf, a shipping area, etc.).
 
     Attributes:
-        id: Primary key.
         name: Unique location name (e.g. "Bench 3", "Customer Pickup Shelf").
-        description: Optional longer explanation of the location.
     """
     __tablename__ = "locations"
 

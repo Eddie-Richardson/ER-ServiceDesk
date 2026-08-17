@@ -3,7 +3,6 @@
 """
 ORM model for a serialized, one-off business asset (e.g. a laptop, a bench
 tool) -- as opposed to Part, which tracks consumable stock by quantity.
-Merged in from the standalone InventoryHub API.
 """
 
 import datetime
@@ -17,23 +16,11 @@ class Asset(Base):
     Represents a single tracked business asset, identified by serial number.
 
     Attributes:
-        id: Primary key.
-        name: Required asset name.
-        sku: Optional SKU identifier.
-        category_id: The AssetCategory this asset belongs to.
-        manufacturer: Brand or manufacturer.
-        model: Model name/number.
-        serial_number: Unique serial number.
         status: Current status (e.g. "Active", "In Repair", "Retired").
-        location_id: The Location this asset currently sits at.
         price: Purchase price.
-        purchase_date: When the asset was purchased.
-        warranty_expiration: Warranty end date.
-        assigned_to: Person or department assigned to the asset.
+        assigned_to: Person or department assigned to the asset -- free
+            text, not a User foreign key.
         condition: Physical condition (e.g. "New", "Good", "Damaged").
-        notes: Optional free-text notes.
-        created_at: Timestamp the record was created.
-        updated_at: Timestamp the record was last updated.
     """
     __tablename__ = "assets"
 
@@ -62,9 +49,6 @@ class Asset(Base):
         default=lambda: datetime.datetime.now(datetime.UTC),
         nullable=False,
     )
-    # NOTE: the original InventoryHub version of this model was missing
-    # onupdate here, so updated_at never actually changed after creation.
-    # Fixed as part of the merge.
     updated_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.datetime.now(datetime.UTC),

@@ -14,8 +14,6 @@ class PaymentPlanInstallment(Base):
     Represents one scheduled installment within a payment plan.
 
     Attributes:
-        id: Primary key.
-        payment_plan_id: The payment plan this installment belongs to.
         sequence_number: This installment's fixed position in the
             schedule (1, 2, 3...) -- kept separate from due_date since
             due_date can be manually changed later (see

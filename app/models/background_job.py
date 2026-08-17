@@ -13,12 +13,8 @@ class BackgroundJob(Base):
     Represents a queued or processed background task, along with its status and payload.
 
     Attributes:
-        id: Primary key.
         job_type: The kind of job (e.g. 'send_email', 'generate_report').
         status: Current job status (e.g. 'queued', 'running', 'completed', 'failed').
-        payload: Optional JSON/text payload of job parameters.
-        created_at: Timestamp the record was created.
-        updated_at: Timestamp the record was last updated.
     """
     __tablename__ = "background_jobs"
     id = Column(Integer, primary_key=True, index=True)

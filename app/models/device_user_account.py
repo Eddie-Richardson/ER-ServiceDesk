@@ -19,11 +19,8 @@ class DeviceUserAccount(Base):
     Represents one login account known to exist on a device.
 
     Attributes:
-        id: Primary key.
-        device_id: The device this account belongs to. Device-level,
-            not Ticket-level -- these rarely change between repairs on
-            the same machine.
-        account_name: The account's username/display name.
+        device_id: Device-level, not Ticket-level -- these rarely
+            change between repairs on the same machine.
         encrypted_password: The account's password, encrypted at rest
             (see app/core/encryption.py) -- NOT one-way hashed like a
             login password, since this needs to be shown back to a
@@ -32,9 +29,6 @@ class DeviceUserAccount(Base):
             email/OneDrive/etc.), not just a local Windows login, which
             is why real reversible encryption matters here more than
             it might otherwise.
-        is_admin: Whether this account has administrator privileges.
-        created_at: Timestamp the record was created.
-        updated_at: Timestamp the record was last updated.
     """
     __tablename__ = "device_user_accounts"
     id = Column(Integer, primary_key=True, index=True)

@@ -14,26 +14,20 @@ class Invoice(Base):
     Represents a billing record tied to a ticket, tracking amount owed and payment status.
 
     Attributes:
-        id: Primary key.
-        ticket_id: The ticket this invoice bills for.
         subtotal: Sum of every line item (quantity x unit_price),
             before discount or tax. Computed and stored, not derived
             live -- see Quote.subtotal for the same reasoning.
-        discount_id: The discount applied, if any.
         discount_name: The discount's name at the moment it was
             applied -- a snapshot, same reasoning as line items'
             service_name.
         discount_amount: The actual dollar amount the discount took
             off, snapshotted at the moment it was applied.
-        tax_rate_id: The tax rate applied, if any.
         tax_rate_name: The tax rate's name at the moment it was
             applied -- a snapshot.
         tax_amount: The actual dollar amount of tax, calculated on
             (subtotal - discount_amount) and snapshotted the same way.
         total: subtotal - discount_amount + tax_amount. The final
             amount owed.
-        details: Optional free-text notes about the invoice.
-        is_paid: Whether the invoice has been fully paid.
         source_quote_id: The Quote this invoice was converted from, if
             any -- null for an invoice created directly, not via
             quote conversion.
@@ -42,8 +36,6 @@ class Invoice(Base):
             design as Ticket.waiver_sent_at / Quote.quote_sent_at.
             Sendable even after is_paid is true -- re-sending a paid
             invoice serves as a receipt, not blocked.
-        created_at: Timestamp the record was created.
-        updated_at: Timestamp the record was last updated.
     """
     __tablename__ = "invoices"
     id = Column(Integer, primary_key=True, index=True)
@@ -70,5 +62,11 @@ class Invoice(Base):
     discount = relationship("Discount")
     tax_rate = relationship("TaxRate")
     payments = relationship("Payment", back_populates="invoice")
+    # cascade="all, delete-orphan": inert in practice -- Invoice
+    # records are not deletable at any layer (no route, no service
+    # method, no CRUD method), so this never actually fires.
     line_items = relationship("InvoiceLineItem", back_populates="invoice", cascade="all, delete-orphan")
+    # foreign_keys= disambiguates the genuine circular reference with
+    # Quote (Quote.converted_invoice_id points back here) -- see
+    # quote.py's own comment on that column for the full reasoning.
     source_quote = relationship("Quote", foreign_keys=[source_quote_id])

@@ -20,8 +20,6 @@ class Discount(Base):
     Represents one named discount category and its percentage off.
 
     Attributes:
-        id: Primary key.
-        name: The discount's display name, e.g. "Teacher".
         percentage: How much this discount takes off, as a percentage
             (e.g. 10 for 10% off), applied to a quote/invoice's
             pre-tax total.
@@ -31,8 +29,6 @@ class Discount(Base):
             snapshot the discount's own name and dollar amount, so
             deactivating (or even deleting) this later never affects
             anything already billed.
-        created_at: Timestamp the record was created.
-        updated_at: Timestamp the record was last updated.
     """
     __tablename__ = "discounts"
     id = Column(Integer, primary_key=True, index=True)

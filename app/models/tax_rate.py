@@ -20,8 +20,6 @@ class TaxRate(Base):
     Represents one named tax rate and its percentage.
 
     Attributes:
-        id: Primary key.
-        name: The tax rate's display name, e.g. "Standard Sales Tax".
         percentage: The tax rate as a percentage (e.g. 8.25 for
             8.25%), applied to a quote/invoice's total after any
             discount.
@@ -31,8 +29,6 @@ class TaxRate(Base):
             snapshot the tax rate's own name and dollar amount, so
             deactivating (or even deleting) this later never affects
             anything already billed.
-        created_at: Timestamp the record was created.
-        updated_at: Timestamp the record was last updated.
     """
     __tablename__ = "tax_rates"
     id = Column(Integer, primary_key=True, index=True)

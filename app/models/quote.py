@@ -14,13 +14,11 @@ class Quote(Base):
     Represents a cost estimate given to a customer before work is approved.
 
     Attributes:
-        id: Primary key.
         ticket_id: The ticket this quote is for.
         subtotal: Sum of every line item (quantity x unit_price),
             before discount or tax. Computed and stored (not derived
             live), so a quote's own totals stay accurate even if a
             line item's underlying Service is later changed.
-        discount_id: The discount applied, if any.
         discount_name: The discount's name at the moment it was
             applied -- a snapshot, same reasoning as line items'
             service_name. Keeps this quote fully self-contained and
@@ -30,14 +28,12 @@ class Quote(Base):
             off, snapshotted at the moment it was applied -- a later
             change to Discount.percentage never alters this quote's
             own numbers.
-        tax_rate_id: The tax rate applied, if any.
         tax_rate_name: The tax rate's name at the moment it was
             applied -- a snapshot, same reasoning as discount_name.
         tax_amount: The actual dollar amount of tax, calculated on
             (subtotal - discount_amount) and snapshotted the same way.
         total: subtotal - discount_amount + tax_amount. The final
             quoted price.
-        details: Optional free-text notes about the quote.
         converted_invoice_id: The Invoice this quote became, once
             approved and converted -- null until that happens. See
             quote_service.convert_to_invoice().
@@ -48,8 +44,6 @@ class Quote(Base):
             through the existing inbound-email system, not tracked
             here. This field only tracks whether the quote itself went
             out, not whether it was answered.
-        created_at: Timestamp the record was created.
-        updated_at: Timestamp the record was last updated.
     """
     __tablename__ = "quotes"
     id = Column(Integer, primary_key=True, index=True)
@@ -71,9 +65,7 @@ class Quote(Base):
     # quotes.id) -- name= and use_alter=True are required so
     # SQLAlchemy's own metadata can resolve the cycle (e.g. sorting
     # tables for a test-teardown delete). name= matches the constraint
-    # name Postgres already auto-generated for this column, confirmed
-    # directly against a real database -- this is a Python-model-only
-    # fix, not an actual schema change, so no migration is needed.
+    # name Postgres auto-generates for this column.
     converted_invoice_id = Column(
         Integer,
         ForeignKey("invoices.id", name="quotes_converted_invoice_id_fkey", use_alter=True),
@@ -86,5 +78,10 @@ class Quote(Base):
     ticket = relationship("Ticket")
     discount = relationship("Discount")
     tax_rate = relationship("TaxRate")
+    # cascade="all, delete-orphan": inert in practice -- Quote
+    # records are not deletable at any layer (no route, no service
+    # method, no CRUD method), so this never actually fires.
     line_items = relationship("QuoteLineItem", back_populates="quote", cascade="all, delete-orphan")
+    # foreign_keys= disambiguates the circular reference with Invoice
+    # -- see the comment on converted_invoice_id above for why.
     converted_invoice = relationship("Invoice", foreign_keys=[converted_invoice_id])

@@ -30,12 +30,8 @@ class Part(Base):
     part_locations.
 
     Attributes:
-        id: Primary key.
-        name: Part name (e.g. "SSD 500GB").
-        sku: Unique stock-keeping unit identifier.
         reorder_threshold: Total quantity (summed across every location)
             at/below which this part should be reordered.
-        unit_cost: Cost per unit.
         selling_price: What this part is billed to a customer at when
             used as a line item on a quote/invoice -- set once here,
             used every time, separate from unit_cost (what the shop
@@ -45,10 +41,6 @@ class Part(Base):
             (some are shop-internal only); the billing service layer
             requires this to be set before a part can actually be
             added to a line item, rather than requiring it here.
-        supplier: Optional preferred supplier name.
-        notes: Optional free-text notes.
-        created_at: Timestamp the record was created.
-        updated_at: Timestamp the record was last updated.
     """
     __tablename__ = "parts"
 
@@ -74,6 +66,8 @@ class Part(Base):
         nullable=False,
     )
 
+    # cascade="all, delete-orphan": deleting a Part permanently
+    # deletes its location/quantity rows with it, not just unlinks them.
     part_locations = relationship(
         "PartLocation", back_populates="part", cascade="all, delete-orphan"
     )

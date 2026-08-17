@@ -3,9 +3,7 @@
 """
 ORM model for a ticket's full note/conversation history -- internal
 notes and customer-facing email exchange, unified into one system
-rather than two separate ones. Originally built as two overlapping
-models (Note and Message) doing the same underlying job; merged after
-that overlap was called out directly.
+rather than two separate ones.
 """
 
 from sqlalchemy import Column, Integer, Text, ForeignKey, DateTime, String
@@ -18,26 +16,21 @@ class Message(Base):
     A single entry in a ticket's note/conversation history.
 
     Attributes:
-        id: Primary key.
-        ticket_id: The ticket this entry belongs to.
-        customer_id: The customer this was sent to/received from.
-            Nullable -- an internal-only entry has no customer
-            involved at all.
-        user_id: The staff member who authored this entry. Nullable --
-            an inbound entry (the customer's own reply) has no staff
-            author; it's attributed to customer_id instead.
+        customer_id: Nullable -- an internal-only entry has no
+            customer involved at all.
+        user_id: Nullable -- an inbound entry (the customer's own
+            reply) has no staff author; it's attributed to
+            customer_id instead.
         direction: 'internal' (staff-only, never emailed), 'outbound'
             (staff-authored, sent to the customer), or 'inbound' (the
             customer's own reply, created by the inbound-email polling
             worker -- see app/workers/tasks.py's poll_inbound_email).
-        content: The entry's body.
         email_status: For outbound entries only -- 'sent' or 'failed'.
             Null for internal/inbound, where it doesn't apply. A tech
             seeing 'failed' here knows the customer was NOT notified
             and should retry or call them directly.
-        created_at: Timestamp the record was created.
-        updated_at: Timestamp the record was last updated (an edit --
-            see message_service.py for who's allowed to make one).
+        updated_at: Timestamp of the last edit -- see message_service.py
+            for who's allowed to make one.
     """
     __tablename__ = "messages"
     id = Column(Integer, primary_key=True, index=True)
@@ -60,8 +53,7 @@ class Message(Base):
         member for internal/outbound, the customer themselves for
         inbound. Denormalized into API responses (see schemas/
         message.py) so any session can see this without a separate
-        /users/ or /customers/ lookup, the same reasoning as the
-        former Note model's own author_name property.
+        /users/ or /customers/ lookup.
         """
         if self.user:
             return self.user.full_name

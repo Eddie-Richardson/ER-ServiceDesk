@@ -11,11 +11,6 @@ from app.db.base import Base
 class UserRole(Base):
     """
     Join record granting a single role to a single user.
-
-    Attributes:
-        id: Primary key.
-        user_id: The user being granted a role.
-        role_id: The role being granted.
     """
     __tablename__ = "user_roles"
     id = Column(Integer, primary_key=True, index=True)

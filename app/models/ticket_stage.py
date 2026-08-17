@@ -15,11 +15,6 @@ from app.db.base import Base
 class TicketStage(Base):
     """
     Represents a single granular stage of work a ticket can be at.
-
-    Attributes:
-        id: Primary key.
-        name: Unique stage name (e.g. "Diagnosing", "Burn-in Test").
-        description: Optional explanation of what this stage covers.
     """
     __tablename__ = "ticket_stages"
 

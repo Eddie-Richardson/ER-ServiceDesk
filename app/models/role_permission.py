@@ -11,11 +11,6 @@ from app.db.base import Base
 class RolePermission(Base):
     """
     Join record granting a single permission to a single role.
-
-    Attributes:
-        id: Primary key.
-        role_id: The role being granted a permission.
-        permission_id: The permission being granted.
     """
     __tablename__ = "role_permissions"
     id = Column(Integer, primary_key=True, index=True)

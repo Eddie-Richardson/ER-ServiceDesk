@@ -17,11 +17,6 @@ from app.db.base import Base
 class AssetCategory(Base):
     """
     Represents a broad organizational bucket for business assets.
-
-    Attributes:
-        id: Primary key.
-        name: Unique category name.
-        description: Optional explanation of what falls under this category.
     """
     __tablename__ = "asset_categories"
     id = Column(Integer, primary_key=True, index=True)

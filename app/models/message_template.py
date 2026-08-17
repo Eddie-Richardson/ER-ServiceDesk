@@ -12,10 +12,7 @@ class MessageTemplate(Base):
     Represents a predefined subject/body pair used for standardized customer communication.
 
     Attributes:
-        id: Primary key.
         name: Unique template identifier (e.g. 'ticket_created').
-        subject: Email subject line for this template.
-        body: Template body, may contain placeholders.
     """
     __tablename__ = "message_templates"
     id = Column(Integer, primary_key=True, index=True)

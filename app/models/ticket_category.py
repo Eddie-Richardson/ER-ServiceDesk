@@ -11,11 +11,6 @@ from app.db.base import Base
 class TicketCategory(Base):
     """
     Represents a broad organizational bucket for tickets (e.g. 'Hardware', 'Network').
-
-    Attributes:
-        id: Primary key.
-        name: Unique category name.
-        description: Optional explanation of what falls under this category.
     """
     __tablename__ = "ticket_categories"
     id = Column(Integer, primary_key=True, index=True)

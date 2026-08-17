@@ -18,8 +18,6 @@ class InvoiceLineItem(Base):
     Represents one line on an invoice -- either a service or a part.
 
     Attributes:
-        id: Primary key.
-        invoice_id: The invoice this line item belongs to.
         service_id: The service being billed, if this line item is a
             service. None if it's a part instead.
         service_name: The service's name at the moment this line item
@@ -28,7 +26,6 @@ class InvoiceLineItem(Base):
             None if it's a service instead.
         part_name: The part's name at the moment this line item was
             added -- a snapshot. None if this line item is a service.
-        quantity: How many units.
         unit_price: The service's price or the part's selling_price at
             the moment this line item was added -- a snapshot, not a
             live lookup, so a later price change never alters an

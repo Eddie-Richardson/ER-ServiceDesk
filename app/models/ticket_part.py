@@ -19,10 +19,6 @@ class TicketPart(Base):
     status.
 
     Attributes:
-        id: Primary key.
-        ticket_id: The ticket that needs this part.
-        part_id: The part that is needed.
-        quantity_needed: How many units of the part this ticket needs.
         status: Fulfillment status -- "needed", "ordered", "shipped",
             "delayed", "delivered", "backordered", "received", or
             "installed". Free-text rather than a DB-level enum, since new
@@ -40,11 +36,7 @@ class TicketPart(Base):
             look up the current shipment status themselves when a
             customer asks, without this app needing to poll any carrier
             API.
-        ordered_at: When the part was ordered, if applicable.
-        received_at: When the part arrived, if applicable.
         notes: Optional free-text notes (e.g. supplier order number).
-        created_at: Timestamp the record was created.
-        updated_at: Timestamp the record was last updated.
     """
     __tablename__ = "ticket_parts"
 

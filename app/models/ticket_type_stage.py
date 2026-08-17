@@ -17,11 +17,6 @@ from app.db.base import Base
 class TicketTypeStage(Base):
     """
     Represents one allowed (ticket type, stage) pairing.
-
-    Attributes:
-        id: Primary key.
-        type_id: The ticket type this stage is valid for.
-        stage_id: The stage allowed for that ticket type.
     """
     __tablename__ = "ticket_type_stages"
     __table_args__ = (UniqueConstraint("type_id", "stage_id", name="uq_ticket_type_stage"),)

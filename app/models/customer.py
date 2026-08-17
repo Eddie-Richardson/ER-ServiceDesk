@@ -14,12 +14,7 @@ class Customer(Base):
     Represents a customer who owns devices and may have one or more support tickets open.
 
     Attributes:
-        id: Primary key.
-        first_name: Customer's first name.
-        last_name: Customer's last name.
         email: Unique contact email, used for ticket notifications.
-        phone: Optional contact phone number.
-        address: Optional mailing/service address.
         is_archived: Hidden from the active ticket picker and the
             default Customers view once True -- set either manually
             (Archive/Unarchive in the Customers window) or
@@ -28,8 +23,6 @@ class Customer(Base):
             Fully reversible; doesn't delete or hide anything else
             about the customer, still findable and editable in the
             Customers window with the "Show Archived" filter on.
-        created_at: Timestamp the record was created.
-        updated_at: Timestamp the record was last updated.
     """
     __tablename__ = "customers"
     id = Column(Integer, primary_key=True, index=True)

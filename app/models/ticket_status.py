@@ -11,11 +11,6 @@ from app.db.base import Base
 class TicketStatus(Base):
     """
     Represents a possible ticket state (e.g. 'Open', 'In Progress', 'Resolved').
-
-    Attributes:
-        id: Primary key.
-        name: Unique status name.
-        description: Optional explanation of what this status means.
     """
     __tablename__ = "ticket_statuses"
     id = Column(Integer, primary_key=True, index=True)

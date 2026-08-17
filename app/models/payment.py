@@ -14,13 +14,8 @@ class Payment(Base):
     Represents a single financial transaction applied to an invoice.
 
     Attributes:
-        id: Primary key.
-        invoice_id: The invoice this payment applies to.
-        amount: Payment amount.
         method: Payment method (e.g. 'credit_card', 'cash').
         transaction_id: Optional external processor reference (e.g. Stripe ID).
-        created_at: Timestamp the record was created.
-        updated_at: Timestamp the record was last updated.
     """
     __tablename__ = "payments"
     id = Column(Integer, primary_key=True, index=True)

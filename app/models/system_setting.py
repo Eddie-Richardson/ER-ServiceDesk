@@ -12,9 +12,7 @@ class SystemSetting(Base):
     Represents a single system-wide configuration value that can change without a redeploy.
 
     Attributes:
-        id: Primary key.
         key: Unique setting name (e.g. 'site_name').
-        value: Arbitrary text value for the setting.
     """
     __tablename__ = "system_settings"
     id = Column(Integer, primary_key=True, index=True)

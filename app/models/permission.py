@@ -13,9 +13,7 @@ class Permission(Base):
     Represents one capability (e.g. 'ticket.create') that can be assigned to roles.
 
     Attributes:
-        id: Primary key.
         name: Unique permission identifier (e.g. 'view_reports').
-        description: Optional human-readable explanation of what this permission allows.
     """
     __tablename__ = "permissions"
     id = Column(Integer, primary_key=True, index=True)

@@ -14,21 +14,13 @@ class Ticket(Base):
     Represents the core workflow entity: a device brought in by a customer, tracked through category, type, status, and technician assignment.
 
     Attributes:
-        id: Primary key.
-        customer_id: The customer this ticket is for.
-        device_id: The device being serviced.
         category_id: High-level grouping (e.g. Hardware, Software).
         type_id: Classification (e.g. Bug, Repair Request).
-        status_id: Current workflow status.
         stage_id: Granular step of work (e.g. "Diagnosing" for a repair,
             "Burn-in Test" for a custom build). Distinct from status_id,
             which stays at the high-level Open/In Progress/Resolved axis.
-        assigned_to: The technician assigned to this ticket, if any.
         current_location_id: Where the device physically is right now
             (e.g. a bench, a shelf, shipped to customer).
-        title: Short summary of the issue.
-        description: Optional full description of the issue.
-        priority: Ticket priority level.
         pickup_person: Who is authorized to pick up the device for this
             particular visit -- varies per ticket, not a fixed
             Customer-level fact (a different person could drop off and
@@ -39,14 +31,12 @@ class Ticket(Base):
             -- also varies per visit, not a permanent Device fact.
         waiver_sent_at: Timestamp the liability waiver email was last
             sent for this ticket, or None if never sent. Email-only --
-            there's no signed-paper path to attach a record of (see
-            the design discussion this came out of). The customer's
-            "I AGREE" reply, if any, comes back as a normal Note on
-            this ticket through the existing inbound-email system,
-            same as any other reply -- this field only tracks whether
-            the request itself went out, not whether it was answered.
-        created_at: Timestamp the record was created.
-        updated_at: Timestamp the record was last updated.
+            there's no signed-paper path to attach a record of. The
+            customer's "I AGREE" reply, if any, comes back as a normal
+            Note on this ticket through the existing inbound-email
+            system, same as any other reply -- this field only tracks
+            whether the request itself went out, not whether it was
+            answered.
     """
     __tablename__ = "tickets"
     id = Column(Integer, primary_key=True, index=True)

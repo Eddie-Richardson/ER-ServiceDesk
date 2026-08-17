@@ -90,17 +90,4 @@ class QuoteCRUD:
         db.refresh(db_obj)
         return db_obj
 
-    def delete(self, db: Session, id: int) -> None:
-        """
-        Delete a Quote record by primary key, if it exists.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to delete.
-        """
-        obj = db.query(Quote).filter(Quote.id == id).first()
-        if obj:
-            db.delete(obj)
-            db.commit()
-
 crud_quote = QuoteCRUD()

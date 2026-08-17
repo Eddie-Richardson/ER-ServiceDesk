@@ -1,7 +1,8 @@
 # ER-ServiceDesk/app/schemas/ticket_category.py
-# Pydantic schemas for TicketCategory entities used to validate and structure a high-level grouping used to organize tickets
+# Pydantic schemas for TicketCategory entities
 """
-Pydantic schemas for TicketCategory entities used to validate and structure a high-level grouping used to organize tickets.
+Request/response schemas for a high-level grouping used to organize
+tickets.
 """
 
 from pydantic import BaseModel, ConfigDict

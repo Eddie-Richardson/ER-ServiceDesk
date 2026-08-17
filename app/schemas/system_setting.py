@@ -1,7 +1,8 @@
 # ER-ServiceDesk/app/schemas/system_setting.py
-# Pydantic schemas for SystemSetting entities used to validate and structure a dynamic, admin-editable key/value configuration entry
+# Pydantic schemas for SystemSetting entities
 """
-Pydantic schemas for SystemSetting entities used to validate and structure a dynamic, admin-editable key/value configuration entry.
+Request/response schemas for a dynamic, admin-editable key/value
+configuration entry.
 """
 
 from pydantic import BaseModel, ConfigDict

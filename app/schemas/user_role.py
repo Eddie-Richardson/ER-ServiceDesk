@@ -1,7 +1,8 @@
 # ER-ServiceDesk/app/schemas/user_role.py
-# Pydantic schemas for UserRole entities used to validate and structure the many-to-many link between users and roles
+# Pydantic schemas for UserRole entities
 """
-Pydantic schemas for UserRole entities used to validate and structure the many-to-many link between users and roles.
+Request/response schemas for the many-to-many link between users and
+roles.
 """
 
 from pydantic import BaseModel, ConfigDict

@@ -1,7 +1,8 @@
 # ER-ServiceDesk/app/schemas/permission.py
-# Pydantic schemas for Permission entities used to validate and structure a single grantable capability in the RBAC system
+# Pydantic schemas for Permission entities
 """
-Pydantic schemas for Permission entities used to validate and structure a single grantable capability in the RBAC system.
+Request/response schemas for a single grantable capability in the RBAC
+system.
 """
 
 from pydantic import BaseModel, ConfigDict

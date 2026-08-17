@@ -1,7 +1,8 @@
 # ER-ServiceDesk/app/schemas/message_template.py
-# Pydantic schemas for MessageTemplate entities used to validate and structure a reusable template for outbound emails/notifications
+# Pydantic schemas for MessageTemplate entities
 """
-Pydantic schemas for MessageTemplate entities used to validate and structure a reusable template for outbound emails/notifications.
+Request/response schemas for a reusable template for outbound
+emails/notifications.
 """
 
 from pydantic import BaseModel, ConfigDict

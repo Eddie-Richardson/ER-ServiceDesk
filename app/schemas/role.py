@@ -1,7 +1,8 @@
 # ER-ServiceDesk/app/schemas/role.py
-# Pydantic schemas for Role entities used to validate and structure an authorization grouping assigned to users
+# Pydantic schemas for Role entities
 """
-Pydantic schemas for Role entities used to validate and structure an authorization grouping assigned to users.
+Request/response schemas for an authorization grouping assigned to
+users.
 """
 
 from pydantic import BaseModel, ConfigDict

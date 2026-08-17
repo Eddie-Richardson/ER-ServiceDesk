@@ -1,7 +1,7 @@
 # ER-ServiceDesk/app/schemas/ticket_status.py
-# Pydantic schemas for TicketStatus entities used to validate and structure a workflow state a ticket can occupy
+# Pydantic schemas for TicketStatus entities
 """
-Pydantic schemas for TicketStatus entities used to validate and structure a workflow state a ticket can occupy.
+Request/response schemas for a workflow state a ticket can occupy.
 """
 
 from pydantic import BaseModel, ConfigDict

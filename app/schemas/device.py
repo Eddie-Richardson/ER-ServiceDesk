@@ -1,8 +1,8 @@
 # ER-ServiceDesk/app/schemas/device.py
 # Pydantic schemas for Device entities
 """
-Pydantic schemas for Device entities used to validate and structure a
-customer-owned device brought in for service.
+Request/response schemas for a customer-owned device brought in for
+service.
 """
 
 from datetime import datetime

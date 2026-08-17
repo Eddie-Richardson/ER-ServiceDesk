@@ -1,7 +1,8 @@
 # ER-ServiceDesk/app/schemas/role_permission.py
-# Pydantic schemas for RolePermission entities used to validate and structure the many-to-many link between roles and permissions
+# Pydantic schemas for RolePermission entities
 """
-Pydantic schemas for RolePermission entities used to validate and structure the many-to-many link between roles and permissions.
+Request/response schemas for the many-to-many link between roles and
+permissions.
 """
 
 from pydantic import BaseModel, ConfigDict

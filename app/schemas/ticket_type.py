@@ -1,7 +1,8 @@
 # ER-ServiceDesk/app/schemas/ticket_type.py
-# Pydantic schemas for TicketType entities used to validate and structure a classification of the kind of work a ticket represents
+# Pydantic schemas for TicketType entities
 """
-Pydantic schemas for TicketType entities used to validate and structure a classification of the kind of work a ticket represents.
+Request/response schemas for a classification of the kind of work a
+ticket represents.
 """
 
 from pydantic import BaseModel, ConfigDict

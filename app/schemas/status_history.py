@@ -1,7 +1,8 @@
 # ER-ServiceDesk/app/schemas/status_history.py
-# Pydantic schemas for StatusHistory entities used to validate and structure an audit trail entry for a ticket status transition
+# Pydantic schemas for StatusHistory entities
 """
-Pydantic schemas for StatusHistory entities used to validate and structure an audit trail entry for a ticket status transition.
+Request/response schemas for an audit trail entry for a ticket status
+transition.
 """
 
 from datetime import datetime

@@ -33,7 +33,12 @@ class DeviceUserAccountUpdate(BaseModel):
     is_admin: bool | None = None
 
 class DeviceUserAccount(BaseModel):
-    """Schema returned to the client for a DeviceUserAccount record (server -> client). password is decrypted plaintext, not the stored ciphertext."""
+    """
+    Schema returned to the client for a DeviceUserAccount record
+    (server -> client).
+
+    password is decrypted plaintext, not the stored ciphertext.
+    """
     id: int
     device_id: int
     account_name: str

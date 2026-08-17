@@ -1,7 +1,7 @@
 # ER-ServiceDesk/app/schemas/customer.py
-# Pydantic schemas for Customer entities used to validate and structure a client of the repair shop
+# Pydantic schemas for Customer entities
 """
-Pydantic schemas for Customer entities used to validate and structure a client of the repair shop.
+Request/response schemas for a client of the repair shop.
 """
 
 from datetime import datetime

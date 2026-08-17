@@ -2,7 +2,6 @@
 # Pydantic schemas for Asset entities
 """
 Request/response schemas for tracked, serialized business assets.
-Merged in from the standalone InventoryHub API.
 """
 
 import datetime

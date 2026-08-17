@@ -1,7 +1,8 @@
 # ER-ServiceDesk/app/schemas/audit_log.py
-# Pydantic schemas for AuditLog entities used to validate and structure a record of a user action or system event, for security review and compliance
+# Pydantic schemas for AuditLog entities
 """
-Pydantic schemas for AuditLog entities used to validate and structure a record of a user action or system event, for security review and compliance.
+Request/response schemas for a record of a user action or system event,
+for security review and compliance.
 """
 
 from datetime import datetime

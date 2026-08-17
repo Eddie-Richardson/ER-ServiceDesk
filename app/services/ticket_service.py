@@ -30,11 +30,6 @@ class TicketService:
         /ticket_type_stages. This keeps existing tickets/types working
         with no configuration required.
 
-        Args:
-            db: Active database session.
-            type_id: The ticket's type_id.
-            stage_id: The stage_id being set, if any.
-
         Raises:
             HTTPException: 400 if the type has a configured allow-list and
                 stage_id is not on it.
@@ -53,46 +48,16 @@ class TicketService:
             )
 
     def get(self, db: Session, id: int):
-        """
-        Fetch a single Ticket by ID.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to fetch.
-
-        Returns:
-            The matching Ticket instance, or None if not found.
-        """
         return crud_ticket.get(db, id)
 
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
-        """
-        Fetch a page of Ticket records.
-
-        Args:
-            db: Active database session.
-            skip: Number of records to skip.
-            limit: Maximum number of records to return.
-
-        Returns:
-            A list of Ticket instances.
-        """
         return crud_ticket.get_multi(db, skip, limit)
 
     def create(self, db: Session, obj_in: TicketCreate, current_user_id: int):
         """
-        Create a new Ticket using validated input data. Also records
-        the ticket's initial status as its first StatusHistory entry,
-        so a ticket's history is never missing where it started.
-
-        Args:
-            db: Active database session.
-            obj_in: Validated input data for the new record.
-            current_user_id: The user creating this ticket -- recorded
-                as who set its initial status.
-
-        Returns:
-            The newly created Ticket instance.
+        Also records the ticket's initial status as its first
+        StatusHistory entry, so a ticket's history is never missing
+        where it started.
 
         Raises:
             HTTPException: 400 if stage_id is set but not allowed for
@@ -116,20 +81,9 @@ class TicketService:
 
     def update(self, db: Session, id: int, obj_in: TicketUpdate, current_user_id: int):
         """
-        Update an existing Ticket using validated input data. If
-        status_id actually changes as a result, also records a
+        If status_id actually changes as a result, also records a
         StatusHistory entry for it -- who changed it, to what, and
         when.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to update.
-            obj_in: Fields to change; unset fields are left untouched.
-            current_user_id: The user making this change -- recorded
-                as who made the status change, if status_id changes.
-
-        Returns:
-            The updated Ticket instance.
 
         Raises:
             HTTPException: 400 if the resulting stage_id is not allowed

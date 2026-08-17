@@ -36,12 +36,6 @@ class RecordLockService:
         user (e.g. they re-opened it), or the existing lock has gone
         stale past the "lock_timeout_minutes" SystemSetting with no one having released it.
 
-        Args:
-            db: Active database session.
-            entity_type: The kind of record being locked, e.g. "ticket".
-            entity_id: The record's own primary key.
-            user_id: The user attempting to acquire the lock.
-
         Returns:
             The new (or refreshed) RecordLock.
 
@@ -98,12 +92,6 @@ class RecordLockService:
         someone else -- callers only ever release their own locks (on
         closing a dialog), so there's no legitimate case where this
         should raise for either of those situations.
-
-        Args:
-            db: Active database session.
-            entity_type: The kind of record, e.g. "ticket".
-            entity_id: The record's own primary key.
-            user_id: The user releasing the lock.
         """
         existing = (
             db.query(RecordLock)

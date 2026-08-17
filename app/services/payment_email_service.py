@@ -60,7 +60,6 @@ class PaymentEmailService:
         problem.
 
         Args:
-            db: Active database session.
             payment: The just-created Payment instance (already
                 committed). If this payment is linked to a payment
                 plan installment, that link must already be in place
@@ -132,27 +131,14 @@ class PaymentEmailService:
     # Internal helpers
     # -----------------------------------------------------------------
     def _total_paid(self, db: Session, invoice_id: int):
-        """
-        Args:
-            db: Active database session.
-            invoice_id: The invoice to total payments for.
-
-        Returns:
-            The sum of every payment recorded against this invoice.
-        """
         payments = crud_payment.get_by_invoice(db, invoice_id)
         return sum((p.amount for p in payments), start=Decimal("0"))
 
     def _plan_for_payment(self, db: Session, payment_id: int):
         """
-        Args:
-            db: Active database session.
-            payment_id: The payment to look up a linked plan for.
-
-        Returns:
-            The PaymentPlan this payment is linked to via one of its
-            installments, or None if this payment isn't tied to any
-            installment at all (a plain, non-plan payment).
+        Returns the PaymentPlan this payment is linked to via one of
+        its installments, or None if this payment isn't tied to any
+        installment at all (a plain, non-plan payment).
         """
         installment = db.query(PaymentPlanInstallment).filter_by(payment_id=payment_id).first()
         if not installment:
@@ -162,8 +148,6 @@ class PaymentEmailService:
     def _is_first_paid_installment_on_plan(self, db: Session, plan_id: int, payment_id: int) -> bool:
         """
         Args:
-            db: Active database session.
-            plan_id: The plan to check.
             payment_id: The payment just recorded -- excluded from the
                 "any other paid installment" check, so this only ever
                 looks at installments other than the one this payment
@@ -188,16 +172,11 @@ class PaymentEmailService:
 
     def _format_schedule(self, db: Session, plan_id: int) -> str:
         """
-        Args:
-            db: Active database session.
-            plan_id: The plan to format the full installment schedule for.
-
-        Returns:
-            One "- Installment N: $amount due YYYY-MM-DD [PAID]" line
-            per installment, in sequence order, joined by newlines.
-            [PAID] only appears on installments that already have a
-            payment linked -- at the moment this is called for a
-            plan's first payment, that's exactly the one just paid.
+        Returns one "- Installment N: $amount due YYYY-MM-DD [PAID]"
+        line per installment, in sequence order, joined by newlines.
+        [PAID] only appears on installments that already have a
+        payment linked -- at the moment this is called for a plan's
+        first payment, that's exactly the one just paid.
         """
         installments = (
             db.query(PaymentPlanInstallment)
@@ -213,14 +192,9 @@ class PaymentEmailService:
 
     def _next_installment_due_date(self, db: Session, invoice_id: int):
         """
-        Args:
-            db: Active database session.
-            invoice_id: The invoice to look up a payment plan for.
-
-        Returns:
-            The earliest unpaid installment's due_date as a string, or
-            None if this invoice has no payment plan, or every
-            installment is already paid.
+        Returns the earliest unpaid installment's due_date as a
+        string, or None if this invoice has no payment plan, or every
+        installment is already paid.
         """
         plan = db.query(PaymentPlan).filter_by(invoice_id=invoice_id).first()
         if not plan:

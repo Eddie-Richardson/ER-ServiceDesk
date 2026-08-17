@@ -19,45 +19,12 @@ class UserRoleService:
     """Business logic for UserRole operations."""
 
     def get(self, db: Session, id: int):
-        """
-        Fetch a single UserRole by ID.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to fetch.
-
-        Returns:
-            The matching UserRole instance, or None if not found.
-        """
         return crud_user_role.get(db, id)
 
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
-        """
-        Fetch a page of UserRole records.
-
-        Args:
-            db: Active database session.
-            skip: Number of records to skip.
-            limit: Maximum number of records to return.
-
-        Returns:
-            A list of UserRole instances.
-        """
         return crud_user_role.get_multi(db, skip, limit)
 
     def create(self, db: Session, obj_in: UserRoleCreate, current_user_id: int):
-        """
-        Grant a role to a user.
-
-        Args:
-            db: Active database session.
-            obj_in: Validated input data for the new record.
-            current_user_id: The admin granting this role -- recorded
-                in the audit trail.
-
-        Returns:
-            The newly created UserRole instance.
-        """
         result = crud_user_role.create(db, obj_in)
 
         target_user = crud_user.get(db, obj_in.user_id)
@@ -70,15 +37,6 @@ class UserRoleService:
         return result
 
     def delete(self, db: Session, id: int, current_user_id: int):
-        """
-        Revoke a role from a user.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to delete.
-            current_user_id: The admin revoking this role -- recorded
-                in the audit trail.
-        """
         db_obj = crud_user_role.get(db, id)
         target_user_id = db_obj.user_id if db_obj else None
         target_user = crud_user.get(db, db_obj.user_id) if db_obj else None

@@ -16,68 +16,19 @@ class RolePermissionService:
     """Business logic for RolePermission operations."""
 
     def get(self, db: Session, id: int):
-        """
-        Fetch a single RolePermission by ID.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to fetch.
-
-        Returns:
-            The matching RolePermission instance, or None if not found.
-        """
         return crud_role_permission.get(db, id)
 
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
-        """
-        Fetch a page of RolePermission records.
-
-        Args:
-            db: Active database session.
-            skip: Number of records to skip.
-            limit: Maximum number of records to return.
-
-        Returns:
-            A list of RolePermission instances.
-        """
         return crud_role_permission.get_multi(db, skip, limit)
 
     def create(self, db: Session, obj_in: RolePermissionCreate):
-        """
-        Create a new RolePermission using validated input data.
-
-        Args:
-            db: Active database session.
-            obj_in: Validated input data for the new record.
-
-        Returns:
-            The newly created RolePermission instance.
-        """
         return crud_role_permission.create(db, obj_in)
 
     def update(self, db: Session, id: int, obj_in: RolePermissionUpdate):
-        """
-        Update an existing RolePermission using validated input data.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to update.
-            obj_in: Fields to change; unset fields are left untouched.
-
-        Returns:
-            The updated RolePermission instance.
-        """
         db_obj = crud_role_permission.get(db, id)
         return crud_role_permission.update(db, db_obj, obj_in)
 
     def delete(self, db: Session, id: int):
-        """
-        Delete a RolePermission by ID.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to delete.
-        """
         return crud_role_permission.delete(db, id)
 
 role_permission_service = RolePermissionService()

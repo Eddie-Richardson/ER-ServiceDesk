@@ -27,14 +27,11 @@ from app.core.email import send_email, format_ticket_subject
 
 def _format_line_items(line_items: list) -> str:
     """
-    Args:
-        line_items: The quote's QuoteLineItem rows.
-
-    Returns:
-        One "- Name xQty @ $unit = $line_total" line per item, joined
-        by newlines. Deliberately not column-aligned -- a proportional
-        email font would break any attempted alignment anyway, so a
-        simple per-item line is more robust than a fragile table.
+    Returns one "- Name xQty @ $unit = $line_total" line per item,
+    joined by newlines. Deliberately not column-aligned -- a
+    proportional email font would break any attempted alignment
+    anyway, so a simple per-item line is more robust than a fragile
+    table.
     """
     lines = []
     for item in line_items:
@@ -53,8 +50,6 @@ class QuoteEmailService:
         it was sent.
 
         Args:
-            db: Active database session.
-            quote_id: The quote to send.
             current_user_id: The user sending this -- recorded in the
                 audit trail.
 

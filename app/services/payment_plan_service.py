@@ -41,29 +41,9 @@ class PaymentPlanService:
     """Business logic for setting up and running a structured installment payment plan."""
 
     def get(self, db: Session, id: int):
-        """
-        Fetch a single PaymentPlan by ID.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to fetch.
-
-        Returns:
-            The matching PaymentPlan instance, or None if not found.
-        """
         return crud_payment_plan.get(db, id)
 
     def get_by_invoice(self, db: Session, invoice_id: int):
-        """
-        Fetch the payment plan for a given invoice, if any.
-
-        Args:
-            db: Active database session.
-            invoice_id: The invoice to look up a plan for.
-
-        Returns:
-            The matching PaymentPlan instance, or None.
-        """
         return crud_payment_plan.get_by_invoice(db, invoice_id)
 
     def create_plan(self, db: Session, obj_in: PaymentPlanCreate, current_user_id: int):
@@ -75,16 +55,6 @@ class PaymentPlanService:
         Installments are the full entered amount except the last,
         which gets whatever remains (never more than the entered
         amount, may be less).
-
-        Args:
-            db: Active database session.
-            obj_in: The invoice, installment amount, frequency, and
-                start date to set the plan up with.
-            current_user_id: The user setting up this plan -- recorded
-                in the audit trail.
-
-        Returns:
-            The newly created PaymentPlan instance, with its installments.
 
         Raises:
             HTTPException: 404 if the invoice doesn't exist. 400 if
@@ -140,15 +110,7 @@ class PaymentPlanService:
         remaining schedule to match.
 
         Args:
-            db: Active database session.
-            installment_id: The installment being paid.
             amount: The actual amount paid, or None to use planned_amount.
-            method: Payment method (e.g. "cash", "credit_card").
-            current_user_id: The user recording this payment -- recorded
-                in the audit trail.
-
-        Returns:
-            The updated PaymentPlanInstallment instance.
 
         Raises:
             HTTPException: 404 if the installment doesn't exist. 400
@@ -214,16 +176,6 @@ class PaymentPlanService:
         recalculates every later, still-unpaid installment's date
         from this new date forward, using the plan's own frequency.
 
-        Args:
-            db: Active database session.
-            installment_id: The installment whose date is changing.
-            new_due_date: The new due date for this installment.
-            current_user_id: The user making this change -- recorded
-                in the audit trail.
-
-        Returns:
-            The updated PaymentPlanInstallment instance.
-
         Raises:
             HTTPException: 404 if the installment doesn't exist. 400
                 if it's already been paid.
@@ -262,21 +214,14 @@ class PaymentPlanService:
     # -----------------------------------------------------------------
     def _date_at_offset(self, base_date: date, frequency: str, offset: int) -> date:
         """
-        Args:
-            base_date: The date to calculate from.
-            frequency: "weekly", "biweekly", or "monthly".
-            offset: How many periods after base_date.
-
-        Returns:
-            base_date advanced by offset periods, computed directly
-            from base_date every time -- never incrementally from a
-            previous result. This matters specifically for monthly:
-            incrementally adding one month at a time loses the
-            original day-of-month once a shorter month clamps it down
-            (Jan 31 + 1 month = Feb 28, but Feb 28 + 1 month = Mar 28,
-            not the Mar 31 a real calendar-correct schedule should
-            land on). Computing every offset directly from base_date
-            avoids that entirely.
+        Returns base_date advanced by offset periods, computed
+        directly from base_date every time -- never incrementally from
+        a previous result. This matters specifically for monthly:
+        incrementally adding one month at a time loses the original
+        day-of-month once a shorter month clamps it down (Jan 31 + 1
+        month = Feb 28, but Feb 28 + 1 month = Mar 28, not the Mar 31
+        a real calendar-correct schedule should land on). Computing
+        every offset directly from base_date avoids that entirely.
         """
         if frequency == "weekly":
             return base_date + timedelta(weeks=offset)
@@ -293,12 +238,6 @@ class PaymentPlanService:
         goes to the last installment, so the sum always matches
         total_remaining exactly rather than drifting from repeated
         rounding.
-
-        Args:
-            db: Active database session.
-            installments: The still-unpaid installments to redistribute
-                across.
-            total_remaining: The new total to split between them.
         """
         count = len(installments)
         base_amount = (total_remaining / count).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)

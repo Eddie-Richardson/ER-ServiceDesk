@@ -39,59 +39,16 @@ class QuoteService:
     """Business logic for Quote operations, including line items and conversion to an Invoice."""
 
     def get(self, db: Session, id: int):
-        """
-        Fetch a single Quote by ID.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to fetch.
-
-        Returns:
-            The matching Quote instance, or None if not found.
-        """
         return crud_quote.get(db, id)
 
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
-        """
-        Fetch a page of Quote records.
-
-        Args:
-            db: Active database session.
-            skip: Number of records to skip.
-            limit: Maximum number of records to return.
-
-        Returns:
-            A list of Quote instances.
-        """
         return crud_quote.get_multi(db, skip, limit)
 
     def get_by_ticket(self, db: Session, ticket_id: int):
-        """
-        Fetch every quote for a given ticket.
-
-        Args:
-            db: Active database session.
-            ticket_id: The ticket to look up quotes for.
-
-        Returns:
-            A list of Quote instances for that ticket.
-        """
         return crud_quote.get_by_ticket(db, ticket_id)
 
     def create(self, db: Session, obj_in: QuoteCreate, current_user_id: int):
-        """
-        Create a new Quote. Starts with zero line items and zero
-        totals -- add_line_item() builds it up from there.
-
-        Args:
-            db: Active database session.
-            obj_in: Validated input data for the new record.
-            current_user_id: The user creating this quote -- recorded
-                in the audit trail.
-
-        Returns:
-            The newly created Quote instance.
-        """
+        """Starts with zero line items and zero totals -- add_line_item() builds it up from there."""
         new_quote = crud_quote.create(db, obj_in)
         self._snapshot_discount_and_tax_names(db, new_quote)
 
@@ -103,21 +60,7 @@ class QuoteService:
         return new_quote
 
     def update(self, db: Session, id: int, obj_in: QuoteUpdate, current_user_id: int):
-        """
-        Update an existing Quote's discount/tax selection or details.
-        Changing discount_id or tax_rate_id triggers a full totals
-        recalculation.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to update.
-            obj_in: Fields to change; unset fields are left untouched.
-            current_user_id: The user making this change -- recorded
-                in the audit trail.
-
-        Returns:
-            The updated Quote instance.
-        """
+        """Changing discount_id or tax_rate_id triggers a full totals recalculation."""
         db_obj = crud_quote.get(db, id)
         updated = crud_quote.update(db, db_obj, obj_in)
         self._snapshot_discount_and_tax_names(db, updated)
@@ -135,23 +78,11 @@ class QuoteService:
     # -----------------------------------------------------------------
     def add_line_item(self, db: Session, quote_id: int, quantity: int, current_user_id: int, service_id: int | None = None, part_id: int | None = None):
         """
-        Adds a new line item to a quote -- either a service or a real
-        inventory part, snapshotting its current name and price, then
-        recalculates totals. Never touches inventory -- a quote isn't
-        a real transaction yet; see invoice_service.add_line_item()
-        for where part deduction actually happens.
-
-        Args:
-            db: Active database session.
-            quote_id: The quote to add this line item to.
-            quantity: How many units.
-            current_user_id: The user adding this line item -- recorded
-                in the audit trail.
-            service_id: The service being added, if this is a service line.
-            part_id: The part being added, if this is a part line.
-
-        Returns:
-            The newly created QuoteLineItem instance.
+        Adds a service or a real inventory part as a line item,
+        snapshotting its current name and price. Never touches
+        inventory -- a quote isn't a real transaction yet; see
+        invoice_service.add_line_item() for where part deduction
+        actually happens.
 
         Raises:
             HTTPException: 400 if neither or both of service_id/part_id
@@ -190,22 +121,8 @@ class QuoteService:
 
         return line_item
 
-        return line_item
-
     def update_line_item(self, db: Session, line_item_id: int, obj_in: QuoteLineItemUpdate, current_user_id: int):
-        """
-        Updates a line item's quantity, then recalculates totals.
-
-        Args:
-            db: Active database session.
-            line_item_id: The line item to update.
-            obj_in: Fields to change (only quantity is editable).
-            current_user_id: The user making this change -- recorded
-                in the audit trail.
-
-        Returns:
-            The updated QuoteLineItem instance.
-        """
+        """Only quantity is editable. Recalculates totals after."""
         db_obj = crud_quote_line_item.get(db, line_item_id)
         updated = crud_quote_line_item.update(db, db_obj, obj_in)
 
@@ -220,15 +137,6 @@ class QuoteService:
         return updated
 
     def remove_line_item(self, db: Session, line_item_id: int, current_user_id: int):
-        """
-        Removes a line item from a quote, then recalculates totals.
-
-        Args:
-            db: Active database session.
-            line_item_id: The line item to remove.
-            current_user_id: The user removing this line item --
-                recorded in the audit trail.
-        """
         db_obj = crud_quote_line_item.get(db, line_item_id)
         if not db_obj:
             return
@@ -255,15 +163,6 @@ class QuoteService:
         line item (already-frozen snapshots, carried over exactly, not
         re-snapshotted) and the discount/tax selection, then links the
         quote to the new invoice it became.
-
-        Args:
-            db: Active database session.
-            quote_id: The quote to convert.
-            current_user_id: The user performing this conversion --
-                recorded in the audit trail.
-
-        Returns:
-            The newly created Invoice instance.
 
         Raises:
             HTTPException: 404 if the quote doesn't exist. 400 if this
@@ -315,15 +214,6 @@ class QuoteService:
     # Internal helpers
     # -----------------------------------------------------------------
     def _recalculate(self, db: Session, quote):
-        """
-        Recomputes and stores subtotal/discount_amount/tax_amount/total
-        from this quote's current line items and discount/tax
-        selection.
-
-        Args:
-            db: Active database session.
-            quote: The Quote instance to recalculate (already loaded).
-        """
         line_items = crud_quote_line_item.get_by_quote(db, quote.id)
         discount = crud_discount.get(db, quote.discount_id) if quote.discount_id else None
         tax_rate = crud_tax_rate.get(db, quote.tax_rate_id) if quote.tax_rate_id else None
@@ -342,15 +232,7 @@ class QuoteService:
         db.refresh(quote)
 
     def _snapshot_discount_and_tax_names(self, db: Session, quote):
-        """
-        Re-snapshots discount_name/tax_rate_name from the currently
-        selected Discount/TaxRate -- called whenever discount_id or
-        tax_rate_id might have changed.
-
-        Args:
-            db: Active database session.
-            quote: The Quote instance to update (already loaded).
-        """
+        """Called whenever discount_id or tax_rate_id might have changed."""
         discount = crud_discount.get(db, quote.discount_id) if quote.discount_id else None
         tax_rate = crud_tax_rate.get(db, quote.tax_rate_id) if quote.tax_rate_id else None
         quote.discount_name = discount.name if discount else None

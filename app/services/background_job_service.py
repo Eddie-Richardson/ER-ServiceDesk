@@ -18,33 +18,9 @@ class BackgroundJobService:
     """Read access to job history, plus the start/complete/fail lifecycle helpers tasks call around their own work."""
 
     def get(self, db: Session, id: int):
-        """
-        Fetch a single BackgroundJob by ID.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to fetch.
-
-        Returns:
-            The matching BackgroundJob instance, or None if not found.
-        """
         return crud_background_job.get(db, id)
 
     def get_multi(self, db: Session, skip: int = 0, limit: int = 200, job_type: str | None = None, status: str | None = None):
-        """
-        Fetch a page of BackgroundJob records, most recent first,
-        optionally filtered.
-
-        Args:
-            db: Active database session.
-            skip: Number of records to skip.
-            limit: Maximum number of records to return.
-            job_type: If given, only jobs of this type.
-            status: If given, only jobs currently in this status.
-
-        Returns:
-            A list of BackgroundJob instances.
-        """
         return crud_background_job.get_multi(db, skip, limit, job_type, status)
 
     def start(self, db: Session, job_type: str, payload: str | None = None):
@@ -56,9 +32,7 @@ class BackgroundJobService:
         which RQ's own Redis-backed job data doesn't provide long-term).
 
         Args:
-            db: Active database session.
             job_type: The kind of job, e.g. "poll_inbound_email".
-            payload: Optional context about this specific run.
 
         Returns:
             The newly created BackgroundJob instance, with status
@@ -70,13 +44,7 @@ class BackgroundJobService:
         ))
 
     def complete(self, db: Session, job_id: int):
-        """
-        Marks a job as successfully completed.
-
-        Args:
-            db: Active database session.
-            job_id: The id returned by start().
-        """
+        """Marks a job as successfully completed."""
         db_obj = crud_background_job.get(db, job_id)
         if db_obj:
             crud_background_job.update(db, db_obj, BackgroundJobUpdate(status="completed"))
@@ -86,11 +54,6 @@ class BackgroundJobService:
         Marks a job as failed, recording the error in its payload so
         it's visible later without needing to dig through server logs
         for what happened at that specific timestamp.
-
-        Args:
-            db: Active database session.
-            job_id: The id returned by start().
-            error: A human-readable description of what went wrong.
         """
         db_obj = crud_background_job.get(db, job_id)
         if db_obj:

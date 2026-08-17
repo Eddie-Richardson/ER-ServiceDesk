@@ -22,52 +22,19 @@ class UserService:
     """Business logic for User account operations."""
 
     def get(self, db: Session, id: int):
-        """
-        Fetch a single User by ID.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the user to fetch.
-
-        Returns:
-            The matching User instance, or None if not found.
-        """
         return crud_user.get(db, id)
 
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
-        """
-        Fetch a page of User records.
-
-        Args:
-            db: Active database session.
-            skip: Number of records to skip.
-            limit: Maximum number of records to return.
-
-        Returns:
-            A list of User instances.
-        """
         return crud_user.get_multi(db, skip, limit)
 
     def create(self, db: Session, obj_in: UserCreate, current_user_id: int):
         """
-        Create a new User with a system-generated temporary password,
-        emailed to the account's address before anything is written to
-        the database.
-
-        The admin never sees or chooses the real password -- only that
-        it was generated and sent. The account is forced to change it
-        on first login (must_change_password=True), which also blocks
-        normal login until they do (see app.routes.auth).
-
-        Args:
-            db: Active database session.
-            obj_in: Validated input data (no password field -- see
-                UserCreate's docstring for why).
-            current_user_id: The admin creating this account -- recorded
-                in the audit trail.
-
-        Returns:
-            The newly created User instance.
+        Creates with a system-generated temporary password, emailed to
+        the account's address before anything is written to the
+        database. The admin never sees or chooses the real password --
+        only that it was generated and sent. The account is forced to
+        change it on first login (must_change_password=True), which
+        also blocks normal login until they do (see app.routes.auth).
 
         Raises:
             HTTPException: 400 if an account with this email already
@@ -132,15 +99,6 @@ class UserService:
         types or sees anyone's password directly, including their own
         resets of other accounts.
 
-        Args:
-            db: Active database session.
-            id: The user whose password is being reset.
-            current_user_id: The admin performing this reset --
-                recorded in the audit trail.
-
-        Returns:
-            The updated User instance.
-
         Raises:
             HTTPException: 404 if the user doesn't exist, or 500 if the
                 email fails to send -- in which case the password is
@@ -184,20 +142,9 @@ class UserService:
 
     def update(self, db: Session, id: int, obj_in: UserUpdate, current_user_id: int):
         """
-        Update an existing User's non-password fields. Password changes
-        never go through this method -- see reset_password() for
-        admin-initiated resets, or POST /auth/change-password for
-        self-service changes.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the user to update.
-            obj_in: Fields to change; unset fields are left untouched.
-            current_user_id: The admin making this change -- recorded
-                in the audit trail.
-
-        Returns:
-            The updated User instance.
+        Password changes never go through this method -- see
+        reset_password() for admin-initiated resets, or
+        POST /auth/change-password for self-service changes.
 
         Raises:
             HTTPException: 400 if the email is being changed to one
@@ -233,15 +180,6 @@ class UserService:
         return db_obj
 
     def delete(self, db: Session, id: int, current_user_id: int):
-        """
-        Delete a User by ID.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the user to delete.
-            current_user_id: The admin performing this deletion --
-                recorded in the audit trail.
-        """
         db_obj = crud_user.get(db, id)
         deleted_email = db_obj.email if db_obj else None
 

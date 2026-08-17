@@ -33,60 +33,16 @@ class InvoiceService:
     """Business logic for Invoice operations, including line items."""
 
     def get(self, db: Session, id: int):
-        """
-        Fetch a single Invoice by ID.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to fetch.
-
-        Returns:
-            The matching Invoice instance, or None if not found.
-        """
         return crud_invoice.get(db, id)
 
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
-        """
-        Fetch a page of Invoice records.
-
-        Args:
-            db: Active database session.
-            skip: Number of records to skip.
-            limit: Maximum number of records to return.
-
-        Returns:
-            A list of Invoice instances.
-        """
         return crud_invoice.get_multi(db, skip, limit)
 
     def get_by_ticket(self, db: Session, ticket_id: int):
-        """
-        Fetch every invoice for a given ticket.
-
-        Args:
-            db: Active database session.
-            ticket_id: The ticket to look up invoices for.
-
-        Returns:
-            A list of Invoice instances for that ticket.
-        """
         return crud_invoice.get_by_ticket(db, ticket_id)
 
     def create(self, db: Session, obj_in: InvoiceCreate, current_user_id: int):
-        """
-        Create a new Invoice directly (not via quote conversion --
-        see quote_service.convert_to_invoice() for that path). Starts
-        with zero line items and zero totals.
-
-        Args:
-            db: Active database session.
-            obj_in: Validated input data for the new record.
-            current_user_id: The user creating this invoice -- recorded
-                in the audit trail.
-
-        Returns:
-            The newly created Invoice instance.
-        """
+        """Creates directly (not via quote conversion -- see quote_service.convert_to_invoice() for that path). Starts with zero line items and zero totals."""
         new_invoice = crud_invoice.create(db, obj_in)
         self._snapshot_discount_and_tax_names(db, new_invoice)
 
@@ -98,21 +54,7 @@ class InvoiceService:
         return new_invoice
 
     def update(self, db: Session, id: int, obj_in: InvoiceUpdate, current_user_id: int):
-        """
-        Update an existing Invoice's discount/tax selection, details,
-        or is_paid. Changing discount_id or tax_rate_id triggers a
-        full totals recalculation.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to update.
-            obj_in: Fields to change; unset fields are left untouched.
-            current_user_id: The user making this change -- recorded
-                in the audit trail.
-
-        Returns:
-            The updated Invoice instance.
-        """
+        """Changing discount_id or tax_rate_id triggers a full totals recalculation."""
         db_obj = crud_invoice.get(db, id)
         updated = crud_invoice.update(db, db_obj, obj_in)
         self._snapshot_discount_and_tax_names(db, updated)
@@ -130,24 +72,12 @@ class InvoiceService:
     # -----------------------------------------------------------------
     def add_line_item(self, db: Session, invoice_id: int, quantity: int, current_user_id: int, service_id: int | None = None, part_id: int | None = None):
         """
-        Adds a new line item to an invoice -- either a service or a
-        real inventory part, snapshotting its current name and price,
-        then recalculates totals. Adding a PART line item is what
-        actually deducts real inventory, at the Admin-configured
-        deduction location (SystemSetting "part_deduction_location_id")
-        -- a service line never touches inventory at all.
-
-        Args:
-            db: Active database session.
-            invoice_id: The invoice to add this line item to.
-            quantity: How many units.
-            current_user_id: The user adding this line item -- recorded
-                in the audit trail.
-            service_id: The service being added, if this is a service line.
-            part_id: The part being added, if this is a part line.
-
-        Returns:
-            The newly created InvoiceLineItem instance.
+        Adds a service or a real inventory part as a line item,
+        snapshotting its current name and price. Adding a PART line
+        item is what actually deducts real inventory, at the
+        Admin-configured deduction location (SystemSetting
+        "part_deduction_location_id") -- a service line never touches
+        inventory at all.
 
         Raises:
             HTTPException: 400 if neither or both of service_id/part_id
@@ -188,22 +118,8 @@ class InvoiceService:
 
         return line_item
 
-        return line_item
-
     def update_line_item(self, db: Session, line_item_id: int, obj_in: InvoiceLineItemUpdate, current_user_id: int):
-        """
-        Updates a line item's quantity, then recalculates totals.
-
-        Args:
-            db: Active database session.
-            line_item_id: The line item to update.
-            obj_in: Fields to change (only quantity is editable).
-            current_user_id: The user making this change -- recorded
-                in the audit trail.
-
-        Returns:
-            The updated InvoiceLineItem instance.
-        """
+        """Only quantity is editable. Recalculates totals, and adjusts inventory by the delta if this is a part line."""
         db_obj = crud_invoice_line_item.get(db, line_item_id)
         old_quantity = db_obj.quantity
         is_part_line = db_obj.part_id is not None
@@ -228,15 +144,7 @@ class InvoiceService:
         return updated
 
     def remove_line_item(self, db: Session, line_item_id: int, current_user_id: int):
-        """
-        Removes a line item from an invoice, then recalculates totals.
-
-        Args:
-            db: Active database session.
-            line_item_id: The line item to remove.
-            current_user_id: The user removing this line item --
-                recorded in the audit trail.
-        """
+        """If this is a part line, restores its deducted inventory before removing it."""
         db_obj = crud_invoice_line_item.get(db, line_item_id)
         if not db_obj:
             return
@@ -265,12 +173,6 @@ class InvoiceService:
         Reads the Admin-configured part_deduction_location_id
         SystemSetting.
 
-        Args:
-            db: Active database session.
-
-        Returns:
-            The configured Location id.
-
         Raises:
             HTTPException: 400 if no deduction location is configured
                 -- deliberately a hard failure rather than silently
@@ -287,16 +189,7 @@ class InvoiceService:
         return location_id
 
     def _deduct_part_stock(self, db: Session, part_id: int, quantity: int):
-        """
-        Deducts quantity from the configured deduction location's
-        stock for this part, creating a zero-quantity PartLocation row
-        there first if none exists yet.
-
-        Args:
-            db: Active database session.
-            part_id: The part to deduct stock for.
-            quantity: How many units to deduct.
-        """
+        """Creates a zero-quantity PartLocation row at the deduction location first if none exists yet, then deducts."""
         location_id = self._deduction_location_id(db)
         part_location = db.query(PartLocation).filter(
             PartLocation.part_id == part_id, PartLocation.location_id == location_id,
@@ -308,16 +201,7 @@ class InvoiceService:
         db.commit()
 
     def _restore_part_stock(self, db: Session, part_id: int, quantity: int):
-        """
-        Reverses a prior deduction -- adds quantity back to the
-        configured deduction location's stock for this part. Called
-        when a part line item is removed, or its quantity is reduced.
-
-        Args:
-            db: Active database session.
-            part_id: The part to restore stock for.
-            quantity: How many units to add back.
-        """
+        """Reverses a prior deduction -- called when a part line item is removed, or its quantity is reduced."""
         location_id = self._deduction_location_id(db)
         part_location = db.query(PartLocation).filter(
             PartLocation.part_id == part_id, PartLocation.location_id == location_id,
@@ -329,15 +213,6 @@ class InvoiceService:
         db.commit()
 
     def _recalculate(self, db: Session, invoice):
-        """
-        Recomputes and stores subtotal/discount_amount/tax_amount/total
-        from this invoice's current line items and discount/tax
-        selection.
-
-        Args:
-            db: Active database session.
-            invoice: The Invoice instance to recalculate (already loaded).
-        """
         line_items = crud_invoice_line_item.get_by_invoice(db, invoice.id)
         discount = crud_discount.get(db, invoice.discount_id) if invoice.discount_id else None
         tax_rate = crud_tax_rate.get(db, invoice.tax_rate_id) if invoice.tax_rate_id else None
@@ -356,15 +231,7 @@ class InvoiceService:
         db.refresh(invoice)
 
     def _snapshot_discount_and_tax_names(self, db: Session, invoice):
-        """
-        Re-snapshots discount_name/tax_rate_name from the currently
-        selected Discount/TaxRate -- called whenever discount_id or
-        tax_rate_id might have changed.
-
-        Args:
-            db: Active database session.
-            invoice: The Invoice instance to update (already loaded).
-        """
+        """Called whenever discount_id or tax_rate_id might have changed."""
         discount = crud_discount.get(db, invoice.discount_id) if invoice.discount_id else None
         tax_rate = crud_tax_rate.get(db, invoice.tax_rate_id) if invoice.tax_rate_id else None
         invoice.discount_name = discount.name if discount else None

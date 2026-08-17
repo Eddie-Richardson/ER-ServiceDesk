@@ -17,21 +17,12 @@ class AuthService:
 
     def authenticate(self, db: Session, email_in: str, password: str) -> User | None:
         """
-        Validate a user's credentials. Logs a failed attempt to the
-        audit trail if the email matches a real account but the
-        password is wrong -- valuable security signal (a failed
-        attempt against a specific known account). A genuinely
-        unknown email isn't logged at all, since there's no valid
-        entity to log it against and this is meaningfully less
+        Logs a failed attempt to the audit trail if the email matches
+        a real account but the password is wrong -- valuable security
+        signal (a failed attempt against a specific known account). A
+        genuinely unknown email isn't logged at all, since there's no
+        valid entity to log it against and this is meaningfully less
         actionable than a targeted attempt against a real account.
-
-        Args:
-            db: Active database session.
-            email_in: The email submitted at login.
-            password: The plaintext password submitted at login.
-
-        Returns:
-            The matching User if credentials are valid, otherwise None.
         """
         user = db.query(User).filter(User.email == email_in).first()
         if not user or not verify_password(password, user.hashed_password):
@@ -47,13 +38,6 @@ class AuthService:
         """
         Issue an access token for an already-authenticated user, and
         record a successful login in the audit trail.
-
-        Args:
-            db: Active database session.
-            user: The authenticated User instance.
-
-        Returns:
-            A dict containing the access token and token type.
 
         Note:
             The token carries is_superuser, the user's effective

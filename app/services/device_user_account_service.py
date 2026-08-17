@@ -20,38 +20,15 @@ class DeviceUserAccountService:
 
     def get_by_device(self, db: Session, device_id: int):
         """
-        Fetch every user account for a device, with passwords decrypted
-        back to plaintext for display.
-
-        Args:
-            db: Active database session.
-            device_id: The device to look up accounts for.
-
-        Returns:
-            A list of dicts (not ORM instances, since password is a
-            computed/decrypted value, not a real column to read
-            directly) shaped like the DeviceUserAccount response schema.
+        Returns a list of dicts (not ORM instances, since password is
+        a computed/decrypted value, not a real column to read
+        directly), with passwords decrypted back to plaintext for display.
         """
         accounts = crud_device_user_account.get_by_device(db, device_id)
         return [self._to_response_dict(a) for a in accounts]
 
     def create(self, db: Session, obj_in: DeviceUserAccountCreate, current_user_id: int):
-        """
-        Create a new device user account, encrypting the password
-        before it's ever written to the database.
-
-        Args:
-            db: Active database session.
-            obj_in: Validated input data, with a plaintext password.
-            current_user_id: The user creating this record -- recorded
-                in the audit trail. Note: the password itself is never
-                included in the audit log details, only the account
-                name.
-
-        Returns:
-            A dict shaped like the DeviceUserAccount response schema,
-            with the password decrypted back to plaintext.
-        """
+        """The password itself is never included in the audit log details, only the account name."""
         encrypted = encrypt_password(obj_in.password) if obj_in.password else None
         new_account = crud_device_user_account.create(db, obj_in.device_id, obj_in.account_name, encrypted, obj_in.is_admin)
 
@@ -63,22 +40,7 @@ class DeviceUserAccountService:
         return self._to_response_dict(new_account)
 
     def update(self, db: Session, id: int, obj_in: DeviceUserAccountUpdate, current_user_id: int):
-        """
-        Update an existing device user account. A new password is
-        encrypted before being written; an unset password leaves the
-        existing one unchanged.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to update.
-            obj_in: Fields to change; unset fields are left untouched.
-            current_user_id: The user making this change -- recorded
-                in the audit trail (account name only, never the
-                password itself).
-
-        Returns:
-            A dict shaped like the DeviceUserAccount response schema.
-        """
+        """A new password is encrypted before being written; an unset password leaves the existing one unchanged. Audit log records the account name only, never the password itself."""
         db_obj = crud_device_user_account.get(db, id)
         encrypted = encrypt_password(obj_in.password) if obj_in.password is not None else None
         updated = crud_device_user_account.update(db, db_obj, obj_in.account_name, encrypted, obj_in.is_admin)
@@ -91,15 +53,6 @@ class DeviceUserAccountService:
         return self._to_response_dict(updated)
 
     def delete(self, db: Session, id: int, current_user_id: int):
-        """
-        Delete a device user account by ID.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to delete.
-            current_user_id: The user performing this deletion --
-                recorded in the audit trail.
-        """
         db_obj = crud_device_user_account.get(db, id)
         device_id = db_obj.device_id if db_obj else None
         account_name = db_obj.account_name if db_obj else None
@@ -118,14 +71,6 @@ class DeviceUserAccountService:
     # Internal helpers
     # -----------------------------------------------------------------
     def _to_response_dict(self, account) -> dict:
-        """
-        Args:
-            account: A DeviceUserAccount ORM instance.
-
-        Returns:
-            A dict with the password decrypted back to plaintext,
-            shaped like the DeviceUserAccount response schema.
-        """
         password = decrypt_password(account.encrypted_password) if account.encrypted_password else None
         return {
             "id": account.id,

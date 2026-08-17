@@ -30,35 +30,9 @@ class AuditLogService:
     """Read/list access to the audit trail, plus the log() helper other services call to write to it."""
 
     def get(self, db: Session, id: int):
-        """
-        Fetch a single AuditLog by ID.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to fetch.
-
-        Returns:
-            The matching AuditLog instance, or None if not found.
-        """
         return crud_audit_log.get(db, id)
 
     def get_multi(self, db: Session, skip: int = 0, limit: int = 500, user_id: int | None = None, entity_type: str | None = None, entity_id: int | None = None):
-        """
-        Fetch a page of AuditLog records, most recent first, optionally
-        filtered.
-
-        Args:
-            db: Active database session.
-            skip: Number of records to skip.
-            limit: Maximum number of records to return.
-            user_id: If given, only entries performed by this user.
-            entity_type: If given, only entries for this kind of entity.
-            entity_id: If given (along with entity_type), only entries
-                for that one specific entity instance.
-
-        Returns:
-            A list of AuditLog instances.
-        """
         return crud_audit_log.get_multi(db, skip, limit, user_id, entity_type, entity_id)
 
     def log(
@@ -71,18 +45,10 @@ class AuditLogService:
         details: str | None = None,
     ) -> None:
         """
-        Records a single audit trail entry. The real entry point every
-        other service actually calls -- e.g.
+        The real entry point every other service actually calls -- e.g.
         audit_log_service.log(db, "ticket_created", "ticket", ticket.id, user_id=current_user_id).
 
-        Never raises -- any failure here is logged to the application's
-        own logger and swallowed, so a real, successful operation
-        (a ticket actually being created, a user actually logging in)
-        can never fail just because writing its own audit trail entry
-        had a problem.
-
         Args:
-            db: Active database session.
             action: Short label for the action, e.g. "login_success",
                 "ticket_created", "user_deleted".
             entity_type: The kind of entity affected, e.g. "ticket",

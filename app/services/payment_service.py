@@ -21,60 +21,15 @@ class PaymentService:
     """Business logic for Payment operations, including auto-updating an invoice's paid status."""
 
     def get(self, db: Session, id: int):
-        """
-        Fetch a single Payment by ID.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to fetch.
-
-        Returns:
-            The matching Payment instance, or None if not found.
-        """
         return crud_payment.get(db, id)
 
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
-        """
-        Fetch a page of Payment records.
-
-        Args:
-            db: Active database session.
-            skip: Number of records to skip.
-            limit: Maximum number of records to return.
-
-        Returns:
-            A list of Payment instances.
-        """
         return crud_payment.get_multi(db, skip, limit)
 
     def get_by_invoice(self, db: Session, invoice_id: int):
-        """
-        Fetch every payment recorded against a given invoice.
-
-        Args:
-            db: Active database session.
-            invoice_id: The invoice to look up payments for.
-
-        Returns:
-            A list of Payment instances for that invoice.
-        """
         return crud_payment.get_by_invoice(db, invoice_id)
 
     def create(self, db: Session, obj_in: PaymentCreate, current_user_id: int):
-        """
-        Record a new payment against an invoice, then automatically
-        marks the invoice paid if total payments now meet or exceed
-        its total.
-
-        Args:
-            db: Active database session.
-            obj_in: Validated input data for the new record.
-            current_user_id: The user recording this payment -- recorded
-                in the audit trail.
-
-        Returns:
-            The newly created Payment instance.
-        """
         new_payment = crud_payment.create(db, obj_in)
 
         invoice = crud_invoice.get(db, obj_in.invoice_id)
@@ -98,17 +53,7 @@ class PaymentService:
         return new_payment
 
     def delete(self, db: Session, id: int, current_user_id: int):
-        """
-        Delete a Payment by ID, then re-checks the invoice's paid
-        status -- removing a payment can un-mark a previously-paid
-        invoice.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to delete.
-            current_user_id: The user performing this deletion --
-                recorded in the audit trail.
-        """
+        """Re-checks the invoice's paid status after deleting -- removing a payment can un-mark a previously-paid invoice."""
         db_obj = crud_payment.get(db, id)
         invoice_id = db_obj.invoice_id if db_obj else None
 
@@ -135,10 +80,6 @@ class PaymentService:
         is_paid to match -- True if total payments meet or exceed the
         invoice's total, False otherwise (covers a payment being
         edited down or deleted un-marking a previously-paid invoice).
-
-        Args:
-            db: Active database session.
-            invoice: The Invoice instance to check (already loaded).
         """
         payments = crud_payment.get_by_invoice(db, invoice.id)
         total_paid = sum((p.amount for p in payments), start=Decimal("0"))

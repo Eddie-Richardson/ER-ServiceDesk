@@ -22,45 +22,13 @@ class CustomerService:
     """Business logic for Customer operations."""
 
     def get(self, db: Session, id: int):
-        """
-        Fetch a single Customer by ID.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to fetch.
-
-        Returns:
-            The matching Customer instance, or None if not found.
-        """
         return crud_customer.get(db, id)
 
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
-        """
-        Fetch a page of Customer records.
-
-        Args:
-            db: Active database session.
-            skip: Number of records to skip.
-            limit: Maximum number of records to return.
-
-        Returns:
-            A list of Customer instances.
-        """
         return crud_customer.get_multi(db, skip, limit)
 
     def create(self, db: Session, obj_in: CustomerCreate, current_user_id: int):
         """
-        Create a new Customer using validated input data.
-
-        Args:
-            db: Active database session.
-            obj_in: Validated input data for the new record.
-            current_user_id: The user creating this record -- recorded
-                in the audit trail.
-
-        Returns:
-            The newly created Customer instance.
-
         Raises:
             HTTPException: 400 if a customer with this email already
                 exists. Email is the only field checked -- name isn't
@@ -84,18 +52,6 @@ class CustomerService:
 
     def update(self, db: Session, id: int, obj_in: CustomerUpdate, current_user_id: int):
         """
-        Update an existing Customer using validated input data.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to update.
-            obj_in: Fields to change; unset fields are left untouched.
-            current_user_id: The user making this change -- recorded
-                in the audit trail.
-
-        Returns:
-            The updated Customer instance.
-
         Raises:
             HTTPException: 400 if the email is being changed to one
                 already used by a DIFFERENT customer -- same reasoning
@@ -126,22 +82,13 @@ class CustomerService:
 
     def archive(self, db: Session, id: int, current_user_id: int | None):
         """
-        Archives a customer -- hides them from the active ticket
-        picker and the default Customers view, without deleting or
-        hiding anything else about them. Fully reversible (see
-        unarchive()). Can be triggered manually here, or automatically
-        by archive_inactive_customers() once a customer crosses the
-        configured inactivity threshold.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the customer to archive.
-            current_user_id: The user archiving this customer --
-                recorded in the audit trail. None for the automatic,
-                system-initiated case.
-
-        Returns:
-            The updated Customer instance.
+        Hides the customer from the active ticket picker and the
+        default Customers view, without deleting or hiding anything
+        else about them. Fully reversible (see unarchive()). Can be
+        triggered manually here, or automatically by
+        archive_inactive_customers() once a customer crosses the
+        configured inactivity threshold -- current_user_id is None
+        for that automatic, system-initiated case.
         """
         db_obj = crud_customer.get(db, id)
         db_obj.is_archived = True
@@ -156,19 +103,7 @@ class CustomerService:
         return db_obj
 
     def unarchive(self, db: Session, id: int, current_user_id: int):
-        """
-        Reverses archive() -- the customer becomes visible in the
-        active ticket picker and the default Customers view again.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the customer to unarchive.
-            current_user_id: The user unarchiving this customer --
-                recorded in the audit trail.
-
-        Returns:
-            The updated Customer instance.
-        """
+        """Reverses archive() -- the customer becomes visible in the active ticket picker and the default Customers view again."""
         db_obj = crud_customer.get(db, id)
         db_obj.is_archived = False
         db.commit()
@@ -183,18 +118,12 @@ class CustomerService:
 
     def delete(self, db: Session, id: int, current_user_id: int):
         """
-        Delete a Customer by ID, if they have zero tickets and zero
+        Deletes the customer only if they have zero tickets and zero
         devices on file -- a customer with real service history
         attached needs that history dealt with first (tickets
         reassigned to the correct customer record if this was a
         duplicate, devices removed), rather than silently disappearing
         along with everything tied to them.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to delete.
-            current_user_id: The user performing this deletion --
-                recorded in the audit trail.
 
         Raises:
             HTTPException: 400 if this customer has any tickets or
@@ -236,15 +165,11 @@ class CustomerService:
         backstop alongside the manual Archive action.
 
         Args:
-            db: Active database session.
             threshold_months: How many months of inactivity make a
                 customer eligible. Approximated as 30-day months,
                 consistent across every calendar month rather than
                 needing genuine calendar-aware month arithmetic for
                 what's ultimately a coarse, "roughly N months" cutoff.
-
-        Returns:
-            A list of eligible Customer instances.
         """
         cutoff = datetime.now(timezone.utc) - timedelta(days=threshold_months * 30)
 

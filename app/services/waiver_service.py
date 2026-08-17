@@ -52,8 +52,6 @@ class WaiverService:
         records when it was sent.
 
         Args:
-            db: Active database session.
-            ticket_id: The ticket to send the waiver for.
             current_user_id: The user sending this -- recorded in the
                 audit trail.
 

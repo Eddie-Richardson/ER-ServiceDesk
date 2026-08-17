@@ -38,16 +38,6 @@ class BusinessInfoService:
     """Business logic for the full business info management screen."""
 
     def get_full(self, db: Session) -> BusinessInfoOut:
-        """
-        Reads every business info setting.
-
-        Args:
-            db: Active database session.
-
-        Returns:
-            A BusinessInfoOut -- never includes the actual password,
-            only whether one has ever been set.
-        """
         values = {key: system_setting_service.get_str(db, key, default) for key, default in _STRING_KEYS.items()}
         values.update({key: system_setting_service.get_int(db, key, default) for key, default in _INT_KEYS.items()})
         encrypted_password = system_setting_service.get_str(db, "email_password_encrypted", "")
@@ -55,16 +45,6 @@ class BusinessInfoService:
         return BusinessInfoOut(**values)
 
     def update(self, db: Session, obj_in: BusinessInfoUpdate):
-        """
-        Saves every business info setting. email_password is only
-        touched if a genuinely new, non-empty value was provided --
-        omitting it (or sending an empty string) leaves whatever's
-        currently stored untouched, rather than wiping it out.
-
-        Args:
-            db: Active database session.
-            obj_in: The new values to save.
-        """
         for key in _STRING_KEYS:
             system_setting_service.upsert(db, key, getattr(obj_in, key))
         for key in _INT_KEYS:

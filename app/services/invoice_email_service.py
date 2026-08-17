@@ -26,13 +26,9 @@ from app.core.email import send_email, format_ticket_subject
 
 def _format_line_items(line_items: list) -> str:
     """
-    Args:
-        line_items: The invoice's InvoiceLineItem rows.
-
-    Returns:
-        One "- Name xQty @ $unit = $line_total" line per item, joined
-        by newlines. Same format as quote_email_service's own line
-        items, for consistency between the two email types.
+    Returns one "- Name xQty @ $unit = $line_total" line per item,
+    joined by newlines. Same format as quote_email_service's own line
+    items, for consistency between the two email types.
     """
     lines = []
     for item in line_items:
@@ -52,8 +48,6 @@ class InvoiceEmailService:
         being re-sent serves as a receipt.
 
         Args:
-            db: Active database session.
-            invoice_id: The invoice to send.
             current_user_id: The user sending this -- recorded in the
                 audit trail.
 

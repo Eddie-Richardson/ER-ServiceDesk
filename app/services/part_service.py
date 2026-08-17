@@ -22,64 +22,20 @@ class PartService:
     """Business logic for Part operations."""
 
     def get(self, db: Session, id: int):
-        """
-        Fetch a single Part by ID.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to fetch.
-
-        Returns:
-            The matching Part instance, or None if not found.
-        """
         return crud_part.get(db, id)
 
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
-        """
-        Fetch a page of Part records.
-
-        Args:
-            db: Active database session.
-            skip: Number of records to skip.
-            limit: Maximum number of records to return.
-
-        Returns:
-            A list of Part instances.
-        """
         return crud_part.get_multi(db, skip, limit)
 
     def create(self, db: Session, obj_in: PartCreate):
-        """
-        Create a new Part using validated input data, then apply its
-        initial stock breakdown.
-
-        Args:
-            db: Active database session.
-            obj_in: Validated input data for the new record, including
-                the initial `locations` breakdown.
-
-        Returns:
-            The newly created Part instance, with locations applied.
-        """
+        """Applies the initial stock breakdown (obj_in.locations) after creating the Part row itself."""
         obj = crud_part.create(db, obj_in)
         self._replace_locations(db, obj.id, obj_in.locations)
         db.refresh(obj)
         return obj
 
     def update(self, db: Session, id: int, obj_in: PartUpdate):
-        """
-        Update an existing Part using validated input data. If a new
-        `locations` list is given, it replaces the part's entire stock
-        breakdown; if omitted, the existing breakdown is left as-is.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to update.
-            obj_in: Fields to change; unset fields are left untouched.
-
-        Returns:
-            The updated Part instance.
-        """
+        """If a new `locations` list is given, it replaces the part's entire stock breakdown; if omitted, the existing breakdown is left as-is."""
         db_obj = crud_part.get(db, id)
         db_obj = crud_part.update(db, db_obj, obj_in)
         if obj_in.locations is not None:
@@ -88,14 +44,7 @@ class PartService:
         return db_obj
 
     def delete(self, db: Session, id: int):
-        """
-        Delete a Part by ID. Its part_locations rows are removed
-        automatically via the model's cascade="all, delete-orphan".
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to delete.
-        """
+        """Its part_locations rows are removed automatically via the model's cascade="all, delete-orphan"."""
         return crud_part.delete(db, id)
 
     def _replace_locations(self, db: Session, part_id: int, locations: list[PartLocationInput]):
@@ -105,11 +54,6 @@ class PartService:
         rows -- a part's location spread is always a short list, so
         this stays simple and correct rather than chasing edge cases in
         a more "efficient" merge.
-
-        Args:
-            db: Active database session.
-            part_id: The Part whose stock breakdown is being replaced.
-            locations: The new full breakdown to apply.
         """
         db.query(PartLocation).filter(PartLocation.part_id == part_id).delete()
         for entry in locations:

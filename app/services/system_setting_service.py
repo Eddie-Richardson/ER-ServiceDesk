@@ -16,16 +16,6 @@ class SystemSettingService:
     """Business logic for SystemSetting operations."""
 
     def get(self, db: Session, id: int):
-        """
-        Fetch a single SystemSetting by ID.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to fetch.
-
-        Returns:
-            The matching SystemSetting instance, or None if not found.
-        """
         return crud_system_setting.get(db, id)
 
     def get_int(self, db: Session, key: str, default: int) -> int:
@@ -39,14 +29,6 @@ class SystemSettingService:
         upgraded from before this system existed won't have it seeded)
         or if its value somehow isn't a valid integer, rather than
         raising and breaking whatever's trying to read it.
-
-        Args:
-            db: Active database session.
-            key: The setting's key, e.g. 'lock_timeout_minutes'.
-            default: Value to use if the setting is missing or invalid.
-
-        Returns:
-            The setting's current value as an int, or default.
         """
         setting = crud_system_setting.get_by_key(db, key)
         if setting is None or setting.value is None:
@@ -57,20 +39,7 @@ class SystemSettingService:
             return default
 
     def get_str(self, db: Session, key: str, default: str) -> str:
-        """
-        Reads a setting's value as a plain string, with a safe
-        fallback. Same reasoning as get_int, for settings that are
-        genuinely text (business name, email address, SMTP/IMAP host,
-        etc.) rather than a tunable number.
-
-        Args:
-            db: Active database session.
-            key: The setting's key, e.g. 'business_name'.
-            default: Value to use if the setting is missing.
-
-        Returns:
-            The setting's current value, or default.
-        """
+        """Same reasoning as get_int, for settings that are genuinely text (business name, email address, SMTP/IMAP host, etc.) rather than a tunable number."""
         setting = crud_system_setting.get_by_key(db, key)
         if setting is None or setting.value is None:
             return default
@@ -82,14 +51,6 @@ class SystemSettingService:
         does -- backs the desktop Settings UI's save action, which
         shouldn't need to know or care whether a given key has ever
         been set before.
-
-        Args:
-            db: Active database session.
-            key: The setting's key.
-            value: The new value to store.
-
-        Returns:
-            The created or updated SystemSetting instance.
         """
         setting = crud_system_setting.get_by_key(db, key)
         if setting is None:
@@ -97,55 +58,16 @@ class SystemSettingService:
         return crud_system_setting.update(db, setting, SystemSettingUpdate(value=value))
 
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
-        """
-        Fetch a page of SystemSetting records.
-
-        Args:
-            db: Active database session.
-            skip: Number of records to skip.
-            limit: Maximum number of records to return.
-
-        Returns:
-            A list of SystemSetting instances.
-        """
         return crud_system_setting.get_multi(db, skip, limit)
 
     def create(self, db: Session, obj_in: SystemSettingCreate):
-        """
-        Create a new SystemSetting using validated input data.
-
-        Args:
-            db: Active database session.
-            obj_in: Validated input data for the new record.
-
-        Returns:
-            The newly created SystemSetting instance.
-        """
         return crud_system_setting.create(db, obj_in)
 
     def update(self, db: Session, id: int, obj_in: SystemSettingUpdate):
-        """
-        Update an existing SystemSetting using validated input data.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to update.
-            obj_in: Fields to change; unset fields are left untouched.
-
-        Returns:
-            The updated SystemSetting instance.
-        """
         db_obj = crud_system_setting.get(db, id)
         return crud_system_setting.update(db, db_obj, obj_in)
 
     def delete(self, db: Session, id: int):
-        """
-        Delete a SystemSetting by ID.
-
-        Args:
-            db: Active database session.
-            id: Primary key of the record to delete.
-        """
         return crud_system_setting.delete(db, id)
 
 system_setting_service = SystemSettingService()

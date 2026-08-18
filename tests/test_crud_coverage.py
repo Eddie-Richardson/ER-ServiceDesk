@@ -271,7 +271,7 @@ def test_devices_crud(client, agent_headers, db):
 # ---------------------------------------------------------------------------
 
 def test_messages_crud(client, superuser_headers, db):
-    """Covers the internal-note case specifically -- see test_message_authorization.py (if/when written) for outbound/inbound and the author-or-superuser authorization rule."""
+    """Covers the internal-note case specifically -- not outbound/inbound sending or the author-or-superuser authorization rule."""
     ticket = make_full_ticket(db)
     user = make_plain_user(db)
     _assert_crud_lifecycle(
@@ -374,9 +374,9 @@ def test_payments_crud(client, agent_headers, db):
 def test_assets_crud(client, agent_headers):
     """
     Assets intentionally deviate from the generic CRUD response shape
-    (wrapped create response, paginated list response) -- preserved from
-    the original InventoryHub API. Tested directly rather than via the
-    generic helper, which assumes the plain shape every other resource uses.
+    (wrapped create response, paginated list response). Tested directly
+    rather than via the generic helper, which assumes the plain shape
+    every other resource uses.
     """
     create_resp = client.post(
         "/inventory/assets/",

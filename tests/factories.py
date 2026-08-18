@@ -84,6 +84,7 @@ def make_invoice(db, ticket_id: int) -> Invoice:
 
 
 def make_location(db, name="Bench 1") -> Location:
+    """Create and persist a minimal Location record."""
     obj = Location(name=name)
     db.add(obj)
     db.commit()

@@ -38,12 +38,6 @@ class MessageTemplateDialog(QDialog):
     """
 
     def __init__(self, template: dict | None = None, parent=None):
-        """
-        Args:
-            template: An existing template dict to edit, or None to
-                create a new one.
-            parent: The parent widget, per normal Qt dialog convention.
-        """
         super().__init__(parent)
         self.template = template
         self.saved_template: dict | None = None
@@ -61,10 +55,6 @@ class MessageTemplateDialog(QDialog):
             self._prefill_from_template(template)
 
     def closeEvent(self, event):
-        """
-        Args:
-            event: The Qt close event, passed through unchanged.
-        """
         save_geometry(self, "MessageTemplateDialog")
         super().closeEvent(event)
 
@@ -135,10 +125,6 @@ class MessageTemplateDialog(QDialog):
         self.name_input.setFocus()
 
     def _prefill_from_template(self, template: dict):
-        """
-        Args:
-            template: The template dict being edited.
-        """
         self.name_input.setText(template.get("name", ""))
         self.subject_input.setText(template.get("subject", ""))
         self.body_input.setPlainText(template.get("body", ""))
@@ -184,7 +170,6 @@ class MessageTemplateDialog(QDialog):
     def _on_save_finished(self, success: bool, result):
         """
         Args:
-            success: Whether the save succeeded.
             result: The saved record on success, or a human-readable
                 error message on failure.
         """
@@ -199,10 +184,6 @@ class MessageTemplateDialog(QDialog):
         self.accept()
 
     def _show_error(self, message: str):
-        """
-        Args:
-            message: The error text to show below the form.
-        """
         self.error_label.setText(message)
         self.error_label.show()
 
@@ -212,8 +193,8 @@ class MessageTemplateDialog(QDialog):
     def _attempt_delete(self):
         """
         Confirms, then deletes this template. Synchronous (no QThread)
-        -- matching the same reasoning used elsewhere tonight for
-        small, infrequent delete actions.
+        -- a small, infrequent action, not worth the complexity of a
+        background thread.
         """
         confirmed = QMessageBox.question(
             self,

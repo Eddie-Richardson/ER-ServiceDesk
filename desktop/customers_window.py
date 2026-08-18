@@ -65,10 +65,6 @@ class CustomersWindow(QWidget):
         self._load_data()
 
     def closeEvent(self, event):
-        """
-        Args:
-            event: The Qt close event, passed through unchanged.
-        """
         save_geometry(self, "CustomersWindow")
         super().closeEvent(event)
         self.window_closed.emit()
@@ -157,7 +153,6 @@ class CustomersWindow(QWidget):
     def _on_data_loaded(self, success: bool, result):
         """
         Args:
-            success: Whether the load succeeded.
             result: On success, the data dict from CustomersDataWorker.
                 On failure, a human-readable error message string.
         """
@@ -197,10 +192,6 @@ class CustomersWindow(QWidget):
         )
 
     def _render_table(self, customers: list[dict]):
-        """
-        Args:
-            customers: The customers to display, already filtered.
-        """
         mono_font = QFont(MONO_FONT_FAMILY)
         theme_name = get_saved_theme()
         danger_color = QColor(DARK["danger"] if theme_name == "dark" else LIGHT["danger"])

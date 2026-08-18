@@ -44,9 +44,6 @@ class TicketPartDialog(QDialog):
         Args:
             ticket_id: The ticket this part requirement belongs to.
             parts: Every part in inventory, for the picker.
-            ticket_part: An existing record to edit, or None to create
-                a new one.
-            parent: The parent widget, per normal Qt dialog convention.
         """
         super().__init__(parent)
         self.ticket_id = ticket_id
@@ -148,10 +145,6 @@ class TicketPartDialog(QDialog):
         self.setLayout(outer_layout)
 
     def _prefill_from_ticket_part(self, ticket_part: dict):
-        """
-        Args:
-            ticket_part: The record being edited.
-        """
         index = self.part_combo.findData(ticket_part.get("part_id"))
         if index >= 0:
             self.part_combo.setCurrentIndex(index)
@@ -170,7 +163,7 @@ class TicketPartDialog(QDialog):
     # Save
     # -----------------------------------------------------------------
     def _attempt_save(self):
-        """Validates the form, then saves synchronously -- a small, infrequent action, matching the same no-QThread reasoning used elsewhere tonight."""
+        """Validates the form, then saves synchronously -- a small, infrequent action, not worth the complexity of a background thread."""
         part_id = self.part_combo.currentData()
         if part_id is None:
             self._show_error("Select a part.")
@@ -207,10 +200,6 @@ class TicketPartDialog(QDialog):
         self.accept()
 
     def _show_error(self, message: str):
-        """
-        Args:
-            message: The error text to show below the form.
-        """
         self.error_label.setText(message)
         self.error_label.show()
 

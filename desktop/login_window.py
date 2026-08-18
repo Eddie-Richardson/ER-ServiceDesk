@@ -145,9 +145,6 @@ class LoginWindow(QWidget):
         must set a new password before continuing. Opens
         ChangePasswordDialog pre-filled with the password already
         typed; on success, proceeds exactly like a normal login.
-
-        Args:
-            email: The account's email, passed through to the dialog.
         """
         self._set_form_enabled(True)
         self.login_button.setText("Log In")
@@ -183,7 +180,6 @@ class LoginWindow(QWidget):
         form and shows the error inline.
 
         Args:
-            success: Whether the login request succeeded.
             result: On success, the JWT access token. On failure, a
                 human-readable error message.
         """
@@ -202,21 +198,13 @@ class LoginWindow(QWidget):
         """
         Enables or disables the form fields and login button, used to
         prevent double-submission while a login request is in flight.
-
-        Args:
-            enabled: Whether the form should be interactive.
         """
         self.email_input.setEnabled(enabled)
         self.password_input.setEnabled(enabled)
         self.login_button.setEnabled(enabled)
 
     def _show_error(self, message: str):
-        """
-        Displays an inline error message below the password field.
-
-        Args:
-            message: The error text to show.
-        """
+        """Displays an inline error message below the password field."""
         self.error_label.setText(message)
         self.error_label.show()
 

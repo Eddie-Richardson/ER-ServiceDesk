@@ -44,11 +44,8 @@ class RoleFormDialog(QDialog):
     def __init__(self, role: dict | None, permissions: list[dict], parent=None):
         """
         Args:
-            role: An existing role dict to edit, or None to create a
-                new one.
             permissions: Every permission in the system, for the
                 checkbox list.
-            parent: The parent widget, per normal Qt dialog convention.
         """
         super().__init__(parent)
         self.role = role
@@ -69,10 +66,6 @@ class RoleFormDialog(QDialog):
             self._prefill_from_role(role)
 
     def closeEvent(self, event):
-        """
-        Args:
-            event: The Qt close event, passed through unchanged.
-        """
         save_geometry(self, "RoleFormDialog")
         super().closeEvent(event)
 
@@ -142,10 +135,6 @@ class RoleFormDialog(QDialog):
     # Prefill (edit mode)
     # -----------------------------------------------------------------
     def _prefill_from_role(self, role: dict):
-        """
-        Args:
-            role: The role dict being edited.
-        """
         self.name_input.setText(role.get("name", ""))
         self.description_input.setPlainText(role.get("description") or "")
 
@@ -192,7 +181,6 @@ class RoleFormDialog(QDialog):
     def _on_save_finished(self, success: bool, result):
         """
         Args:
-            success: Whether the save succeeded.
             result: The saved role record on success, or a
                 human-readable error message on failure.
         """
@@ -207,9 +195,5 @@ class RoleFormDialog(QDialog):
         self.accept()
 
     def _show_error(self, message: str):
-        """
-        Args:
-            message: The error text to show below the form.
-        """
         self.error_label.setText(message)
         self.error_label.show()

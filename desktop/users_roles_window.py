@@ -63,10 +63,6 @@ class UsersRolesWindow(QWidget):
         self._load_data()
 
     def closeEvent(self, event):
-        """
-        Args:
-            event: The Qt close event, passed through unchanged.
-        """
         save_geometry(self, "UsersRolesWindow")
         super().closeEvent(event)
         self.window_closed.emit()
@@ -140,7 +136,6 @@ class UsersRolesWindow(QWidget):
     def _on_data_loaded(self, success: bool, result):
         """
         Args:
-            success: Whether the load succeeded.
             result: On success, the data dict from UsersRolesDataWorker.
                 On failure, a human-readable error message string.
         """

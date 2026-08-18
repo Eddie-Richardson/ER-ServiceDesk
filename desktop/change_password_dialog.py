@@ -37,11 +37,9 @@ class ChangePasswordDialog(QDialog):
     def __init__(self, email: str, current_password: str, parent=None):
         """
         Args:
-            email: The account's email.
             current_password: The temp (or old) password already
                 entered at login -- pre-filled here so it's not
                 retyped.
-            parent: The parent widget, per normal Qt dialog convention.
         """
         super().__init__(parent)
         self.email = email
@@ -57,10 +55,6 @@ class ChangePasswordDialog(QDialog):
         self._build_ui(current_password)
 
     def closeEvent(self, event):
-        """
-        Args:
-            event: The Qt close event, passed through unchanged.
-        """
         save_geometry(self, "ChangePasswordDialog")
         super().closeEvent(event)
 
@@ -68,10 +62,6 @@ class ChangePasswordDialog(QDialog):
     # UI construction
     # -----------------------------------------------------------------
     def _build_ui(self, current_password: str):
-        """
-        Args:
-            current_password: Pre-fills the Current Password field.
-        """
         outer_layout = QVBoxLayout()
         outer_layout.setContentsMargins(
             layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
@@ -179,9 +169,6 @@ class ChangePasswordDialog(QDialog):
 
     def _password_strength_error(self, password: str) -> str:
         """
-        Args:
-            password: The candidate new password.
-
         Returns:
             A human-readable error message if the password fails any
             requirement, or an empty string if it passes all of them.
@@ -201,7 +188,6 @@ class ChangePasswordDialog(QDialog):
     def _on_finished(self, success: bool, result: str):
         """
         Args:
-            success: Whether the change succeeded.
             result: A fresh access token on success, or a
                 human-readable error message on failure.
         """
@@ -216,9 +202,5 @@ class ChangePasswordDialog(QDialog):
         self.accept()
 
     def _show_error(self, message: str):
-        """
-        Args:
-            message: The error text to show below the form.
-        """
         self.error_label.setText(message)
         self.error_label.show()

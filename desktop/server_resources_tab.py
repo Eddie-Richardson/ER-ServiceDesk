@@ -173,7 +173,6 @@ class ServerResourcesTab(QWidget):
     def _on_worker_finished(self, success: bool, message: str, payload: object):
         """
         Args:
-            success: Whether the action succeeded.
             message: Shown directly to the admin.
             payload: The parsed status dict for a "status" refresh, else None.
         """

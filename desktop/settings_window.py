@@ -2,14 +2,17 @@
 
 """
 Settings window: admin-only management of every lookup table used
-throughout the app, plus Roles.
+throughout the app, plus Roles and every other admin-only screen.
 
-Eight tabs: five identically-shaped lookup tables (Locations, Asset
-Categories, Ticket Categories, Ticket Statuses, Ticket Types) sharing
-one reusable LookupTab widget, Roles (a genuinely different shape --
-permission checkboxes, not a plain description field -- so it gets
-its own RolesTab rather than being forced into the generic pattern),
-plus mode-specific tabs: Local installs get Migrate to Server and
+Locations, Asset Categories, Ticket Categories, and Ticket Statuses
+share one reusable LookupTab widget (identically shaped: name +
+optional description). Discounts and Tax Rates share a different
+reusable widget, NamePercentageTab (name + percentage). Ticket Types &
+Stages and Roles each have a genuinely different shape (an allow-list
+matrix, and permission checkboxes respectively), so each gets its own
+dedicated tab rather than being forced into either shared widget.
+
+Two tabs are mode-specific: Local installs get Migrate to Server and
 Database Backup (both need a local database to operate on, so neither
 applies to Client), and Client installs get Server Resources and
 Server Backup (both need an ongoing connection to a Server, which only
@@ -69,10 +72,6 @@ class SettingsWindow(QWidget):
         self._build_ui()
 
     def closeEvent(self, event):
-        """
-        Args:
-            event: The Qt close event, passed through unchanged.
-        """
         save_geometry(self, "SettingsWindow")
         super().closeEvent(event)
         self.window_closed.emit()

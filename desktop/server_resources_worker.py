@@ -39,8 +39,6 @@ class ServerResourcesWorker(QObject):
         Args:
             server_host: The Server's bare hostname/IP, e.g. "192.168.1.50"
                 (no scheme, no port -- this worker always targets port 8002).
-            username: A Windows account username on the Server machine.
-            password: That account's password.
             action: One of "status", "memory", "cpu", "disk".
             **kwargs: Action-specific value -- max_gb for "memory",
                 count for "cpu", cap_gb for "disk". Unused for "status".

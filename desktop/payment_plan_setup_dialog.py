@@ -30,11 +30,9 @@ class PaymentPlanSetupDialog(QDialog):
     def __init__(self, invoice_id: int, remaining_balance: float, parent=None):
         """
         Args:
-            invoice_id: The invoice to set up a plan for.
             remaining_balance: The current amount owed, shown for
                 context so the amount entered here makes sense against
                 the total.
-            parent: The parent widget, per normal Qt dialog convention.
         """
         super().__init__(parent)
         self.invoice_id = invoice_id

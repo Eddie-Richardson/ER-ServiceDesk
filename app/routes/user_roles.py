@@ -19,29 +19,10 @@ router = APIRouter(prefix="/user_roles", tags=["user_roles"], dependencies=[Depe
 
 @router.get("/", response_model=list[UserRole])
 def list_user_roles(db: Session = Depends(get_db)):
-    """
-    List the many-to-many link between users and roles, paginated.
-
-    Args:
-        db: Injected database session.
-
-    Returns:
-        A list of UserRole records.
-    """
     return user_role_service.get_multi(db)
 
 @router.get("/{id}", response_model=UserRole)
 def get_user_role(id: int, db: Session = Depends(get_db)):
-    """
-    Fetch a single UserRole record by ID.
-
-    Args:
-        id: Primary key of the record to fetch.
-        db: Injected database session.
-
-    Returns:
-        The matching UserRole record.
-    """
     return user_role_service.get(db, id)
 
 @router.post("/", response_model=UserRole)
@@ -50,18 +31,6 @@ def create_user_role(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Grant a role to a user.
-
-    Args:
-        obj_in: Validated request body for the new record.
-        db: Injected database session.
-        current_user: The admin granting this role -- recorded in the
-            audit trail.
-
-    Returns:
-        The newly created UserRole record.
-    """
     return user_role_service.create(db, obj_in, current_user.id)
 
 
@@ -71,13 +40,4 @@ def delete_user_role(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Revoke a role from a user.
-
-    Args:
-        id: Primary key of the record to delete.
-        db: Injected database session.
-        current_user: The admin revoking this role -- recorded in the
-            audit trail.
-    """
     return user_role_service.delete(db, id, current_user.id)

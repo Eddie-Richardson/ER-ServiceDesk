@@ -45,9 +45,6 @@ _SHOW_TRACKING_FOR_STATUSES = {"shipped", "delayed", "backordered"}
 
 def build_part_status_message(ticket_part) -> str | None:
     """
-    Build the customer-facing update text for a TicketPart's current
-    status, or None if this status isn't customer-notable.
-
     Args:
         ticket_part: A TicketPart instance (with its `part` relationship
             loaded/loadable) whose CURRENT status should be described.
@@ -86,16 +83,11 @@ def notify_customer_of_part_status_change(ticket_part_id: int) -> None:
     so this reuses the exact same send + email_status-tracking
     logic that manually-created outbound messages already get -- a
     failure here is just as visible to a tech as any other failed send.
-
-    Args:
-        ticket_part_id: Primary key of the TicketPart whose status just
-            changed.
     """
     # Imported here (not at module level) to avoid a circular import:
-    # message_service imports from this same tasks module indirectly via
-    # nothing today, but keeping the app.services import lazy here keeps
-    # this task file safe to import from app.services without risk of
-    # ever introducing one later.
+    # there isn't one today, but keeping the app.services import lazy
+    # here keeps this task file safe to import from app.services
+    # without risk of ever introducing one later.
     from app.services.message_service import message_service
 
     db = SessionLocal()

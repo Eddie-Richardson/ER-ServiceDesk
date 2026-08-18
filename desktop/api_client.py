@@ -1,12 +1,11 @@
 # ER-ServiceDesk/desktop/api_client.py
 
 """
-Thin API client for talking to the FastAPI backend.
-
-Kept deliberately small: right now it only knows how to log in and fetch
-tickets/ticket statuses. As more windows need the API (Inventory,
-Customers, etc.) they can add their own request functions here, all
-sharing BASE_URL and the same error-handling shape established below.
+API client for talking to the FastAPI backend -- one thin wrapper
+function per endpoint, covering every feature area the desktop app
+uses (tickets, customers, devices, inventory, billing, users/roles,
+and more). Every function shares BASE_URL and the same
+error-handling shape established below.
 """
 
 import requests
@@ -131,40 +130,10 @@ def _authed_get(path: str) -> list | dict:
 
 
 def _authed_post(path: str, payload: dict) -> dict:
-    """
-    Performs a POST request against the backend with the current
-    session's bearer token attached.
-
-    Args:
-        path: Path relative to BASE_URL, e.g. "/tickets/".
-        payload: The JSON body to send.
-
-    Returns:
-        The parsed JSON response body.
-
-    Raises:
-        ApiError: If there's no active session, the backend can't be
-            reached, or the response isn't a success.
-    """
     return _authed_write("POST", path, payload)
 
 
 def _authed_put(path: str, payload: dict) -> dict:
-    """
-    Performs a PUT request against the backend with the current
-    session's bearer token attached.
-
-    Args:
-        path: Path relative to BASE_URL, e.g. "/tickets/5".
-        payload: The JSON body to send.
-
-    Returns:
-        The parsed JSON response body.
-
-    Raises:
-        ApiError: If there's no active session, the backend can't be
-            reached, or the response isn't a success.
-    """
     return _authed_write("PUT", path, payload)
 
 
@@ -207,10 +176,10 @@ def _authed_write(method: str, path: str, payload: dict) -> dict:
         try:
             body = response.json()
             # The backend's real shape is {"error": {"code", "message"}} --
-            # never "detail". This was previously checking for "detail",
-            # which doesn't exist anywhere in this API, so every specific
-            # backend error message silently fell back to the generic
-            # "server returned N" text below instead of ever being shown.
+            # never "detail". Checking for "detail" instead would mean
+            # every specific backend error message silently falls back
+            # to the generic "server returned N" text below instead of
+            # ever being shown.
             detail = body.get("error", {}).get("message", "")
         except ValueError:
             pass
@@ -513,11 +482,10 @@ def list_assets() -> list[dict]:
     """
     Returns all assets. Requires an active session.
 
-    The backend paginates this endpoint (a holdover from the original
-    InventoryHub API it was merged from), returning {"items": [...],
-    ...page metadata}. A shop's own asset inventory is small enough that
-    the desktop app just requests everything in one page rather than
-    building real pagination UI for it.
+    The backend paginates this endpoint, returning {"items": [...],
+    ...page metadata}. A shop's own asset inventory is small enough
+    that the desktop app just requests everything in one page rather
+    than building real pagination UI for it.
     """
     response = _authed_get("/inventory/assets/?limit=1000")
     return response["items"]

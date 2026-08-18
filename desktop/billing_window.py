@@ -58,10 +58,6 @@ class BillingWindow(QWidget):
         self._load_data()
 
     def closeEvent(self, event):
-        """
-        Args:
-            event: The Qt close event, passed through unchanged.
-        """
         save_geometry(self, "BillingWindow")
         super().closeEvent(event)
         self.window_closed.emit()
@@ -161,9 +157,6 @@ class BillingWindow(QWidget):
 
     def _customer_name_for_ticket(self, ticket_id: int) -> str:
         """
-        Args:
-            ticket_id: The ticket to look up the owning customer's name for.
-
         Returns:
             "First Last", or "Unknown" if the ticket or customer can't
             be found (e.g. stale data mid-refresh).
@@ -178,9 +171,6 @@ class BillingWindow(QWidget):
 
     def _customer_id_for_ticket(self, ticket_id: int) -> int | None:
         """
-        Args:
-            ticket_id: The ticket to look up the owning customer's id for.
-
         Returns:
             The customer id, or None if the ticket can't be found.
         """
@@ -213,10 +203,6 @@ class BillingWindow(QWidget):
         self.status_label.setText(f"{len(filtered_quotes)} quote(s), {len(filtered_invoices)} invoice(s).")
 
     def _render_quotes(self, quotes: list[dict]):
-        """
-        Args:
-            quotes: The quotes to display, already filtered.
-        """
         self.quotes_table.setRowCount(len(quotes))
         for row, quote in enumerate(quotes):
             status = f"Converted to Invoice #{quote['converted_invoice_id']}" if quote.get("converted_invoice_id") else "Open"
@@ -233,10 +219,6 @@ class BillingWindow(QWidget):
                 self.quotes_table.setItem(row, col, cell)
 
     def _render_invoices(self, invoices: list[dict]):
-        """
-        Args:
-            invoices: The invoices to display, already filtered.
-        """
         self.invoices_table.setRowCount(len(invoices))
         for row, invoice in enumerate(invoices):
             values = [

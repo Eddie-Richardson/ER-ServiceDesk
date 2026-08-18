@@ -35,9 +35,7 @@ class BillingDialog(QDialog):
     def __init__(self, ticket_id: int, ticket_title: str, parent=None):
         """
         Args:
-            ticket_id: The ticket to show billing for.
             ticket_title: Shown in the window title for context.
-            parent: The parent widget, per normal Qt dialog convention.
         """
         super().__init__(parent)
         self.ticket_id = ticket_id
@@ -52,10 +50,6 @@ class BillingDialog(QDialog):
         self._load_invoices()
 
     def closeEvent(self, event):
-        """
-        Args:
-            event: The Qt close event, passed through unchanged.
-        """
         save_geometry(self, "BillingDialog")
         super().closeEvent(event)
 
@@ -172,10 +166,6 @@ class BillingDialog(QDialog):
         self._open_quote_detail(quote["id"])
 
     def _open_quote_detail(self, quote_id: int):
-        """
-        Args:
-            quote_id: The quote to open.
-        """
         dialog = QuoteDetailDialog(quote_id, self.ticket_id, self.ticket_title, parent=self)
         dialog.exec()
         self._load_quotes()
@@ -205,10 +195,6 @@ class BillingDialog(QDialog):
         self._open_invoice_detail(invoice["id"])
 
     def _open_invoice_detail(self, invoice_id: int):
-        """
-        Args:
-            invoice_id: The invoice to open.
-        """
         dialog = InvoiceDetailDialog(invoice_id, self.ticket_id, self.ticket_title, parent=self)
         dialog.exec()
         self._load_invoices()

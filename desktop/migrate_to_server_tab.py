@@ -181,25 +181,20 @@ class MigrateToServerTab(QWidget):
         through (e.g. a locked file) shouldn't prevent the mode
         switch, which is the one step that actually matters for this
         PC to stop acting as a Local install going forward. Logged
-        directly (not silently swallowed) though -- a real test showed
-        this whole method reporting success while every step inside it
-        had actually failed, with genuinely no way to tell afterward.
+        directly (not silently swallowed) though, since a caller
+        checking only the final outcome has no other way to tell which
+        individual step succeeded or failed.
 
         The mode switch itself is handled differently from the rest:
         install_mode/backend_url are SystemScope (HKEY_LOCAL_MACHINE)
-        settings, confirmed directly in settings_manager.py's own
-        docstrings to require admin rights to write -- but this app
-        never runs elevated day to day, by design, so regular
-        non-admin employees can use it too. A real test proved this
-        was silently breaking the one moment it actually needed
-        elevation: the write here never actually persisted, so
-        restarting the app kept showing it as Local, still pointed at
-        localhost, with no error shown anywhere. Fixed by re-launching
-        this same exe with a hidden flag via PowerShell's
-        Start-Process -Verb RunAs -Wait, triggering a real UAC prompt
-        for just this one privileged write, then waiting for it to
-        finish and confirming it actually succeeded before telling the
-        admin the switch is done.
+        settings, requiring admin rights to write (see
+        settings_manager.py) -- but this app never runs elevated day
+        to day, by design, so regular non-admin employees can use it
+        too. Handled by re-launching this same exe with a hidden flag
+        via PowerShell's Start-Process -Verb RunAs -Wait, triggering a
+        real UAC prompt for just this one privileged write, then
+        waiting for it to finish and confirming it actually succeeded
+        before telling the admin the switch is done.
         """
         debug_log_path = os.path.join(os.environ.get("TEMP", "."), "er-servicedesk-teardown-debug-log.txt")
 

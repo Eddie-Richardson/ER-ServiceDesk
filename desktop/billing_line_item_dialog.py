@@ -58,9 +58,6 @@ class BillingLineItemDialog(QDialog):
                 to update an existing one.
             remove_func: Called as remove_func(line_item_id) to remove
                 an existing one.
-            line_item: An existing line item dict to edit, or None to
-                add a new one.
-            parent: The parent widget, per normal Qt dialog convention.
             parts: Every part with a selling_price configured, for the
                 picker. Empty/None means the Part option is hidden --
                 nothing to pick from.
@@ -171,10 +168,6 @@ class BillingLineItemDialog(QDialog):
         self.part_combo.setVisible(self.part_type_radio.isChecked())
 
     def _prefill_from_line_item(self, line_item: dict):
-        """
-        Args:
-            line_item: The line item dict being edited.
-        """
         if line_item.get("part_id") is not None:
             self.part_type_radio.setChecked(True)
             index = self.part_combo.findData(line_item.get("part_id"))
@@ -192,7 +185,7 @@ class BillingLineItemDialog(QDialog):
     # Save
     # -----------------------------------------------------------------
     def _attempt_save(self):
-        """Validates the form, then saves synchronously -- a small, infrequent action, matching the same no-QThread reasoning used elsewhere tonight."""
+        """Validates the form, then saves synchronously -- a small, infrequent action, not worth the complexity of a background thread."""
         is_part = self.part_type_radio.isChecked()
         selected_id = self.part_combo.currentData() if is_part else self.service_combo.currentData()
         if selected_id is None:
@@ -222,10 +215,6 @@ class BillingLineItemDialog(QDialog):
         self.accept()
 
     def _show_error(self, message: str):
-        """
-        Args:
-            message: The error text to show below the form.
-        """
         self.error_label.setText(message)
         self.error_label.show()
 

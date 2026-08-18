@@ -146,7 +146,6 @@ class LookupTab(QWidget):
     def _on_data_loaded(self, success: bool, result):
         """
         Args:
-            success: Whether the load succeeded.
             result: The list of items on success, or a human-readable
                 error message on failure.
         """
@@ -242,7 +241,6 @@ class LookupTab(QWidget):
     def _on_delete_finished(self, success: bool, result):
         """
         Args:
-            success: Whether the delete succeeded.
             result: None on success, or a human-readable error message
                 on failure (e.g. the item is still referenced elsewhere).
         """

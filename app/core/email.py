@@ -45,12 +45,6 @@ from app.services.system_setting_service import system_setting_service
 
 def _get_email_config(db: Session) -> dict:
     """
-    Reads every business-info email setting fresh from the database in
-    one pass, decrypting the password.
-
-    Args:
-        db: Active database session.
-
     Returns:
         A dict with keys: business_name, email_address, email_password
         (decrypted plaintext, or "" if never set), smtp_host, smtp_port,
@@ -80,12 +74,6 @@ _TICKET_SUBJECT_RE = re.compile(r"\[Ticket #(\d+)\]")
 
 def format_ticket_subject(ticket_id: int, subject: str) -> str:
     """
-    Prefix a subject line with the ticket ID marker.
-
-    Args:
-        ticket_id: The ticket this message belongs to.
-        subject: The human-readable subject text.
-
     Returns:
         The subject with a "[Ticket #<id>]" prefix, e.g.
         "[Ticket #42] Your repair is ready for pickup".
@@ -95,8 +83,6 @@ def format_ticket_subject(ticket_id: int, subject: str) -> str:
 
 def extract_ticket_id(subject: str) -> int | None:
     """
-    Pull the ticket ID out of a subject line, if present.
-
     Args:
         subject: A raw email subject line (e.g. a customer's reply, which
             may have "Re: " or "Fwd: " prepended by their email client).
@@ -115,14 +101,6 @@ def extract_ticket_id(subject: str) -> int | None:
 def send_email(db: Session, to_address: str, subject: str, body: str) -> None:
     """
     Send a plain-text email over SMTP.
-
-    Args:
-        db: Active database session -- used to read the current
-            email/business-info settings fresh, not a cached value.
-        to_address: Recipient email address.
-        subject: Full subject line (use format_ticket_subject first if this
-            is tied to a ticket).
-        body: Plain-text message body.
 
     Raises:
         RuntimeError: If email address or password aren't configured
@@ -195,10 +173,6 @@ def fetch_unread_emails(db: Session) -> list[InboundEmail]:
 
     Intended to be called from an RQ job on a schedule (polling), not
     directly from a request handler.
-
-    Args:
-        db: Active database session -- used to read the current
-            email settings fresh, not a cached value.
 
     Returns:
         A list of InboundEmail objects, one per unread message found.

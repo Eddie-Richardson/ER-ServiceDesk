@@ -33,13 +33,10 @@ def generate_temp_password(length: int = 12) -> str:
     one, which the user is forced to change on first login.
 
     Explicitly guarantees at least one uppercase, one lowercase, one
-    digit, and one special character -- confirmed via a real,
-    reproducible failure that simply sampling every character
-    independently and randomly from a mixed alphabet does NOT
-    guarantee this on its own (an earlier version of this function did
-    exactly that, and hash_password()'s own strength check below
-    intermittently rejected the result whenever one of the four
-    classes happened not to appear by chance).
+    digit, and one special character -- independently sampling every
+    character at random from a mixed alphabet doesn't guarantee this
+    on its own, and hash_password()'s own strength check below
+    requires all four classes.
 
     Args:
         length: How many characters to generate. 12 comfortably clears
@@ -111,16 +108,6 @@ def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
 def verify_password(plain: str, hashed: str) -> bool:
-    """
-    Verify a plaintext password against a stored bcrypt hash.
-
-    Args:
-        plain: The password submitted at login.
-        hashed: The stored bcrypt hash to compare against.
-
-    Returns:
-        True if the password matches, False otherwise.
-    """
     return pwd_context.verify(plain, hashed)
 
 SECRET_KEY = settings.SECRET_KEY
@@ -129,15 +116,9 @@ ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     """
-    Create a signed JWT access token.
-
     Args:
-        data: Claims to encode (e.g. {"sub": user_id}).
         expires_delta: Optional custom expiry; defaults to
             ACCESS_TOKEN_EXPIRE_MINUTES from settings.
-
-    Returns:
-        The encoded JWT string.
     """
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + (
@@ -148,14 +129,6 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
 
 def decode_access_token(token: str) -> dict:
     """
-    Decode and validate a JWT access token.
-
-    Args:
-        token: The encoded JWT string from the Authorization header.
-
-    Returns:
-        The decoded claims dict.
-
     Raises:
         ValueError: If the token is invalid, malformed, or expired.
     """

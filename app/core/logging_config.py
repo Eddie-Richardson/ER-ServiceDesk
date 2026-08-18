@@ -2,8 +2,7 @@
 # Structured logging configuration
 """
 Configures console + rotating JSON file logging for the whole app.
-Ported from InventoryHub. Call setup_logging() once at startup, before
-any other module logs anything.
+Call setup_logging() once at startup, before any other module logs anything.
 """
 
 import logging
@@ -21,11 +20,6 @@ class JsonFormatter(logging.Formatter):
 
     def format(self, record):
         """
-        Render a LogRecord as a JSON string.
-
-        Args:
-            record: The LogRecord to format.
-
         Returns:
             A JSON-encoded string with timestamp, level, message, logger
             name, and (if present) the exception stack trace.

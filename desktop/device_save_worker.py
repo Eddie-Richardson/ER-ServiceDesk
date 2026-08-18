@@ -32,7 +32,6 @@ class DeviceSaveWorker(QObject):
     def __init__(self, device_id: int, payload: dict):
         """
         Args:
-            device_id: The device's id.
             payload: Fields to update, matching DeviceUpdate.
         """
         super().__init__()

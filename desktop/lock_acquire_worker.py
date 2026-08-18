@@ -30,7 +30,6 @@ class LockAcquireWorker(QObject):
         """
         Args:
             entity_type: The kind of record, e.g. "ticket", "customer".
-            entity_id: The record's own primary key.
         """
         super().__init__()
         self.entity_type = entity_type

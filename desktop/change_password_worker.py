@@ -27,9 +27,7 @@ class ChangePasswordWorker(QObject):
     def __init__(self, email: str, current_password: str, new_password: str):
         """
         Args:
-            email: The account's email.
             current_password: The temp (or old) password.
-            new_password: The new password to set.
         """
         super().__init__()
         self.email = email

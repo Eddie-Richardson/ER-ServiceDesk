@@ -27,10 +27,6 @@ class ResetPasswordWorker(QObject):
     finished = Signal(bool, object)
 
     def __init__(self, user_id: int):
-        """
-        Args:
-            user_id: The user whose password is being reset.
-        """
         super().__init__()
         self.user_id = user_id
 

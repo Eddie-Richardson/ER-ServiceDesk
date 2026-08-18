@@ -29,18 +29,17 @@ class LockGate(QObject):
     instance per window (in its __init__) and reuse it for every edit
     action that window performs.
 
-    A genuine QObject subclass, not a plain Python class -- confirmed
-    via a real, executed reproduction (not just documentation) that
-    this matters: without real QObject thread affinity, Qt has no
+    A genuine QObject subclass, not a plain Python class -- this
+    matters because without real QObject thread affinity, Qt has no
     valid receiver thread to queue a cross-thread signal delivery to,
-    so the connected callback (_on_acquire_finished) could run
-    directly on the background worker thread regardless of what
-    connection type is requested on the connect() call -- confirmed
-    this happens even with an explicit Qt.ConnectionType.QueuedConnection,
-    which is NOT enough on its own without a real QObject receiver.
-    Every widget that callback then touches (opening the edit dialog
-    itself, and anything opened from within it) inherits that same
-    wrong-thread context, causing real, repeated crashes.
+    so the connected callback (_on_acquire_finished) can run directly
+    on the background worker thread regardless of what connection type
+    is requested on the connect() call -- an explicit
+    Qt.ConnectionType.QueuedConnection is NOT enough on its own without
+    a real QObject receiver. Every widget that callback then touches
+    (opening the edit dialog itself, and anything opened from within
+    it) inherits that same wrong-thread context, causing real, repeated
+    crashes.
     """
 
     def __init__(self, parent: QWidget):
@@ -81,8 +80,6 @@ class LockGate(QObject):
         open_dialog() or on_closed() at all.
 
         Args:
-            entity_type: The kind of record, e.g. "ticket", "customer".
-            entity_id: The record's own primary key.
             open_dialog: A zero-argument callable that constructs and
                 returns the edit dialog. Only called after the lock is
                 successfully acquired -- building the dialog can be
@@ -112,7 +109,6 @@ class LockGate(QObject):
     def _on_acquire_finished(self, success: bool, message: str):
         """
         Args:
-            success: Whether the lock was acquired.
             message: Empty on success; a human-readable reason on
                 failure (who holds it, or a connection error).
         """

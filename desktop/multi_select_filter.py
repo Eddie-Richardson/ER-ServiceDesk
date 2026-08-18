@@ -33,11 +33,6 @@ class MultiSelectFilterButton(QPushButton):
     selection_changed = Signal()
 
     def __init__(self, label: str, parent=None):
-        """
-        Args:
-            label: The column name this filter applies to, e.g. "Status".
-            parent: The parent widget, per normal Qt convention.
-        """
         super().__init__(parent)
         self._label = label
         self._options: list[tuple[object, str]] = []
@@ -123,10 +118,6 @@ class MultiSelectFilterButton(QPushButton):
         menu.exec(self.mapToGlobal(QPoint(0, self.height())))
 
     def _set_all_checked(self, checked: bool):
-        """
-        Args:
-            checked: Whether every checkbox in the open popup should be checked.
-        """
         for checkbox in self._checkboxes.values():
             checkbox.setChecked(checked)
 

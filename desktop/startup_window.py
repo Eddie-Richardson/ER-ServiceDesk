@@ -103,10 +103,6 @@ class StartupWindow(QWidget):
         self._thread.start()
 
     def _on_status_changed(self, message: str):
-        """
-        Args:
-            message: Progress text from the worker to display to the user.
-        """
         self.status_label.setText(message)
 
     def _on_finished(self, success: bool, message: str):
@@ -115,7 +111,6 @@ class StartupWindow(QWidget):
         success, or shows an error dialog with a Retry option on failure.
 
         Args:
-            success: Whether the backend started successfully.
             message: A confirmation message on success, or an error
                 description on failure.
         """

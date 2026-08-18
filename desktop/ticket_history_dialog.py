@@ -16,9 +16,8 @@ matching both backends' own design: this is meant to be an immutable
 record, not something a tech can rewrite after the fact.
 
 Fully synchronous, no QThread -- same reasoning as notes_dialog.py:
-this is a small, infrequent action, and after tonight's real lesson
-about background-thread fragility elsewhere in this app, the simplest
-safe choice is not introducing another one.
+this is a small, infrequent action, and the simplest safe choice is
+not introducing a background thread at all.
 
 Only ever opened for an EXISTING ticket -- ticket_form_dialog.py only
 shows the "History" button once a ticket has actually been saved once.
@@ -92,9 +91,7 @@ class TicketHistoryDialog(QDialog):
     def __init__(self, ticket_id: int, ticket_title: str, parent=None):
         """
         Args:
-            ticket_id: The ticket to show history for.
             ticket_title: Shown in the window title for context.
-            parent: The parent window (typically the ticket form dialog).
         """
         super().__init__(parent)
         self.ticket_id = ticket_id
@@ -155,10 +152,6 @@ class TicketHistoryDialog(QDialog):
             self.entries_layout.insertWidget(self.entries_layout.count() - 1, card)
 
     def _show_error(self, message: str):
-        """
-        Args:
-            message: The error text to show in place of the timeline.
-        """
         error_label = QLabel(message)
         error_label.setWordWrap(True)
         self.entries_layout.insertWidget(0, error_label)

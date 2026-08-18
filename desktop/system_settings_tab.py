@@ -7,9 +7,8 @@ without needing file access to the server or a reinstall.
 
 Deliberately synchronous, no QThread -- this is a small, infrequent
 action (an admin occasionally tweaking a number), not something
-performance-critical, and after tonight's real, hard-won lesson about
-background-thread fragility elsewhere in this app, the simplest safe
-choice here is not introducing another one at all.
+performance-critical, and the simplest safe choice here is not
+introducing a background thread at all.
 
 Two settings live here right now:
   - Lock timeout (minutes) -- how long before an abandoned record

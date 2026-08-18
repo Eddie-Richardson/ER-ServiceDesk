@@ -159,7 +159,6 @@ class ServerBackupTab(QWidget):
     def _on_backup_finished(self, success: bool, message: str):
         """
         Args:
-            success: Whether the backup succeeded.
             message: Shown directly to the admin.
         """
         self.backup_button.setEnabled(True)

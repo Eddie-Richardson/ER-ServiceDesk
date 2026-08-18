@@ -31,11 +31,6 @@ class InstallmentActionDialog(QDialog):
     """Modal dialog for paying or extending a single installment."""
 
     def __init__(self, installment: dict, parent=None):
-        """
-        Args:
-            installment: The installment dict to act on.
-            parent: The parent widget, per normal Qt dialog convention.
-        """
         super().__init__(parent)
         self.installment = installment
         self.action_taken = False
@@ -115,7 +110,13 @@ class InstallmentActionDialog(QDialog):
         self.setLayout(outer_layout)
 
     def _attempt_pay(self):
-        """Records a payment against this installment, using whatever amount is currently entered."""
+        """
+        Records a payment against this installment. Sends None (not
+        the explicit value) when the entered amount matches the
+        planned amount, since the backend treats None as "use the
+        installment's own planned_amount" -- sending an explicit value
+        only when it's genuinely different from what was scheduled.
+        """
         self.pay_button.setEnabled(False)
         self.pay_button.setText("Recording...")
         self.error_label.hide()

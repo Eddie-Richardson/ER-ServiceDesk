@@ -6,9 +6,6 @@ Tickets window: list view with filters, plus create/edit.
 Filtering uses Excel-style multi-select checklist popups per column
 (Category, Status, Priority) -- select zero or more values per column,
 and rows matching any selected value in each filtered column are shown.
-This sits on the same foundation (fetch, table, the New/Edit form) as
-the single-select version it replaced; only the filter widgets
-(MultiSelectFilterButton) and the matching logic changed.
 
 Default view excludes Closed tickets (nothing left to track -- payment
 received, device gone) but includes Resolved (repair done, still needs
@@ -88,10 +85,6 @@ class TicketsWindow(QWidget):
         self._load_data()
 
     def closeEvent(self, event):
-        """
-        Args:
-            event: The Qt close event, passed through unchanged.
-        """
         save_geometry(self, "TicketsWindow")
         super().closeEvent(event)
         self.window_closed.emit()
@@ -204,7 +197,6 @@ class TicketsWindow(QWidget):
         dropdowns and table on success, or shows an error on failure.
 
         Args:
-            success: Whether the load succeeded.
             result: On success, the reference_data dict from
                 TicketsDataWorker. On failure, a human-readable error
                 message string.
@@ -300,9 +292,6 @@ class TicketsWindow(QWidget):
 
     def _sort_tickets(self, tickets: list[dict]) -> list[dict]:
         """
-        Args:
-            tickets: The filtered tickets to sort.
-
         Returns:
             The same tickets, sorted by the current sort column/direction.
         """
@@ -375,10 +364,6 @@ class TicketsWindow(QWidget):
         return "-"
 
     def _render_table(self, tickets: list[dict]):
-        """
-        Args:
-            tickets: The tickets to display, already filtered.
-        """
         self.table.setRowCount(len(tickets))
         customers_by_id = {c["id"]: c for c in self.reference_data.get("customers", [])}
         categories_by_id = {c["id"]: c["name"] for c in self.reference_data.get("categories", [])}

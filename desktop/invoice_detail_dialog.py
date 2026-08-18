@@ -42,11 +42,9 @@ class InvoiceDetailDialog(QDialog):
     def __init__(self, invoice_id: int, ticket_id: int, ticket_title: str, parent=None):
         """
         Args:
-            invoice_id: The invoice to display.
             ticket_id: The ticket this invoice bills for, shown for
                 traceability back to the job.
             ticket_title: Shown in the window title for context.
-            parent: The parent widget, per normal Qt dialog convention.
         """
         super().__init__(parent)
         self.invoice_id = invoice_id
@@ -66,10 +64,6 @@ class InvoiceDetailDialog(QDialog):
         self._load_invoice()
 
     def closeEvent(self, event):
-        """
-        Args:
-            event: The Qt close event, passed through unchanged.
-        """
         save_geometry(self, "InvoiceDetailDialog")
         super().closeEvent(event)
 
@@ -369,9 +363,6 @@ class InvoiceDetailDialog(QDialog):
         self._render_totals()
 
     # -----------------------------------------------------------------
-    # Payments
-    # -----------------------------------------------------------------
-    # -----------------------------------------------------------------
     # Sending
     # -----------------------------------------------------------------
     def _on_send_invoice(self):
@@ -398,6 +389,9 @@ class InvoiceDetailDialog(QDialog):
 
         self._load_invoice()
 
+    # -----------------------------------------------------------------
+    # Payments
+    # -----------------------------------------------------------------
     def _on_record_payment(self):
         """Opens PaymentDialog; reloads the invoice if a payment was recorded."""
         dialog = PaymentDialog(self.invoice_id, self._remaining_balance(), parent=self)

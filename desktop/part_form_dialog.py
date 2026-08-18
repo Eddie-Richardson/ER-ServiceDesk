@@ -47,9 +47,6 @@ class PartFormDialog(QDialog):
         Args:
             reference_data: Dict with key "locations" -- the lookup list
                 loaded by InventoryDataWorker.
-            part: An existing part dict to edit, or None to create a
-                new one.
-            parent: The parent widget, per normal Qt dialog convention.
         """
         super().__init__(parent)
         self.reference_data = reference_data
@@ -231,10 +228,6 @@ class PartFormDialog(QDialog):
         self._update_total_label()
 
     def _remove_location_row(self, row_entry: dict):
-        """
-        Args:
-            row_entry: The row's tracking dict, as stored in self.location_rows.
-        """
         self.location_rows.remove(row_entry)
         row_entry["widget"].deleteLater()
         self._update_total_label()
@@ -253,9 +246,6 @@ class PartFormDialog(QDialog):
         one location row per entry in its current breakdown. If the
         part has no stock recorded anywhere yet, starts with one empty
         row rather than leaving the section blank.
-
-        Args:
-            part: The part dict being edited.
         """
         self.name_input.setText(part.get("name", ""))
         self.sku_input.setText(part.get("sku") or "")
@@ -363,7 +353,6 @@ class PartFormDialog(QDialog):
         or re-enables the form and shows the error inline on failure.
 
         Args:
-            success: Whether the save succeeded.
             result: The saved part record on success, or a
                 human-readable error message on failure.
         """
@@ -378,9 +367,5 @@ class PartFormDialog(QDialog):
         self.accept()
 
     def _show_error(self, message: str):
-        """
-        Args:
-            message: The error text to show below the form.
-        """
         self.error_label.setText(message)
         self.error_label.show()

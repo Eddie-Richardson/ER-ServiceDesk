@@ -44,14 +44,12 @@ class DeviceEditDialog(QDialog):
     def __init__(self, device: dict, locations: list[dict], all_customers: list[dict], parent=None):
         """
         Args:
-            device: The existing device dict to edit.
             locations: The full locations list, for the Location dropdown.
             all_customers: Every customer in the system, for the
                 reassignment picker -- moving a device to the correct
                 customer record (e.g. cleaning up a duplicate) means
                 picking from the full list, not just the one this
                 dialog was opened from.
-            parent: The parent widget, per normal Qt dialog convention.
         """
         super().__init__(parent)
         self.device = device
@@ -71,10 +69,6 @@ class DeviceEditDialog(QDialog):
         self._prefill_from_device(device)
 
     def closeEvent(self, event):
-        """
-        Args:
-            event: The Qt close event, passed through unchanged.
-        """
         save_geometry(self, "DeviceEditDialog")
         super().closeEvent(event)
 
@@ -184,10 +178,6 @@ class DeviceEditDialog(QDialog):
         self.setLayout(outer_layout)
 
     def _prefill_from_device(self, device: dict):
-        """
-        Args:
-            device: The device dict being edited.
-        """
         customer_index = self.customer_combo.findData(device.get("customer_id"))
         if customer_index >= 0:
             self.customer_combo.setCurrentIndex(customer_index)
@@ -270,7 +260,6 @@ class DeviceEditDialog(QDialog):
     def _on_save_finished(self, success: bool, result):
         """
         Args:
-            success: Whether the save succeeded.
             result: The saved device record on success, or a
                 human-readable error message on failure.
         """
@@ -285,10 +274,6 @@ class DeviceEditDialog(QDialog):
         self.accept()
 
     def _show_error(self, message: str):
-        """
-        Args:
-            message: The error text to show below the form.
-        """
         self.error_label.setText(message)
         self.error_label.show()
 

@@ -8,9 +8,9 @@ assigned technician) is a dropdown populated from the backend -- never
 free text -- so a ticket can never reference a category or status that
 doesn't actually exist. Customer uses a searchable/type-ahead combo box
 since that list can grow large; everything else is a small fixed list,
-so a plain dropdown is enough. Priority is a fixed four-level list
-(Low/Medium/High/Urgent) rather than a backend lookup table -- see
-project notes for why.
+so a plain dropdown is enough. Priority is a fixed four-level list (Low/Medium/High/Urgent) rather
+than a backend lookup table -- its real-world vocabulary is small and
+stable, the same reasoning behind Asset's fixed Status/Condition lists.
 
 Assigned To always offers "Unassigned" and "Me" (self-assignment), using
 the current user's own id from their JWT claims -- no API call needed,
@@ -76,9 +76,6 @@ class TicketFormDialog(QDialog):
                 "types", "customers", "devices", "users" -- the lookup
                 lists loaded by TicketsDataWorker. "users" is empty for
                 non-superuser sessions.
-            ticket: An existing ticket dict to edit, or None to create
-                a new one.
-            parent: The parent widget, per normal Qt dialog convention.
         """
         super().__init__(parent)
         self.reference_data = reference_data
@@ -100,10 +97,6 @@ class TicketFormDialog(QDialog):
             self._select_default_status()
 
     def closeEvent(self, event):
-        """
-        Args:
-            event: The Qt close event, passed through unchanged.
-        """
         save_geometry(self, "TicketFormDialog")
         super().closeEvent(event)
 
@@ -340,34 +333,21 @@ class TicketFormDialog(QDialog):
         called when self.ticket is set (the Notes button doesn't
         exist otherwise).
 
-        Modal (exec, not show) -- reverted back to modal after a real
-        user report that mouse clicks stopped registering anywhere in
-        the composer area (the checkbox and its surroundings) once
-        this was non-modal. LockGate is now genuinely fixed
-        (LockGate(QObject), verified via actual reproduction), so the
-        original reason this was ever made non-modal -- a wrong
-        diagnosis blaming nested modal event loops -- no longer
-        applies. Mixing a modal parent (this ticket form, shown via
-        its own .exec() from LockGate) with a non-modal child can
-        create real, Windows-specific input-routing behavior that a
-        Linux-based headless test has no way to see or verify either
-        way -- modal removes that whole category of risk rather than
-        chasing a platform-specific quirk blind.
+        Modal (exec, not show) -- mixing a modal parent (this ticket
+        form, shown via its own .exec() from LockGate) with a
+        non-modal child can create real, platform-specific
+        input-routing behavior; modal removes that whole category of
+        risk.
 
-        NotesDialog itself stays fully synchronous (no QThread) --
-        that part of the earlier fix is independent of modal-vs-non-
-        modal and still holds.
+        NotesDialog itself stays fully synchronous (no QThread).
         """
         try:
             self._notes_dialog = NotesDialog(self.ticket["id"], self.ticket.get("title", "Ticket"), self.ticket.get("customer_id"), parent=self)
             self._notes_dialog.exec()
         except Exception:
-            # Confirmed via a real crash with zero visible output: this
-            # app's console=False build has no way to surface an
+            # This app's console=False build has no way to surface an
             # uncaught exception at all -- it just silently terminates.
-            # Catching and displaying it here is both a genuine safety
-            # net and, right now, the only way to actually see what's
-            # failing.
+            # Catching and displaying it here is a genuine safety net.
             QMessageBox.critical(self, "Notes Error", traceback.format_exc())
 
     def _open_history_dialog(self):
@@ -413,9 +393,9 @@ class TicketFormDialog(QDialog):
     def _on_send_waiver(self):
         """
         Confirms, then emails the liability waiver to this ticket's
-        customer -- email-only, no print/signature path (see the
-        design discussion this came out of). Only ever called when
-        self.ticket is set (the waiver button doesn't exist otherwise).
+        customer -- email-only, no print/signature path. Only ever
+        called when self.ticket is set (the waiver button doesn't
+        exist otherwise).
         """
         confirmed = QMessageBox.question(
             self,
@@ -602,12 +582,7 @@ class TicketFormDialog(QDialog):
             self.status_combo.setCurrentIndex(index)
 
     def _prefill_from_ticket(self, ticket: dict):
-        """
-        Populates every field from an existing ticket record, for edit mode.
-
-        Args:
-            ticket: The ticket dict being edited.
-        """
+        """Populates every field from an existing ticket record, for edit mode."""
         self._select_combo_by_data(self.customer_combo, ticket["customer_id"])
         self._on_customer_changed()  # repopulate devices for this ticket's customer first
         self._select_combo_by_data(self.device_combo, ticket["device_id"])
@@ -627,13 +602,6 @@ class TicketFormDialog(QDialog):
         self.accessories_included_input.setText(ticket.get("accessories_included") or "")
 
     def _select_combo_by_data(self, combo: QComboBox, data_value):
-        """
-        Selects the combo box item whose userData matches the given value.
-
-        Args:
-            combo: The combo box to update.
-            data_value: The id to match against each item's userData.
-        """
         index = combo.findData(data_value)
         if index >= 0:
             combo.setCurrentIndex(index)
@@ -729,7 +697,6 @@ class TicketFormDialog(QDialog):
         or re-enables the form and shows the error inline on failure.
 
         Args:
-            success: Whether the save succeeded.
             result: The saved ticket record on success, or a
                 human-readable error message on failure.
         """
@@ -744,9 +711,5 @@ class TicketFormDialog(QDialog):
         self.accept()
 
     def _show_error(self, message: str):
-        """
-        Args:
-            message: The error text to show below the form.
-        """
         self.error_label.setText(message)
         self.error_label.show()

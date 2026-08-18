@@ -40,11 +40,9 @@ class QuoteDetailDialog(QDialog):
     def __init__(self, quote_id: int, ticket_id: int, ticket_title: str, parent=None):
         """
         Args:
-            quote_id: The quote to display.
             ticket_id: The ticket this quote is for, shown for
                 traceability back to the job.
             ticket_title: Shown in the window title for context.
-            parent: The parent widget, per normal Qt dialog convention.
         """
         super().__init__(parent)
         self.quote_id = quote_id
@@ -63,10 +61,6 @@ class QuoteDetailDialog(QDialog):
         self._load_quote()
 
     def closeEvent(self, event):
-        """
-        Args:
-            event: The Qt close event, passed through unchanged.
-        """
         save_geometry(self, "QuoteDetailDialog")
         super().closeEvent(event)
 

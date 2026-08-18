@@ -65,10 +65,6 @@ class InventoryWindow(QWidget):
         self._load_data()
 
     def closeEvent(self, event):
-        """
-        Args:
-            event: The Qt close event, passed through unchanged.
-        """
         save_geometry(self, "InventoryWindow")
         super().closeEvent(event)
         self.window_closed.emit()
@@ -211,7 +207,6 @@ class InventoryWindow(QWidget):
         success, or shows an error in both status labels on failure.
 
         Args:
-            success: Whether the load succeeded.
             result: On success, the reference_data dict from
                 InventoryDataWorker. On failure, a human-readable error
                 message string.
@@ -351,8 +346,8 @@ class InventoryWindow(QWidget):
         location_id was.
 
         Args:
-            part: The part record, with its "locations" list (each a
-                {"location_id", "location_name", "quantity"} dict).
+            part: With its "locations" list (each a {"location_id",
+                "location_name", "quantity"} dict).
 
         Returns:
             e.g. "Bench 1 (1), Bench 2 (1), Parts Shelf (2)", or "-" if

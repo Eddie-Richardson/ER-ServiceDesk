@@ -31,11 +31,10 @@ def list_audit_logs(
     db: Session = Depends(get_db),
 ):
     """
-    List audit trail entries, most recent first, optionally filtered
-    to a specific user and/or entity -- lets an admin pull up
-    "everything this one user has done," "everything that's happened
-    to tickets," or "this one ticket's full history" without fetching
-    the entire table.
+    Most recent first, optionally filtered to a specific user and/or
+    entity -- lets an admin pull up "everything this one user has
+    done," "everything that's happened to tickets," or "this one
+    ticket's full history" without fetching the entire table.
 
     Args:
         user_id: If given, only entries performed by this user.
@@ -43,23 +42,9 @@ def list_audit_logs(
             (e.g. "ticket", "user", "customer").
         entity_id: If given (along with entity_type), only entries for
             that one specific entity instance.
-        db: Injected database session.
-
-    Returns:
-        A list of AuditLog records.
     """
     return audit_log_service.get_multi(db, user_id=user_id, entity_type=entity_type, entity_id=entity_id)
 
 @router.get("/{id}", response_model=AuditLog)
 def get_audit_log(id: int, db: Session = Depends(get_db)):
-    """
-    Fetch a single AuditLog record by ID.
-
-    Args:
-        id: Primary key of the record to fetch.
-        db: Injected database session.
-
-    Returns:
-        The matching AuditLog record.
-    """
     return audit_log_service.get(db, id)

@@ -27,10 +27,7 @@ router = APIRouter(prefix="/business-info", tags=["business-info"], dependencies
 @router.get("/business-name")
 def get_business_name(db: Session = Depends(get_db)):
     """
-    Returns the shop's configured display name, or an empty string if
-    never set.
-
     Returns:
-        {"business_name": "..."}
+        {"business_name": "..."} -- empty string if never set.
     """
     return {"business_name": system_setting_service.get_str(db, "business_name", "")}

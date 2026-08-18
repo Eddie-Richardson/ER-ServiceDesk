@@ -29,10 +29,6 @@ def login(credentials: UserLogin, db: Session = Depends(get_db)):
     no token to make an authenticated request with until the password
     is actually changed.
 
-    Args:
-        credentials: Submitted email and password.
-        db: Injected database session.
-
     Returns:
         Normally, a dict with `access_token` and `token_type`. If a
         password change is required first, instead a dict with
@@ -63,11 +59,6 @@ def change_password(request: ChangePasswordRequest, db: Session = Depends(get_db
     On success, clears must_change_password and returns a normal login
     token, so the person ends up signed in immediately rather than
     needing to log in a second time right after changing their password.
-
-    Args:
-        request: email, current_password (re-verified here), and the
-            new password to set.
-        db: Injected database session.
 
     Returns:
         A dict with `access_token` and `token_type`, same shape as a

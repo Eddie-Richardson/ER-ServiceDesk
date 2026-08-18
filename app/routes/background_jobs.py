@@ -27,29 +27,14 @@ def list_background_jobs(
     db: Session = Depends(get_db),
 ):
     """
-    List background job run history, most recent first, optionally
-    filtered.
+    Most recent first, optionally filtered.
 
     Args:
         job_type: If given, only jobs of this type.
         status: If given, only jobs currently in this status.
-        db: Injected database session.
-
-    Returns:
-        A list of BackgroundJob records.
     """
     return background_job_service.get_multi(db, job_type=job_type, status=status)
 
 @router.get("/{id}", response_model=BackgroundJob)
 def get_background_job(id: int, db: Session = Depends(get_db)):
-    """
-    Fetch a single BackgroundJob record by ID.
-
-    Args:
-        id: Primary key of the record to fetch.
-        db: Injected database session.
-
-    Returns:
-        The matching BackgroundJob record.
-    """
     return background_job_service.get(db, id)

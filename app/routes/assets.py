@@ -1,8 +1,7 @@
 # ER-ServiceDesk/app/routes/assets.py
 # API routes for Asset operations.
 """
-REST endpoints for tracked business assets. Preserves the paginated-list
-and wrapped-create-response shape from the original InventoryHub API.
+REST endpoints for tracked business assets.
 """
 
 from fastapi import APIRouter, Depends
@@ -25,17 +24,12 @@ def list_assets(
     page_size: int | None = None,
 ):
     """
-    List assets with offset- or page-based pagination.
-
     Args:
-        db: Injected database session.
         limit: Items per page (ignored if page/page_size given).
         offset: Items to skip (ignored if page/page_size given).
-        page: Page number, 1-indexed.
-        page_size: Items per page.
-
-    Returns:
-        A paginated response with items + page metadata.
+        page: Page number, 1-indexed -- if given along with page_size,
+            overrides limit/offset.
+        page_size: Items per page, used with page.
     """
     if page is not None and page_size is not None:
         limit = page_size
@@ -44,26 +38,18 @@ def list_assets(
 
 @router.get("/{id}", response_model=Asset)
 def get_asset(id: int, db: Session = Depends(get_db)):
-    """Fetch a single Asset record by ID."""
     return asset_service.get(db, id)
 
 @router.post("/", response_model=AssetCreateResponse, dependencies=[Depends(require_permission("inventory.manage"))])
 def create_asset(obj_in: AssetCreate, db: Session = Depends(get_db)):
-    """
-    Create a new asset. Rejects duplicate serial numbers.
-
-    Returns:
-        A message plus the newly created Asset record.
-    """
+    """Rejects duplicate serial numbers."""
     asset = asset_service.create(db, obj_in)
     return {"message": "Asset created successfully", "asset": asset}
 
 @router.put("/{id}", response_model=Asset, dependencies=[Depends(require_permission("inventory.manage"))])
 def update_asset(id: int, obj_in: AssetUpdate, db: Session = Depends(get_db)):
-    """Update an existing Asset record."""
     return asset_service.update(db, id, obj_in)
 
 @router.delete("/{id}", dependencies=[Depends(require_permission("inventory.manage"))])
 def delete_asset(id: int, db: Session = Depends(get_db)):
-    """Delete an Asset record by ID."""
     return asset_service.delete(db, id)

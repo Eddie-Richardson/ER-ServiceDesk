@@ -19,58 +19,18 @@ router = APIRouter(prefix="/devices", tags=["devices"], dependencies=[Depends(ge
 
 @router.get("/", response_model=list[Device])
 def list_devices(db: Session = Depends(get_db)):
-    """
-    List a customer-owned device brought in for service, paginated.
-
-    Args:
-        db: Injected database session.
-
-    Returns:
-        A list of Device records.
-    """
     return device_service.get_multi(db)
 
 @router.get("/{id}", response_model=Device)
 def get_device(id: int, db: Session = Depends(get_db)):
-    """
-    Fetch a single Device record by ID.
-
-    Args:
-        id: Primary key of the record to fetch.
-        db: Injected database session.
-
-    Returns:
-        The matching Device record.
-    """
     return device_service.get(db, id)
 
 @router.post("/", response_model=Device)
 def create_device(obj_in: DeviceCreate, db: Session = Depends(get_db)):
-    """
-    Create a new Device record.
-
-    Args:
-        obj_in: Validated request body for the new record.
-        db: Injected database session.
-
-    Returns:
-        The newly created Device record.
-    """
     return device_service.create(db, obj_in)
 
 @router.put("/{id}", response_model=Device)
 def update_device(id: int, obj_in: DeviceUpdate, db: Session = Depends(get_db)):
-    """
-    Update an existing Device record.
-
-    Args:
-        id: Primary key of the record to update.
-        obj_in: Fields to change; unset fields are left untouched.
-        db: Injected database session.
-
-    Returns:
-        The updated Device record.
-    """
     return device_service.update(db, id, obj_in)
 
 @router.delete("/{id}")
@@ -79,17 +39,4 @@ def delete_device(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Delete a Device record by ID, if it's not attached to any ticket.
-
-    Args:
-        id: Primary key of the record to delete.
-        db: Injected database session.
-        current_user: The user performing this deletion -- recorded
-            in the audit trail.
-
-    Raises:
-        HTTPException: 400 if any ticket currently references this
-            device.
-    """
     return device_service.delete(db, id, current_user.id)

@@ -22,9 +22,9 @@ router = APIRouter(prefix="/device_user_accounts", tags=["device_user_accounts"]
 @router.get("/", response_model=list[DeviceUserAccount])
 def list_device_user_accounts(device_id: int, db: Session = Depends(get_db)):
     """
-    List every user account known for a device. device_id is required
-    (not optional) -- there's no legitimate reason to fetch every
-    device's accounts across the whole app at once for this endpoint.
+    device_id is required (not optional) -- there's no legitimate
+    reason to fetch every device's accounts across the whole app at
+    once for this endpoint.
     """
     return device_user_account_service.get_by_device(db, device_id)
 
@@ -35,7 +35,6 @@ def create_device_user_account(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Add a new user account to a device, encrypting the password before storage."""
     return device_user_account_service.create(db, obj_in, current_user.id)
 
 
@@ -46,7 +45,6 @@ def update_device_user_account(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Update an existing device user account."""
     return device_user_account_service.update(db, id, obj_in, current_user.id)
 
 
@@ -56,5 +54,4 @@ def delete_device_user_account(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Remove a user account from a device."""
     return device_user_account_service.delete(db, id, current_user.id)

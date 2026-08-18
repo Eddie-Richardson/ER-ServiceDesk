@@ -57,9 +57,8 @@ def upgrade() -> None:
 
     # --- Alter existing quotes/invoices/payments --------------------------
     # amount is dropped in favor of a real subtotal/discount/tax/total
-    # breakdown -- confirmed via the earlier codebase audit that amount
-    # was never actually used anywhere, so there's no real data to
-    # migrate or preserve here.
+    # breakdown -- amount was never actually used anywhere, so there's
+    # no real data to migrate or preserve here.
     #
     # discount_id/tax_rate_id use ondelete="SET NULL" -- along with the
     # *_name snapshot columns below, this means deleting a Discount or

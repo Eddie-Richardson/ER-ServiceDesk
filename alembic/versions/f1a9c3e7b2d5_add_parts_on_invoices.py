@@ -21,10 +21,7 @@ def upgrade() -> None:
 
     # service_name was NOT NULL on both quote_line_items AND
     # invoice_line_items -- relaxing both here, since a part line item
-    # now has no service_name at all. (Earlier assumption that
-    # invoice_line_items.service_name was already nullable from a
-    # prior migration was wrong -- caught by a real test against the
-    # actual database, not just the ORM model definition.)
+    # now has no service_name at all.
     op.alter_column("quote_line_items", "service_name", nullable=True)
     op.alter_column("invoice_line_items", "service_name", nullable=True)
 

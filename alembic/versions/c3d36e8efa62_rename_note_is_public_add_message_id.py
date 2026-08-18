@@ -1,7 +1,7 @@
 """rename note is_public to sent_to_customer, add message_id link
 
 Revision ID: c3d36e8efa62
-Revises: f2c8b6a91d34
+Revises: b8e3d15f9a27
 Create Date: 2026-08-08 00:00:00.000000
 
 """

@@ -23,30 +23,14 @@ router = APIRouter(prefix="/status_histories", tags=["status_histories"], depend
 @router.get("/", response_model=list[StatusHistory])
 def list_status_histories(db: Session = Depends(get_db)):
     """
-    List every status change ever recorded, across every ticket.
-    Visible to anyone with an active session -- the desktop client
-    filters this down to one ticket's own history client-side (see
+    Every status change ever recorded, across every ticket. Visible to
+    anyone with an active session -- the desktop client filters this
+    down to one ticket's own history client-side (see
     api_client.list_status_history_for_ticket()), matching the same
     pattern already used for a ticket's Notes/Message timeline.
-
-    Args:
-        db: Injected database session.
-
-    Returns:
-        A list of StatusHistory records.
     """
     return status_history_service.get_multi(db)
 
 @router.get("/{id}", response_model=StatusHistory)
 def get_status_history(id: int, db: Session = Depends(get_db)):
-    """
-    Fetch a single StatusHistory record by ID.
-
-    Args:
-        id: Primary key of the record to fetch.
-        db: Injected database session.
-
-    Returns:
-        The matching StatusHistory record.
-    """
     return status_history_service.get(db, id)

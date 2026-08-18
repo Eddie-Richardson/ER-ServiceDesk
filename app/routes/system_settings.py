@@ -23,80 +23,25 @@ def upsert_system_setting_by_key(key: str, obj_in: SystemSettingUpdate, db: Sess
     desktop Settings UI uses this rather than the id-based /{id}
     endpoint below, since it shouldn't need to track a setting's
     numeric id or decide whether the row already exists.
-
-    Args:
-        key: The setting's key, e.g. 'lock_timeout_minutes'.
-        obj_in: The new value to store (obj_in.value).
-        db: Injected database session.
-
-    Returns:
-        The created or updated SystemSetting record.
     """
     return system_setting_service.upsert(db, key, obj_in.value)
 
 @router.get("/", response_model=list[SystemSetting])
 def list_system_settings(db: Session = Depends(get_db)):
-    """
-    List a dynamic, admin-editable key/value configuration entry, paginated.
-
-    Args:
-        db: Injected database session.
-
-    Returns:
-        A list of SystemSetting records.
-    """
     return system_setting_service.get_multi(db)
 
 @router.get("/{id}", response_model=SystemSetting)
 def get_system_setting(id: int, db: Session = Depends(get_db)):
-    """
-    Fetch a single SystemSetting record by ID.
-
-    Args:
-        id: Primary key of the record to fetch.
-        db: Injected database session.
-
-    Returns:
-        The matching SystemSetting record.
-    """
     return system_setting_service.get(db, id)
 
 @router.post("/", response_model=SystemSetting)
 def create_system_setting(obj_in: SystemSettingCreate, db: Session = Depends(get_db)):
-    """
-    Create a new SystemSetting record.
-
-    Args:
-        obj_in: Validated request body for the new record.
-        db: Injected database session.
-
-    Returns:
-        The newly created SystemSetting record.
-    """
     return system_setting_service.create(db, obj_in)
 
 @router.put("/{id}", response_model=SystemSetting)
 def update_system_setting(id: int, obj_in: SystemSettingUpdate, db: Session = Depends(get_db)):
-    """
-    Update an existing SystemSetting record.
-
-    Args:
-        id: Primary key of the record to update.
-        obj_in: Fields to change; unset fields are left untouched.
-        db: Injected database session.
-
-    Returns:
-        The updated SystemSetting record.
-    """
     return system_setting_service.update(db, id, obj_in)
 
 @router.delete("/{id}")
 def delete_system_setting(id: int, db: Session = Depends(get_db)):
-    """
-    Delete a SystemSetting record by ID.
-
-    Args:
-        id: Primary key of the record to delete.
-        db: Injected database session.
-    """
     return system_setting_service.delete(db, id)

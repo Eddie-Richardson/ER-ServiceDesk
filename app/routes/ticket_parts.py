@@ -16,12 +16,8 @@ router = APIRouter(prefix="/ticket_parts", tags=["ticket_parts"], dependencies=[
 @router.get("/", response_model=list[TicketPart])
 def list_ticket_parts(ticket_id: int | None = None, db: Session = Depends(get_db)):
     """
-    List TicketPart records, paginated, optionally filtered to a
-    single ticket.
-
     Args:
         ticket_id: If given, only part requirements for this ticket.
-        db: Injected database session.
     """
     if ticket_id is not None:
         return ticket_part_service.get_by_ticket(db, ticket_id)
@@ -29,20 +25,16 @@ def list_ticket_parts(ticket_id: int | None = None, db: Session = Depends(get_db
 
 @router.get("/{id}", response_model=TicketPart)
 def get_ticket_part(id: int, db: Session = Depends(get_db)):
-    """Fetch a single TicketPart record by ID."""
     return ticket_part_service.get(db, id)
 
 @router.post("/", response_model=TicketPart)
 def create_ticket_part(obj_in: TicketPartCreate, db: Session = Depends(get_db)):
-    """Create a new TicketPart record."""
     return ticket_part_service.create(db, obj_in)
 
 @router.put("/{id}", response_model=TicketPart)
 def update_ticket_part(id: int, obj_in: TicketPartUpdate, db: Session = Depends(get_db)):
-    """Update an existing TicketPart record."""
     return ticket_part_service.update(db, id, obj_in)
 
 @router.delete("/{id}")
 def delete_ticket_part(id: int, db: Session = Depends(get_db)):
-    """Delete a TicketPart record by ID."""
     return ticket_part_service.delete(db, id)

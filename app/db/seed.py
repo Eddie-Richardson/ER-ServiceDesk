@@ -31,9 +31,6 @@ def seed_data(db: Session):
 
     Existing entries are detected and reused rather than duplicated, so
     this is safe to call on every startup/deploy.
-
-    Args:
-        db: Active database session.
     """
 
     # -------------------------------------------------------------------
@@ -91,13 +88,12 @@ def seed_data(db: Session):
 
     db.commit()
 
-    # Clean up permissions from an earlier, finer-grained scheme this
-    # project briefly had (e.g. "ticket.create", "attachment.add") --
-    # some of those named actions don't even correspond to a real
-    # desktop feature yet (there's no Attachments UI at all), and none
-    # of them are checked by any route anymore. RolePermission has no
-    # cascade delete, so its rows pointing at a stale permission have
-    # to go first or the permission delete would violate the foreign key.
+    # Removes any permission not in the canonical list above -- leftover
+    # from a removed feature or a prior naming scheme, no longer checked
+    # by any route, that would otherwise accumulate indefinitely.
+    # RolePermission has no cascade delete, so its rows pointing at a
+    # stale permission have to go first or the permission delete would
+    # violate the foreign key.
     canonical_names = {name for name, _ in permissions}
     stale_permissions = db.query(Permission).filter(~Permission.name.in_(canonical_names)).all()
     for stale in stale_permissions:

@@ -30,8 +30,6 @@ class CustomerSaveWorker(QObject):
         Args:
             payload: Fields to send, matching CustomerCreate (for a new
                 customer) or CustomerUpdate (for an edit).
-            customer_id: The customer's id if editing, or None to create
-                a new customer.
         """
         super().__init__()
         self.payload = payload

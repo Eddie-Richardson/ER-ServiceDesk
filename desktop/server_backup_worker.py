@@ -44,9 +44,6 @@ class ServerBackupWorker(QObject):
         """
         Args:
             server_host: The Server's bare hostname/IP (no scheme, no port).
-            username: A Windows account username on the Server machine.
-            password: That account's password.
-            destination_folder: The networked folder to write the backup into.
         """
         super().__init__()
         self.server_host = server_host

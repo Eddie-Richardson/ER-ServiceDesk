@@ -31,11 +31,6 @@ class LoginWorker(QObject):
     must_change_password = Signal(str)
 
     def __init__(self, email: str, password: str):
-        """
-        Args:
-            email: The email address to authenticate with.
-            password: The plaintext password to authenticate with.
-        """
         super().__init__()
         self.email = email
         self.password = password

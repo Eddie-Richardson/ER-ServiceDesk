@@ -28,13 +28,6 @@ APP_NAME = "ER-ServiceDesk"
 
 
 def _key(window_key: str) -> str:
-    """
-    Args:
-        window_key: The caller-provided identifier, e.g. "TicketsWindow".
-
-    Returns:
-        The full QSettings key this geometry is stored under.
-    """
     return f"geometry/{window_key}"
 
 
@@ -43,10 +36,8 @@ def save_geometry(window: QWidget, window_key: str):
     Persists a window's current size and position for this machine.
 
     Args:
-        window: The window or dialog whose geometry to save.
-        window_key: A short identifier unique to this window/dialog
-            type, e.g. "TicketsWindow" or "AssetFormDialog". Every
-            instance of the same type shares one remembered geometry.
+        window_key: Every instance of the same window/dialog type
+            shares one remembered geometry.
     """
     settings = QSettings(ORG_NAME, APP_NAME)
     settings.setValue(_key(window_key), window.saveGeometry())
@@ -60,7 +51,6 @@ def restore_geometry(window: QWidget, window_key: str):
     with.
 
     Args:
-        window: The window or dialog to restore geometry onto.
         window_key: The same identifier used in save_geometry().
     """
     settings = QSettings(ORG_NAME, APP_NAME)

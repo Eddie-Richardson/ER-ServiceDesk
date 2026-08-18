@@ -31,13 +31,6 @@ def acquire_lock(
     db: Session = Depends(get_db),
 ):
     """
-    Attempt to acquire a lock on a record for the current user.
-
-    Args:
-        request: Which record to lock.
-        current_user: The authenticated user acquiring the lock.
-        db: Injected database session.
-
     Returns:
         The new (or refreshed) lock.
 
@@ -54,17 +47,6 @@ def release_lock(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Release a lock the current user holds. A safe no-op if the record
-    isn't locked, or is locked by someone else.
-
-    Args:
-        request: Which record to unlock.
-        current_user: The authenticated user releasing the lock.
-        db: Injected database session.
-
-    Returns:
-        A simple confirmation dict.
-    """
+    """A safe no-op if the record isn't locked, or is locked by someone else."""
     record_lock_service.release(db, request.entity_type, request.entity_id, current_user.id)
     return {"released": True}

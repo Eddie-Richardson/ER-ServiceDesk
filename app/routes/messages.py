@@ -26,47 +26,16 @@ router = APIRouter(prefix="/messages", tags=["messages"], dependencies=[Depends(
 
 @router.get("/", response_model=list[Message])
 def list_messages(db: Session = Depends(get_db)):
-    """
-    List a ticket's note/conversation history, paginated. Visible to
-    anyone with ticket access -- shared history, not private to its
-    author.
-
-    Args:
-        db: Injected database session.
-
-    Returns:
-        A list of Message records.
-    """
+    """Visible to anyone with ticket access -- shared history, not private to its author."""
     return message_service.get_multi(db)
 
 @router.get("/{id}", response_model=Message)
 def get_message(id: int, db: Session = Depends(get_db)):
-    """
-    Fetch a single Message record by ID.
-
-    Args:
-        id: Primary key of the record to fetch.
-        db: Injected database session.
-
-    Returns:
-        The matching Message record.
-    """
     return message_service.get(db, id)
 
 @router.post("/", response_model=Message)
 def create_message(obj_in: MessageCreate, db: Session = Depends(get_db)):
-    """
-    Create a new Message record. If direction is "outbound", this also
-    sends the content to the customer via email -- see
-    message_service.create() for the full behavior.
-
-    Args:
-        obj_in: Validated request body for the new record.
-        db: Injected database session.
-
-    Returns:
-        The newly created Message record.
-    """
+    """If direction is "outbound", this also sends the content to the customer via email -- see message_service.create() for the full behavior."""
     return message_service.create(db, obj_in)
 
 @router.put("/{id}", response_model=Message)
@@ -76,19 +45,7 @@ def update_message(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Edit an existing Message's content. See message_service.update()
-    for who's allowed to do this.
-
-    Args:
-        id: Primary key of the record to update.
-        obj_in: The new content.
-        db: Injected database session.
-        current_user: The authenticated user making this request.
-
-    Returns:
-        The updated Message record.
-    """
+    """See message_service.update() for who's allowed to do this."""
     return message_service.update(db, id, obj_in, current_user)
 
 @router.delete("/{id}")
@@ -97,13 +54,5 @@ def delete_message(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Delete a Message record by ID. See message_service.delete() for
-    who's allowed to do this.
-
-    Args:
-        id: Primary key of the record to delete.
-        db: Injected database session.
-        current_user: The authenticated user making this request.
-    """
+    """See message_service.delete() for who's allowed to do this."""
     return message_service.delete(db, id, current_user)

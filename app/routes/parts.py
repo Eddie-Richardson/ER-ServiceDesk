@@ -15,25 +15,21 @@ router = APIRouter(prefix="/inventory/parts", tags=["inventory-parts"], dependen
 
 @router.get("/", response_model=list[Part])
 def list_parts(db: Session = Depends(get_db)):
-    """List all parts, paginated."""
     return part_service.get_multi(db)
 
 @router.get("/{id}", response_model=Part)
 def get_part(id: int, db: Session = Depends(get_db)):
-    """Fetch a single Part record by ID."""
     return part_service.get(db, id)
 
 @router.post("/", response_model=Part, dependencies=[Depends(require_permission("inventory.manage"))])
 def create_part(obj_in: PartCreate, db: Session = Depends(get_db)):
-    """Create a new Part record. Rejects duplicate SKUs."""
+    """Rejects duplicate SKUs."""
     return part_service.create(db, obj_in)
 
 @router.put("/{id}", response_model=Part, dependencies=[Depends(require_permission("inventory.manage"))])
 def update_part(id: int, obj_in: PartUpdate, db: Session = Depends(get_db)):
-    """Update an existing Part record."""
     return part_service.update(db, id, obj_in)
 
 @router.delete("/{id}", dependencies=[Depends(require_permission("inventory.manage"))])
 def delete_part(id: int, db: Session = Depends(get_db)):
-    """Delete a Part record by ID."""
     return part_service.delete(db, id)

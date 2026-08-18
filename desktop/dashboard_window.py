@@ -37,7 +37,7 @@ NAV_ITEMS = ["Tickets", "Inventory", "Customers", "Billing", "Users & Roles", "S
 class DashboardWindow(QWidget):
     """Main landing window shown after a successful login."""
 
-    _WINDOW_BACKED_NAV_ITEMS = {"Tickets", "Inventory", "Customers", "Billing", "Users & Roles", "Settings"}  # all six nav destinations now built
+    _WINDOW_BACKED_NAV_ITEMS = {"Tickets", "Inventory", "Customers", "Billing", "Users & Roles", "Settings"}
 
     def __init__(self):
         """
@@ -70,10 +70,6 @@ class DashboardWindow(QWidget):
         self._load_status_counts()
 
     def closeEvent(self, event):
-        """
-        Args:
-            event: The Qt close event, passed through unchanged.
-        """
         save_geometry(self, "DashboardWindow")
         super().closeEvent(event)
 
@@ -106,12 +102,11 @@ class DashboardWindow(QWidget):
         for label in self._visible_nav_items():
             button = QPushButton(label)
             button.setObjectName("navButton")
-            # Only nav items backed by a real, persistent window get the
-            # checkable "lit up while open" treatment. The rest currently
-            # just show a message box and nothing stays open -- making
-            # those checkable would leave them permanently highlighted
-            # with no way to reflect "closed" state, since nothing ever
-            # actually opens.
+            # Checkable "lit up while open" treatment only applies to
+            # nav items backed by a real, persistent window -- a nav
+            # item with no persistent window has no "closed" state to
+            # reflect, so making it checkable would leave it
+            # permanently highlighted with no way to turn off.
             button.setCheckable(label in self._WINDOW_BACKED_NAV_ITEMS)
             button.setFixedHeight(layout.NAV_BUTTON_HEIGHT)
             button.clicked.connect(lambda _checked, name=label: self._on_nav_clicked(name))
@@ -411,7 +406,6 @@ class DashboardWindow(QWidget):
         failure, or an empty-state message if no statuses exist yet.
 
         Args:
-            success: Whether the fetch succeeded.
             result: On success, a list of {"name", "count"}
                 dicts. On failure, a human-readable error message string.
         """

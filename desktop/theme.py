@@ -225,17 +225,13 @@ def _build_stylesheet(p: dict) -> str:
         }}
 
         /* ---- Checkboxes ----
-           Confirmed via direct inspection: no QCheckBox styling
-           existed here at all before this, meaning Qt's own unstyled
-           default rendering filled the gap once a global QSS
-           stylesheet was applied -- and that default checkmark color
-           doesn't adapt to this app's custom light/dark palettes,
-           rendering invisible against a light background specifically
-           (a real user report -- works in dark mode, not light --
-           matches this exactly). Solid color fill for the checked
-           state instead of a checkmark glyph avoids needing an image
-           asset and removes any ambiguity about visibility in either
-           theme. */
+           Explicit styling needed because Qt's own unstyled default
+           checkbox rendering doesn't adapt to this app's custom
+           light/dark palettes, making the checkmark hard to see
+           against a light background specifically. Solid color fill
+           for the checked state instead of a checkmark glyph avoids
+           needing an image asset and removes any ambiguity about
+           visibility in either theme. */
         QCheckBox::indicator {{
             width: 16px;
             height: 16px;
@@ -293,13 +289,11 @@ def get_stylesheet(theme_name: str) -> str:
 # Status / Priority text colors
 # ---------------------------------------------------------------------------
 # Used to color-code Status and Priority text in table cells (bold +
-# colored, not a pill shape -- see the module docstring's note on why
-# literal pill badges are a separate, deliberately-tested follow-on
-# rather than built alongside this). Colors are theme-aware since a
-# shade that reads well on near-black can wash out on white and vice
-# versa. Status names are admin-editable via Settings, so an unmapped
-# name (a custom status someone adds later) falls back to text_muted
-# rather than being left uncolored or crashing.
+# colored, not a pill shape). Colors are theme-aware since a shade
+# that reads well on near-black can wash out on white and vice versa.
+# Status names are admin-editable via Settings, so an unmapped name (a
+# custom status someone adds later) falls back to text_muted rather
+# than being left uncolored or crashing.
 
 _STATUS_COLORS_DARK = {
     "Open": "#FBBF24",

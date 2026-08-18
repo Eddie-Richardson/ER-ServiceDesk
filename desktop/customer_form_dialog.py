@@ -9,7 +9,7 @@ regardless of ticket history, not something derived from tickets. A new
 customer has no devices yet, so that section only appears when editing
 an existing one. Double-clicking a device opens DeviceEditDialog;
 there's no "add a device here" button -- devices are only ever created
-during ticket intake, per the earlier design decision.
+during ticket intake.
 """
 
 from PySide6.QtCore import QThread, Qt
@@ -51,8 +51,6 @@ class CustomerFormDialog(QDialog):
     def __init__(self, customer: dict | None, all_devices: list[dict], locations: list[dict], all_invoices: list[dict], all_tickets: list[dict], all_customers: list[dict], parent=None):
         """
         Args:
-            customer: An existing customer dict to edit, or None to
-                create a new one.
             all_devices: Every device in the system; filtered down to
                 this customer's own devices for the sub-table.
             locations: The full locations list, passed through to
@@ -70,7 +68,6 @@ class CustomerFormDialog(QDialog):
                 picker -- moving a device to the correct customer
                 record (e.g. cleaning up a duplicate) means picking
                 from the full list, not just this one customer.
-            parent: The parent widget, per normal Qt dialog convention.
         """
         super().__init__(parent)
         self.customer = customer
@@ -95,10 +92,6 @@ class CustomerFormDialog(QDialog):
             self._prefill_from_customer(customer)
 
     def closeEvent(self, event):
-        """
-        Args:
-            event: The Qt close event, passed through unchanged.
-        """
         save_geometry(self, "CustomerFormDialog")
         super().closeEvent(event)
 
@@ -357,10 +350,6 @@ class CustomerFormDialog(QDialog):
     # Prefill (edit mode)
     # -----------------------------------------------------------------
     def _prefill_from_customer(self, customer: dict):
-        """
-        Args:
-            customer: The customer dict being edited.
-        """
         self.first_name_input.setText(customer.get("first_name", ""))
         self.last_name_input.setText(customer.get("last_name", ""))
         self.email_input.setText(customer.get("email", ""))
@@ -421,7 +410,6 @@ class CustomerFormDialog(QDialog):
     def _on_save_finished(self, success: bool, result):
         """
         Args:
-            success: Whether the save succeeded.
             result: The saved customer record on success, or a
                 human-readable error message on failure.
         """
@@ -462,10 +450,6 @@ class CustomerFormDialog(QDialog):
         self.accept()
 
     def _show_error(self, message: str):
-        """
-        Args:
-            message: The error text to show below the form.
-        """
         self.error_label.setText(message)
         self.error_label.show()
 

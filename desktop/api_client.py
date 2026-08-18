@@ -222,24 +222,12 @@ def list_stages_for_type(type_id: int) -> list[dict]:
     """
     Returns every (type, stage) allow-list entry for a single ticket
     type -- which stages are currently allowed for it.
-
-    Args:
-        type_id: The ticket type to look up allowed stages for.
     """
     return _authed_get(f"/ticket_type_stages/by-type/{type_id}")
 
 
 def create_ticket_type_stage(type_id: int, stage_id: int) -> dict:
-    """
-    Allows a stage for a ticket type.
-
-    Args:
-        type_id: The ticket type.
-        stage_id: The stage to allow for it.
-
-    Returns:
-        The newly created allow-list entry.
-    """
+    """Allows a stage for a ticket type."""
     return _authed_post("/ticket_type_stages/", {"type_id": type_id, "stage_id": stage_id})
 
 
@@ -292,31 +280,20 @@ def list_user_roles() -> list[dict]:
 
 def create_user(payload: dict) -> dict:
     """
-    Creates a new user account.
-
     Args:
         payload: Fields matching the backend's UserCreate schema
             (email, first_name, last_name, password required;
             is_active/is_superuser optional).
-
-    Returns:
-        The created user record.
     """
     return _authed_post("/users/", payload)
 
 
 def update_user(user_id: int, payload: dict) -> dict:
     """
-    Updates an existing user account.
-
     Args:
-        user_id: The user's id.
         payload: Fields to update, matching UserUpdate. Password
             changes never go through this function -- see
             reset_user_password() for admin-initiated resets.
-
-    Returns:
-        The updated user record.
     """
     return _authed_put(f"/users/{user_id}", payload)
 
@@ -326,12 +303,6 @@ def reset_user_password(user_id: int) -> dict:
     Generates and emails a new temporary password for an existing user,
     forcing them to set their own on next login. The admin never sees
     or chooses the new password.
-
-    Args:
-        user_id: The user whose password is being reset.
-
-    Returns:
-        The updated user record.
     """
     return _authed_post(f"/users/{user_id}/reset-password", {})
 
@@ -413,7 +384,6 @@ def update_ticket(ticket_id: int, payload: dict) -> dict:
     Updates an existing ticket.
 
     Args:
-        ticket_id: The ticket's id.
         payload: Fields to update, matching the backend's TicketUpdate
             schema. Only include fields that changed.
 
@@ -448,7 +418,6 @@ def update_customer(customer_id: int, payload: dict) -> dict:
     Updates an existing customer.
 
     Args:
-        customer_id: The customer's id.
         payload: Fields to update, matching the backend's CustomerUpdate
             schema. Only include fields that changed.
 
@@ -463,7 +432,6 @@ def update_device(device_id: int, payload: dict) -> dict:
     Updates an existing device.
 
     Args:
-        device_id: The device's id.
         payload: Fields to update, matching the backend's DeviceUpdate
             schema. Only include fields that changed.
 
@@ -516,7 +484,6 @@ def update_asset(asset_id: int, payload: dict) -> dict:
     Updates an existing asset.
 
     Args:
-        asset_id: The asset's id.
         payload: Fields to update, matching the backend's AssetUpdate
             schema. Only include fields that changed.
 
@@ -553,7 +520,6 @@ def update_part(part_id: int, payload: dict) -> dict:
     Updates an existing part.
 
     Args:
-        part_id: The part's id.
         payload: Fields to update, matching the backend's PartUpdate
             schema. Only include fields that changed.
 
@@ -688,7 +654,6 @@ def update_lookup_item(endpoint: str, item_id: int, payload: dict) -> dict:
 
     Args:
         endpoint: The resource path, e.g. "/inventory/locations/".
-        item_id: The record's id.
         payload: Fields to update.
 
     Returns:
@@ -701,9 +666,6 @@ def delete_device(device_id: int):
     """
     Deletes a device by id.
 
-    Args:
-        device_id: The device's id.
-
     Raises:
         ApiError: If the device is currently attached to a ticket --
             see device_service.delete() server-side for the exact rule.
@@ -715,35 +677,18 @@ def archive_customer(customer_id: int) -> dict:
     """
     Archives a customer -- hides them from the active ticket picker
     and the default Customers view. Fully reversible.
-
-    Args:
-        customer_id: The customer's id.
-
-    Returns:
-        The updated customer record.
     """
     return _authed_post(f"/customers/{customer_id}/archive", {})
 
 
 def unarchive_customer(customer_id: int) -> dict:
-    """
-    Reverses archive_customer().
-
-    Args:
-        customer_id: The customer's id.
-
-    Returns:
-        The updated customer record.
-    """
+    """Reverses archive_customer()."""
     return _authed_post(f"/customers/{customer_id}/unarchive", {})
 
 
 def delete_customer(customer_id: int):
     """
     Deletes a customer by id.
-
-    Args:
-        customer_id: The customer's id.
 
     Raises:
         ApiError: If the customer has any tickets or devices on file --
@@ -758,7 +703,6 @@ def delete_lookup_item(endpoint: str, item_id: int):
 
     Args:
         endpoint: The resource path, e.g. "/inventory/locations/".
-        item_id: The record's id.
 
     Raises:
         ApiError: If there's no active session, the backend can't be
@@ -825,7 +769,6 @@ def update_role(role_id: int, payload: dict) -> dict:
     see create_role_permission/delete_role_permission for that).
 
     Args:
-        role_id: The role's id.
         payload: Fields to update.
 
     Returns:
@@ -993,7 +936,6 @@ def update_message(message_id: int, payload: dict) -> dict:
     Edits an existing entry's content.
 
     Args:
-        message_id: The entry's id.
         payload: {"content": "..."} -- the only field an edit can
             change (see MessageUpdate server-side).
 
@@ -1011,9 +953,6 @@ def update_message(message_id: int, payload: dict) -> dict:
 def delete_message(message_id: int):
     """
     Deletes an entry by id.
-
-    Args:
-        message_id: The entry's id.
 
     Raises:
         ApiError: 403 if the current user isn't allowed to delete this
@@ -1073,7 +1012,6 @@ def update_ticket_part(ticket_part_id: int, payload: dict) -> dict:
     ticket_part_service.update() server-side.
 
     Args:
-        ticket_part_id: The record's id.
         payload: Fields to change; unset fields are left untouched.
 
     Returns:
@@ -1083,12 +1021,7 @@ def update_ticket_part(ticket_part_id: int, payload: dict) -> dict:
 
 
 def delete_ticket_part(ticket_part_id: int):
-    """
-    Deletes a part requirement by id.
-
-    Args:
-        ticket_part_id: The record's id.
-    """
+    """Deletes a part requirement by id."""
     delete_lookup_item("/ticket_parts/", ticket_part_id)
 
 

@@ -91,32 +91,24 @@ class MigrateToServerWorker(QObject):
         psql directly, and the Migration Target's listener specifically
         uses pg_restore.
 
-        Two separate steps, not one -- a real, confirmed test proved
-        the actual cause of a bug that survived seven different wrong
-        theories: streaming pg_dump's output live through
-        docker-compose exec relies on Docker's own "hijack" mechanism
-        to carry that output back through the exec session, and a
-        real, isolated test showed that connection tearing down
-        immediately (both stdin and stdout together, confirmed via
-        Docker's own --verbose logging) on this environment
-        specifically, before any real output ever came through --
-        regardless of pipes vs. files, shell=True vs. False, stdin
-        settings, or threading model, none of which were ever the
-        actual cause. This sidesteps that mechanism entirely instead
-        of trying to fix it: pg_dump writes its output to a file
-        INSIDE the container first (-f), then docker cp pulls that
-        file out afterward -- a separate, simpler mechanism that
-        doesn't depend on the same live-streaming hijack behavior at
-        all. Confirmed directly: a real test using this exact
-        approach produced a real, complete 95,180-byte dump on the
-        same environment where every previous approach had produced
-        an empty one.
+        Two separate steps, not one -- streaming pg_dump's output live
+        through docker-compose exec relies on Docker's own "hijack"
+        mechanism to carry that output back through the exec session,
+        and that connection can tear down before any real output comes
+        through. This sidesteps that mechanism entirely instead of
+        trying to fix it: pg_dump writes its output to a file INSIDE
+        the container first (-f), then docker cp pulls that file out
+        afterward -- a separate, simpler mechanism that doesn't depend
+        on the same live-streaming hijack behavior at all.
 
         Returns:
             The path to the saved dump file, or None on failure (in
             which case `finished` has already been emitted).
         """
-        # TEMPORARY diagnostic logging -- REMOVE before shipping.
+        # Kept permanently, not a temporary debugging aid -- if a
+        # migration has issues later, these logs can be pulled
+        # directly from the machine rather than needing to ship a
+        # special build with logging added first.
         debug_log_path = os.path.join(os.environ.get("TEMP", "."), "er-servicedesk-migration-debug-log.txt")
 
         def debug_log(message: str):
@@ -169,17 +161,13 @@ class MigrateToServerWorker(QObject):
             self.finished.emit(False, f"Database backup failed:\n\n{stderr_content.decode(errors='replace')}")
             return None
 
-        # Confirmed via a real failure: pg_dump genuinely succeeds and
-        # the file genuinely exists inside the container (verified
-        # directly, manually, right after) -- yet docker cp run
-        # immediately afterward (only ~1.66s later, per this exact
-        # debug log) fails to find it, while the same two commands run
-        # by hand with natural typing delay between them succeed every
-        # time. Consistent with a brief WSL2 filesystem-sync lag
-        # between the write completing inside the container and it
-        # becoming visible to docker cp from outside a moment later --
-        # a retry with a short pause covers this without needing to
-        # guess at one single "safe" fixed delay.
+        # pg_dump can genuinely succeed and the file genuinely exist
+        # inside the container, yet a docker cp run immediately
+        # afterward can fail to find it -- consistent with a brief
+        # WSL2 filesystem-sync lag between the write completing inside
+        # the container and it becoming visible to docker cp from
+        # outside a moment later. A retry with a short pause covers
+        # this without needing to guess at one single "safe" fixed delay.
         cp_result = None
         for attempt in range(5):
             try:
@@ -233,12 +221,10 @@ class MigrateToServerWorker(QObject):
         involvement needed for those at all.
 
         setup.iss's own WriteEnvFiles wraps every value in double
-        quotes now (EscapeForEnvFile, escaping literal " and \\ inside
+        quotes (EscapeForEnvFile, escaping literal " and \\ inside
         it) -- this reverses that exactly, so a value comes back
-        clean, not as the literal quoted text. Confirmed necessary
-        directly: without this, migration would send every value with
-        its surrounding quote characters baked in as part of the
-        actual data.
+        clean, not as the literal quoted text migration would
+        otherwise send as part of the actual data.
         """
         env_path = os.path.join(self.compose_dir, ".env")
         with open(env_path, "r") as f:
@@ -260,14 +246,11 @@ class MigrateToServerWorker(QObject):
         nothing else.
 
         Reads the whole file into memory first rather than streaming
-        it from an open file handle -- a real migration test showed
-        the server receiving a genuinely empty (0-byte) file despite
-        this reporting success. Root cause, confirmed via a real,
-        specific report of the same underlying issue: passing an open
-        file object to requests as data= makes it send the request
-        using chunked transfer encoding, since it doesn't know the
-        total size upfront -- and the server-side listener is built on
-        .NET's HttpListener, which has a real, documented limitation
+        it from an open file handle -- passing an open file object to
+        requests as data= makes it send the request using chunked
+        transfer encoding, since it doesn't know the total size
+        upfront, and the server-side listener is built on .NET's
+        HttpListener, which has a real, documented limitation
         correctly reading chunked request bodies. Passing raw bytes
         instead gives requests a known, exact size upfront, so it
         sends a normal Content-Length header and avoids chunked

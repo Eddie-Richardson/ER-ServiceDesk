@@ -51,9 +51,6 @@ class AssetFormDialog(QDialog):
         Args:
             reference_data: Dict with keys "categories", "locations" --
                 the lookup lists loaded by InventoryDataWorker.
-            asset: An existing asset dict to edit, or None to create a
-                new one.
-            parent: The parent widget, per normal Qt dialog convention.
         """
         super().__init__(parent)
         self.reference_data = reference_data
@@ -73,10 +70,6 @@ class AssetFormDialog(QDialog):
             self._prefill_from_asset(asset)
 
     def closeEvent(self, event):
-        """
-        Args:
-            event: The Qt close event, passed through unchanged.
-        """
         save_geometry(self, "AssetFormDialog")
         super().closeEvent(event)
 
@@ -231,12 +224,6 @@ class AssetFormDialog(QDialog):
     # Prefill (edit mode)
     # -----------------------------------------------------------------
     def _prefill_from_asset(self, asset: dict):
-        """
-        Populates every field from an existing asset record, for edit mode.
-
-        Args:
-            asset: The asset dict being edited.
-        """
         self.name_input.setText(asset.get("name", ""))
         self.sku_input.setText(asset.get("sku") or "")
         self._select_combo_by_data(self.category_combo, asset.get("category_id"))
@@ -255,13 +242,6 @@ class AssetFormDialog(QDialog):
         self.notes_input.setPlainText(asset.get("notes") or "")
 
     def _select_combo_by_data(self, combo: QComboBox, data_value):
-        """
-        Selects the combo box item whose userData matches the given value.
-
-        Args:
-            combo: The combo box to update.
-            data_value: The value to match against each item's userData.
-        """
         index = combo.findData(data_value)
         if index >= 0:
             combo.setCurrentIndex(index)
@@ -341,9 +321,6 @@ class AssetFormDialog(QDialog):
 
     def _looks_like_date(self, value: str) -> bool:
         """
-        Args:
-            value: The text to check.
-
         Returns:
             Whether value matches YYYY-MM-DD shape. Deliberately simple
             (length + dash positions) rather than a full parse -- this is
@@ -358,7 +335,6 @@ class AssetFormDialog(QDialog):
         or re-enables the form and shows the error inline on failure.
 
         Args:
-            success: Whether the save succeeded.
             result: The saved asset record on success, or a
                 human-readable error message on failure.
         """
@@ -373,9 +349,5 @@ class AssetFormDialog(QDialog):
         self.accept()
 
     def _show_error(self, message: str):
-        """
-        Args:
-            message: The error text to show below the form.
-        """
         self.error_label.setText(message)
         self.error_label.show()

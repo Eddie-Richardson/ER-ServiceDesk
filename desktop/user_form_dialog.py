@@ -51,14 +51,11 @@ class UserFormDialog(QDialog):
     def __init__(self, user: dict | None, roles: list[dict], user_roles: list[dict], parent=None):
         """
         Args:
-            user: An existing user dict to edit, or None to create a
-                new one.
             roles: Every role in the system, for the checkbox list.
             user_roles: Every user-role assignment in the system; this
                 dialog filters it down to just this user's own links
                 when editing, to know which checkboxes start checked
                 and what needs to change on save.
-            parent: The parent widget, per normal Qt dialog convention.
         """
         super().__init__(parent)
         self.user = user
@@ -83,10 +80,6 @@ class UserFormDialog(QDialog):
             self._prefill_from_user(user)
 
     def closeEvent(self, event):
-        """
-        Args:
-            event: The Qt close event, passed through unchanged.
-        """
         save_geometry(self, "UserFormDialog")
         super().closeEvent(event)
 
@@ -175,9 +168,6 @@ class UserFormDialog(QDialog):
 
     def _prettify_role_name(self, name: str) -> str:
         """
-        Args:
-            name: A role's raw backend name, e.g. "front_desk".
-
         Returns:
             A display-friendly version, e.g. "Front Desk".
         """
@@ -187,10 +177,6 @@ class UserFormDialog(QDialog):
     # Prefill (edit mode)
     # -----------------------------------------------------------------
     def _prefill_from_user(self, user: dict):
-        """
-        Args:
-            user: The user dict being edited.
-        """
         self.first_name_input.setText(user.get("first_name", ""))
         self.last_name_input.setText(user.get("last_name", ""))
         self.email_input.setText(user.get("email", ""))
@@ -238,7 +224,6 @@ class UserFormDialog(QDialog):
     def _on_reset_password_finished(self, success: bool, result):
         """
         Args:
-            success: Whether the reset succeeded.
             result: The updated user record on success, or a
                 human-readable error message on failure.
         """
@@ -314,7 +299,6 @@ class UserFormDialog(QDialog):
     def _on_save_finished(self, success: bool, result):
         """
         Args:
-            success: Whether the save succeeded.
             result: The saved user record on success, or a
                 human-readable error message on failure.
         """
@@ -329,9 +313,5 @@ class UserFormDialog(QDialog):
         self.accept()
 
     def _show_error(self, message: str):
-        """
-        Args:
-            message: The error text to show below the form.
-        """
         self.error_label.setText(message)
         self.error_label.show()

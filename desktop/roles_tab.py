@@ -131,7 +131,6 @@ class RolesTab(QWidget):
     def _on_roles_loaded(self, success: bool, result):
         """
         Args:
-            success: Whether the load succeeded.
             result: The role list on success, or a human-readable error
                 message on failure.
         """
@@ -144,7 +143,6 @@ class RolesTab(QWidget):
     def _on_permissions_loaded(self, success: bool, result):
         """
         Args:
-            success: Whether the load succeeded.
             result: The permission list on success, or a
                 human-readable error message on failure.
         """
@@ -253,7 +251,6 @@ class RolesTab(QWidget):
     def _on_delete_finished(self, success: bool, result):
         """
         Args:
-            success: Whether the delete succeeded.
             result: None on success, or a human-readable error message
                 on failure.
         """

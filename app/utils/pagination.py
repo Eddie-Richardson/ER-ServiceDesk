@@ -2,8 +2,8 @@
 # Pagination + serialization helpers
 """
 Reusable pagination helper for SQLAlchemy ORM queries, plus a plain-dict
-serializer for model instances. Ported from InventoryHub and generalized
-for use across any router in the app, not just inventory.
+serializer for model instances. Generalized for use across any router
+in the app, not just inventory.
 """
 
 from math import ceil
@@ -14,11 +14,6 @@ from sqlalchemy import func
 
 def serialize_model(obj) -> Dict[str, Any]:
     """
-    Convert a SQLAlchemy model instance into a plain dictionary.
-
-    Args:
-        obj: SQLAlchemy model instance.
-
     Returns:
         A dict of column_name -> value, excluding SQLAlchemy internals.
     """

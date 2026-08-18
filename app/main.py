@@ -100,7 +100,7 @@ app.include_router(business_info.router)
 app.include_router(business_info_settings.router)
 app.include_router(system_settings.router)
 
-# Inventory (merged from InventoryHub)
+# Inventory
 app.include_router(locations.router)
 app.include_router(assets.router)
 app.include_router(asset_categories.router)
@@ -110,11 +110,5 @@ app.include_router(ticket_parts.router)
 
 @app.get("/health")
 def health_check():
-    """
-    Report whether the API process is up.
-
-    Returns:
-        A static {"status": "ok"} payload. Used by load balancers,
-        uptime monitors, and CI/CD deployment checks.
-    """
+    """Used by load balancers, uptime monitors, and CI/CD deployment checks."""
     return {"status": "ok"}

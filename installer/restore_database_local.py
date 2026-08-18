@@ -12,11 +12,11 @@
 # own single-shop-owner-PC assumption).
 #
 # Compiled to a standalone .exe (see build_restore_exes.ps1) rather
-# than shipped as a raw .ps1 -- confirmed via real testing that
-# PowerShell's default execution policy blocks an unsigned script from
-# running at all, which is a genuinely bad thing to put between a
-# stressed admin and fixing a broken database in an actual emergency.
-# A double-clickable exe has no such friction.
+# than shipped as a raw .ps1 -- PowerShell's default execution policy
+# blocks an unsigned script from running at all, which is a genuinely
+# bad thing to put between a stressed admin and fixing a broken
+# database in an actual emergency. A double-clickable exe has no such
+# friction.
 #
 # Genuinely destructive -- this REPLACES the current database
 # entirely. A real confirmation step (typing the word "YES", not just

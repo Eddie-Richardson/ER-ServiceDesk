@@ -26,13 +26,6 @@ def get_current_user(
     """
     Resolve the currently authenticated user from a JWT bearer token.
 
-    Args:
-        token: The JWT extracted from the Authorization header.
-        db: Injected database session.
-
-    Returns:
-        The authenticated User instance.
-
     Raises:
         HTTPException: 401 if the token is invalid, expired, or does not
             correspond to an existing user.
@@ -65,12 +58,6 @@ def require_superuser(current_user: User = Depends(get_current_user)) -> User:
     Dependency that restricts access to superuser accounts only.
 
     Use for admin-only endpoints (e.g. user/role management).
-
-    Args:
-        current_user: The already-authenticated user (via get_current_user).
-
-    Returns:
-        The same User instance, if they are a superuser.
 
     Raises:
         HTTPException: 403 if the user is authenticated but not a superuser.
@@ -111,12 +98,6 @@ def require_permission(permission_name: str):
         current_user: User = Depends(get_current_user),
     ) -> User:
         """
-        Args:
-            current_user: The already-authenticated user (via get_current_user).
-
-        Returns:
-            The same User instance, if authorized.
-
         Raises:
             HTTPException: 403 if the user is authenticated but lacks
                 the required permission and isn't a superuser.

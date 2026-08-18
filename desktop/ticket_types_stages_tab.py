@@ -166,7 +166,6 @@ class TicketTypesStagesTab(QWidget):
         match the checkbox's new state -- no separate Save step.
 
         Args:
-            stage: The stage dict this checkbox represents.
             state: The checkbox's new Qt.CheckState value.
         """
         type_id = self.type_picker.currentData()

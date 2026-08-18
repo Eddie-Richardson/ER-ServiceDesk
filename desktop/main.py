@@ -8,10 +8,7 @@ Flow on launch:
      restoring it from the backup location first if it's missing from
      the main install but present there (see env_recovery.py). Client
      mode is deliberately skipped here -- it never has .env at all by
-     design (confirmed by the installer itself, which never writes one
-     for Client, and by real testing showing this check was incorrectly
-     firing for every Client install, blocking it from ever launching
-     regardless of whether a server was actually reachable). Setup
+     design (the installer itself never writes one for Client). Setup
      itself (all three modes, and everything each one needs) is
      entirely the Inno installer's job now, not this app's; by the
      time this exe ever runs, .env is expected to already exist for
@@ -30,25 +27,22 @@ import sys
 import os
 import faulthandler
 
-# Confirmed via a real, repeated crash: three Qt cross-thread warnings
-# print (QObject::setParent, recursive repaint, active painter), then
-# the process terminates with ZERO Python-level traceback -- meaning
-# none of the try/except protection added elsewhere in the app can
-# catch this, since it's a genuine low-level (C++) fault, not a Python
-# exception being silently swallowed. faulthandler is specifically
-# built for exactly this: it prints a real stack trace at the moment
-# of a crash like this, even one Python's own exception handling has
-# no visibility into at all.
+# Qt cross-thread faults (QObject::setParent, recursive repaint, active
+# painter warnings) can terminate the process with ZERO Python-level
+# traceback -- a genuine low-level (C++) fault, not a Python exception,
+# so none of the try/except protection elsewhere in the app can catch
+# it. faulthandler is specifically built for exactly this: it prints a
+# real stack trace at the moment of a crash like this, even one
+# Python's own exception handling has no visibility into at all.
 #
-# Confirmed via a SECOND real failure (this one blocking the app from
-# starting at all): faulthandler.enable() defaults to writing to
-# sys.stderr, which isn't just invisible in a console=False PyInstaller
-# build -- it's genuinely None there, not a valid stream at all -- so
-# the default call raised "RuntimeError: sys.stderr is None" before
-# the app could even open. Targeting an explicit log file instead
-# avoids that entirely, and the whole thing is wrapped in its own
-# try/except so nothing about this diagnostic feature can ever prevent
-# the app from starting, regardless of what goes wrong opening it.
+# faulthandler.enable() defaults to writing to sys.stderr, which isn't
+# just invisible in a console=False PyInstaller build -- it's
+# genuinely None there, not a valid stream at all -- so the default
+# call raises "RuntimeError: sys.stderr is None" before the app can
+# even open. Targeting an explicit log file instead avoids that
+# entirely, and the whole thing is wrapped in its own try/except so
+# nothing about this diagnostic feature can ever prevent the app from
+# starting, regardless of what goes wrong opening it.
 try:
     _faulthandler_log_path = os.path.join(os.environ.get("TEMP", "."), "er-servicedesk-crash-log.txt")
     _faulthandler_log_file = open(_faulthandler_log_path, "a", encoding="utf-8")
@@ -88,14 +82,13 @@ def main():
     # Hidden entry point, no GUI at all -- just writes the client-mode
     # registry values and exits. install_mode/backend_url are
     # SystemScope (HKEY_LOCAL_MACHINE) settings, which require admin
-    # rights to write, confirmed directly in settings_manager.py's own
-    # docstrings -- but this app never runs elevated day to day, by
-    # design, so regular non-admin employees can use it too. A real
-    # test proved this was silently breaking the one moment it
-    # actually needed elevation: completing a Local-to-Server
-    # migration, which switches this PC to Client mode. Rather than
-    # require the whole app to run elevated, migrate_to_server_tab.py
-    # re-launches this same exe with this flag via PowerShell's
+    # rights to write (see settings_manager.py) -- but this app never
+    # runs elevated day to day, by design, so regular non-admin
+    # employees can use it too. The one moment this app actually needs
+    # elevation is completing a Local-to-Server migration, which
+    # switches this PC to Client mode. Rather than require the whole
+    # app to run elevated, migrate_to_server_tab.py re-launches this
+    # same exe with this flag via PowerShell's
     # Start-Process -Verb RunAs -Wait, triggering a real UAC prompt for
     # just this one privileged write, then waits for it to finish.
     if len(sys.argv) >= 3 and sys.argv[1] == "--set-client-mode":
@@ -163,12 +156,7 @@ def main():
         window_holder["login"] = login_window
 
     def show_dashboard(previous_window):
-        """
-        Opens the Dashboard and closes the window that led here.
-
-        Args:
-            previous_window: The Login window to close now that its job is done.
-        """
+        """Opens the Dashboard and closes the window that led here."""
         dashboard = DashboardWindow()
         dashboard.logout_callback = show_login
         dashboard.show()

@@ -39,9 +39,6 @@ class NamePercentageDialog(QDialog):
         Args:
             display_name: Shown in the dialog title, e.g. "Discount".
             endpoint: The resource path, e.g. "/discounts/".
-            item: An existing item dict to edit, or None to create a
-                new one.
-            parent: The parent widget, per normal Qt dialog convention.
         """
         super().__init__(parent)
         self.endpoint = endpoint
@@ -60,10 +57,6 @@ class NamePercentageDialog(QDialog):
             self._prefill_from_item(item)
 
     def closeEvent(self, event):
-        """
-        Args:
-            event: The Qt close event, passed through unchanged.
-        """
         save_geometry(self, "NamePercentageDialog")
         super().closeEvent(event)
 
@@ -124,10 +117,6 @@ class NamePercentageDialog(QDialog):
         self.name_input.setFocus()
 
     def _prefill_from_item(self, item: dict):
-        """
-        Args:
-            item: The item dict being edited.
-        """
         self.name_input.setText(item.get("name", ""))
         self.percentage_input.setValue(float(item.get("percentage", 0)))
         self.active_checkbox.setChecked(item.get("is_active", True))
@@ -168,7 +157,6 @@ class NamePercentageDialog(QDialog):
     def _on_save_finished(self, success: bool, result):
         """
         Args:
-            success: Whether the save succeeded.
             result: The saved record on success, or a human-readable
                 error message on failure.
         """
@@ -183,9 +171,5 @@ class NamePercentageDialog(QDialog):
         self.accept()
 
     def _show_error(self, message: str):
-        """
-        Args:
-            message: The error text to show below the form.
-        """
         self.error_label.setText(message)
         self.error_label.show()

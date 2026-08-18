@@ -8,29 +8,22 @@ a tech add a new entry, either internal-only or emailed to the
 customer.
 
 Backed by the merged Message system (see app/models/message.py) --
-internal notes and customer email exchange used to be two separate,
-overlapping backend systems (Note and Message); merged into one after
-that overlap was called out directly. This dialog is the UI side of
-that same merge: previously it only showed internal notes, with
-customer replies landing in a completely separate system with no
-viewer at all. Now it shows everything on the ticket, one real
-history instead of two partial ones.
+internal notes and customer email exchange live in one unified
+backend system, so this dialog shows everything on the ticket, one
+real history instead of split across separate views.
 
 Deliberately fully synchronous -- every action (list/create/update/
 delete) runs directly on the main thread, no QThread and no
-cross-thread signal delivery anywhere in this file. This traces back
-to real, hard-to-diagnose crashes tied to background-thread activity
-in an early version of this dialog; going fully synchronous removes
-that whole category of risk. The tradeoff is a brief UI pause during
-each action (a network round-trip on small text payloads -- near-
-instant on a local network), a clearly worthwhile trade against the
-app-crashing alternative.
+cross-thread signal delivery anywhere in this file. This removes an
+entire category of background-thread risk. The tradeoff is a brief UI
+pause during each action (a network round-trip on small text payloads
+-- near-instant on a local network), a clearly worthwhile trade
+against that risk.
 
 Modal (exec, not show) -- avoids real, platform-specific input-routing
 behavior that comes from mixing a modal parent (the ticket form this
-opens from) with a non-modal child; a real user report (clicks not
-registering anywhere in the composer) confirmed this mattered on
-Windows specifically.
+opens from) with a non-modal child; this matters on Windows
+specifically.
 
 Every entry is visible to anyone who can open this dialog at all (full
 history, shared -- not private to whoever wrote it), but Edit/Delete
@@ -83,13 +76,11 @@ class NotesDialog(QDialog):
     def __init__(self, ticket_id: int, ticket_title: str, customer_id: int | None, parent=None):
         """
         Args:
-            ticket_id: The ticket these entries belong to.
             ticket_title: Shown in the window title for context.
             customer_id: This ticket's customer, needed when an entry
                 is sent to the customer. Passed directly by the caller
                 (which already has the full ticket dict) rather than
                 re-fetched here.
-            parent: The parent window (typically the ticket form dialog).
         """
         super().__init__(parent)
         self.ticket_id = ticket_id
@@ -337,11 +328,6 @@ class _EditNoteDialog(QDialog):
     """Minimal dialog for editing a single entry's content."""
 
     def __init__(self, current_content: str, parent=None):
-        """
-        Args:
-            current_content: The entry's current text, pre-filled for editing.
-            parent: The parent NotesDialog.
-        """
         super().__init__(parent)
         self.setWindowTitle("Edit Note")
         self.resize(400, 200)

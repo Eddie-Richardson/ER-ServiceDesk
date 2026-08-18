@@ -156,9 +156,6 @@ def save_business_name(name: str):
     Persists this shop's display name for this machine. Requires admin
     rights on Windows, since this is now a machine-wide (SystemScope)
     setting.
-
-    Args:
-        name: The shop's display name.
     """
     _machine_settings().setValue(BUSINESS_NAME_KEY, name)
 

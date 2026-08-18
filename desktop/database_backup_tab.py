@@ -139,15 +139,13 @@ class DatabaseBackupTab(QWidget):
         """
         Persists the chosen backup folder via an elevated relaunch of
         this same exe -- backup_location is a SystemScope
-        (HKEY_LOCAL_MACHINE) setting, requiring admin rights to write,
-        confirmed directly in settings_manager.py's own docstring. This
-        app never runs elevated day to day, by design, so a plain
-        settings_manager.save_backup_location() call here would
-        silently fail to persist for the normal, non-admin case -- the
-        exact same bug already caught once for install_mode/
-        backend_url and fixed there with this same
-        Start-Process -Verb RunAs -Wait pattern
-        (migrate_to_server_tab.py's teardown-and-switch-to-Client).
+        (HKEY_LOCAL_MACHINE) setting, requiring admin rights to write
+        (see settings_manager.py). This app never runs elevated day to
+        day, by design, so a plain settings_manager.save_backup_location()
+        call here would silently fail to persist for the normal,
+        non-admin case. Same Start-Process -Verb RunAs -Wait pattern
+        used for the same reason in migrate_to_server_tab.py's
+        teardown-and-switch-to-Client.
 
         Args:
             path: The folder path to persist as the saved backup location.
@@ -178,7 +176,6 @@ class DatabaseBackupTab(QWidget):
     def _on_backup_finished(self, success: bool, message: str):
         """
         Args:
-            success: Whether the backup was created and saved successfully.
             message: The saved file's full path on success, or an error description on failure.
         """
         self.backup_button.setEnabled(True)

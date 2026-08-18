@@ -33,12 +33,6 @@ class ServiceDialog(QDialog):
     """
 
     def __init__(self, service: dict | None = None, parent=None):
-        """
-        Args:
-            service: An existing service dict to edit, or None to
-                create a new one.
-            parent: The parent widget, per normal Qt dialog convention.
-        """
         super().__init__(parent)
         self.service = service
         self.saved_service: dict | None = None
@@ -55,10 +49,6 @@ class ServiceDialog(QDialog):
             self._prefill_from_service(service)
 
     def closeEvent(self, event):
-        """
-        Args:
-            event: The Qt close event, passed through unchanged.
-        """
         save_geometry(self, "ServiceDialog")
         super().closeEvent(event)
 
@@ -124,10 +114,6 @@ class ServiceDialog(QDialog):
         self.name_input.setFocus()
 
     def _prefill_from_service(self, service: dict):
-        """
-        Args:
-            service: The service dict being edited.
-        """
         self.name_input.setText(service.get("name", ""))
         self.description_input.setPlainText(service.get("description") or "")
         self.price_input.setValue(float(service.get("price", 0)))
@@ -170,7 +156,6 @@ class ServiceDialog(QDialog):
     def _on_save_finished(self, success: bool, result):
         """
         Args:
-            success: Whether the save succeeded.
             result: The saved record on success, or a human-readable
                 error message on failure.
         """
@@ -185,9 +170,5 @@ class ServiceDialog(QDialog):
         self.accept()
 
     def _show_error(self, message: str):
-        """
-        Args:
-            message: The error text to show below the form.
-        """
         self.error_label.setText(message)
         self.error_label.show()

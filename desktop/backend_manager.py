@@ -19,10 +19,10 @@ splash-screen UI lives in startup_window.py, which listens to these signals.
 Every user-facing message here says "Docker" generically, never "Docker
 Desktop" -- this project's actual target is Docker Engine running
 inside WSL2, which has no GUI application at all to "check" or "open".
-A real bug caught this: an earlier version of the timeout message told
-Client-mode users (who have no local Docker whatsoever) to "check
-Docker Desktop" for a remote server that was simply unreachable --
-wrong on two counts at once, confirmed by real testing.
+Client-mode users have no local Docker whatsoever, so a message
+telling them to check a Docker Desktop GUI would be wrong on two
+counts at once: no such GUI is relevant to this project's target
+setup, and Client mode isn't running Docker locally in the first place.
 """
 
 import subprocess
@@ -101,22 +101,17 @@ class BackendStartupWorker(QObject):
         Runs `docker-compose up -d`.
 
         Hyphenated form, matching exactly what the installer's own
-        RunDockerSetup already uses -- confirmed working there on both
-        Docker Desktop (this project's own dev machine, tested
-        repeatedly throughout this whole project) and the newer
-        WSL2/Docker Engine installs this installer now also supports.
-        The modern space-separated `docker compose` form was tried
-        first, but real testing on a fresh WSL2/Docker Engine install
-        showed it fails there: Docker's CLI plugin system needs
-        `compose` registered as a proper plugin to recognize it as a
-        subcommand at all, which the installer's own standalone
+        RunDockerSetup already uses -- works on both Docker Desktop
+        and the newer WSL2/Docker Engine installs this installer now
+        also supports. The modern space-separated `docker compose`
+        form doesn't work reliably here: Docker's CLI plugin system
+        needs `compose` registered as a proper plugin to recognize it
+        as a subcommand at all, which the installer's own standalone
         docker-compose.exe binary doesn't do just by being on PATH --
-        it produced a confusing "unknown shorthand flag: 'd' in -d"
+        it produces a confusing "unknown shorthand flag: 'd' in -d"
         error, since without a registered plugin, "compose" isn't
         recognized as a valid subcommand at all. The hyphenated form
-        avoids that whole plugin-registration question entirely, and
-        is the one actually proven to work on every real environment
-        this project targets.
+        avoids that whole plugin-registration question entirely.
 
         Returns:
             True on success, False on failure (after emitting the
@@ -188,9 +183,9 @@ class BackendStartupWorker(QObject):
             time.sleep(self.poll_interval_seconds)
 
         # The two failure paths here are genuinely different situations,
-        # not the same problem with a shared cause -- a real test caught
-        # this: Client mode (skip_docker=True) has no local containers at
-        # all, so a message about containers crashing was actively wrong,
+        # not the same problem with a shared cause -- Client mode
+        # (skip_docker=True) has no local containers at all, so a
+        # message about containers crashing would be actively wrong,
         # on top of also referencing a Docker Desktop GUI that doesn't
         # exist in this project's target Docker Engine setup either way.
         if self.skip_docker:

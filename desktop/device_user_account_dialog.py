@@ -37,9 +37,6 @@ class DeviceUserAccountDialog(QDialog):
         """
         Args:
             device_id: The device this account belongs to.
-            account: An existing account dict to edit, or None to
-                create a new one.
-            parent: The parent widget, per normal Qt dialog convention.
         """
         super().__init__(parent)
         self.device_id = device_id
@@ -116,10 +113,6 @@ class DeviceUserAccountDialog(QDialog):
         self.account_name_input.setFocus()
 
     def _prefill_from_account(self, account: dict):
-        """
-        Args:
-            account: The account dict being edited.
-        """
         self.account_name_input.setText(account.get("account_name", ""))
         self.password_input.setText(account.get("password") or "")
         self.is_admin_checkbox.setChecked(account.get("is_admin", False))
@@ -161,10 +154,6 @@ class DeviceUserAccountDialog(QDialog):
         self.accept()
 
     def _show_error(self, message: str):
-        """
-        Args:
-            message: The error text to show below the form.
-        """
         self.error_label.setText(message)
         self.error_label.show()
 

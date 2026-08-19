@@ -25,21 +25,22 @@ records referencing them stay intact.
 from PySide6.QtCore import QThread
 from PySide6.QtWidgets import (
     QCheckBox,
-    QDialog,
     QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
     QVBoxLayout,
+    QWidget,
 )
 
 from desktop import layout
+from desktop.base_dialog import AppDialog
 from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.reset_password_worker import ResetPasswordWorker
 from desktop.user_save_worker import UserSaveWorker
 
 
-class UserFormDialog(QDialog):
+class UserFormDialog(AppDialog):
     """
     Modal dialog for creating or editing a user account.
 
@@ -88,6 +89,7 @@ class UserFormDialog(QDialog):
     # -----------------------------------------------------------------
     def _build_ui(self):
         """Builds every field, including one checkbox per role."""
+        content = QWidget()
         outer_layout = QVBoxLayout()
         outer_layout.setContentsMargins(
             layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
@@ -164,7 +166,8 @@ class UserFormDialog(QDialog):
             outer_layout.addWidget(self.reset_password_button)
         outer_layout.addWidget(cancel_button)
 
-        self.setLayout(outer_layout)
+        content.setLayout(outer_layout)
+        self.set_scrollable_content(content)
 
     def _prettify_role_name(self, name: str) -> str:
         """
@@ -224,14 +227,14 @@ class UserFormDialog(QDialog):
     def _on_reset_password_finished(self, success: bool, result):
         """
         Args:
-            result: The updated user record on success, or a
-                human-readable error message on failure.
+            result: The updated user record on success, or the caught
+                ApiError on failure.
         """
         self.reset_password_button.setEnabled(True)
         self.reset_password_button.setText("Reset Password")
 
         if not success:
-            self._show_error(result)
+            self.handle_api_error(result, on_other_error=self._show_error)
             return
 
         QMessageBox.information(
@@ -299,14 +302,14 @@ class UserFormDialog(QDialog):
     def _on_save_finished(self, success: bool, result):
         """
         Args:
-            result: The saved user record on success, or a
-                human-readable error message on failure.
+            result: The saved user record on success, or the caught
+                ApiError on failure.
         """
         self.save_button.setEnabled(True)
         self.save_button.setText("Save User")
 
         if not success:
-            self._show_error(result)
+            self.handle_api_error(result, on_other_error=self._show_error)
             return
 
         self.saved_user = result

@@ -14,7 +14,6 @@ during ticket intake.
 
 from PySide6.QtCore import QThread, Qt
 from PySide6.QtWidgets import (
-    QDialog,
     QHeaderView,
     QLabel,
     QLineEdit,
@@ -28,6 +27,7 @@ from PySide6.QtWidgets import (
 
 from desktop import api_client, layout
 from desktop.api_client import ApiError
+from desktop.base_dialog import AppDialog
 from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.customer_save_worker import CustomerSaveWorker
 from desktop.device_edit_dialog import DeviceEditDialog
@@ -38,7 +38,7 @@ DEVICE_COLUMN_HEADERS = ["Type", "Brand", "Model", "Serial Number"]
 INVOICE_COLUMN_HEADERS = ["Invoice #", "Ticket #", "Total", "Paid"]
 
 
-class CustomerFormDialog(QDialog):
+class CustomerFormDialog(AppDialog):
     """
     Modal dialog for creating or editing a customer.
 
@@ -100,6 +100,7 @@ class CustomerFormDialog(QDialog):
     # -----------------------------------------------------------------
     def _build_ui(self):
         """Builds the customer fields, and the devices sub-table if editing."""
+        content = QWidget()
         outer_layout = QVBoxLayout()
         outer_layout.setContentsMargins(
             layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
@@ -178,7 +179,8 @@ class CustomerFormDialog(QDialog):
         if self.delete_button:
             outer_layout.addWidget(self.delete_button)
 
-        self.setLayout(outer_layout)
+        content.setLayout(outer_layout)
+        self.set_scrollable_content(content)
 
     def _build_devices_section(self) -> QTableWidget:
         """
@@ -410,14 +412,14 @@ class CustomerFormDialog(QDialog):
     def _on_save_finished(self, success: bool, result):
         """
         Args:
-            result: The saved customer record on success, or a
-                human-readable error message on failure.
+            result: The saved customer record on success, or the
+                caught ApiError on failure.
         """
         self.save_button.setEnabled(True)
         self.save_button.setText("Save Customer")
 
         if not success:
-            self._show_error(result)
+            self.handle_api_error(result, on_other_error=self._show_error)
             return
 
         self.saved_customer = result
@@ -441,7 +443,7 @@ class CustomerFormDialog(QDialog):
             else:
                 updated = api_client.archive_customer(self.customer["id"])
         except ApiError as e:
-            self._show_error(str(e))
+            self.handle_api_error(e, on_other_error=self._show_error)
             return
         finally:
             self.archive_button.setEnabled(True)
@@ -478,7 +480,7 @@ class CustomerFormDialog(QDialog):
         try:
             api_client.delete_customer(self.customer["id"])
         except ApiError as e:
-            self._show_error(str(e))
+            self.handle_api_error(e, on_other_error=self._show_error)
             return
         finally:
             self.delete_button.setEnabled(True)

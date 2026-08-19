@@ -23,8 +23,9 @@ class DeviceSaveWorker(QObject):
     Signals:
         finished(bool, object): Emitted once. First argument is success.
             On success, second argument is the updated device record
-            (dict). On failure, second argument is a human-readable
-            error message.
+            (dict). On failure, second argument is the caught ApiError
+            (or SessionExpiredError) itself, not a stringified message
+            -- callers use handle_api_error() to react to it.
     """
 
     finished = Signal(bool, object)
@@ -47,7 +48,7 @@ class DeviceSaveWorker(QObject):
         try:
             result = update_device(self.device_id, self.payload)
         except ApiError as e:
-            self.finished.emit(False, str(e))
+            self.finished.emit(False, e)
             return
 
         self.finished.emit(True, result)

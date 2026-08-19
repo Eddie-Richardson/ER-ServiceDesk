@@ -17,7 +17,6 @@ shop-specific, not a small closed set worth a lookup table.
 from PySide6.QtCore import QThread
 from PySide6.QtWidgets import (
     QComboBox,
-    QDialog,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -29,10 +28,11 @@ from PySide6.QtWidgets import (
 )
 
 from desktop import layout
+from desktop.base_dialog import AppDialog
 from desktop.part_save_worker import PartSaveWorker
 
 
-class PartFormDialog(QDialog):
+class PartFormDialog(AppDialog):
     """
     Modal dialog for creating or editing a part.
 
@@ -71,6 +71,7 @@ class PartFormDialog(QDialog):
     # -----------------------------------------------------------------
     def _build_ui(self):
         """Builds every field, including the multi-row location editor."""
+        content = QWidget()
         outer_layout = QVBoxLayout()
         outer_layout.setContentsMargins(
             layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
@@ -144,7 +145,8 @@ class PartFormDialog(QDialog):
         outer_layout.addWidget(self.save_button)
         outer_layout.addWidget(cancel_button)
 
-        self.setLayout(outer_layout)
+        content.setLayout(outer_layout)
+        self.set_scrollable_content(content)
 
     def _build_locations_section(self) -> QWidget:
         """
@@ -353,14 +355,14 @@ class PartFormDialog(QDialog):
         or re-enables the form and shows the error inline on failure.
 
         Args:
-            result: The saved part record on success, or a
-                human-readable error message on failure.
+            result: The saved part record on success, or the caught
+                ApiError on failure.
         """
         self.save_button.setEnabled(True)
         self.save_button.setText("Save Part")
 
         if not success:
-            self._show_error(result)
+            self.handle_api_error(result, on_other_error=self._show_error)
             return
 
         self.saved_part = result

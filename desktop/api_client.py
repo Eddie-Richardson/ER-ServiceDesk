@@ -68,6 +68,16 @@ class ApiError(Exception):
     pass
 
 
+class SessionExpiredError(ApiError):
+    """
+    Raised specifically when the backend rejects a request with 401 --
+    distinct from ApiError so a single, central handler (see
+    desktop/base_dialog.py) can catch this one case and force a
+    logout, rather than every individual dialog needing its own check.
+    """
+    pass
+
+
 def fetch_business_name() -> str:
     """
     Fetches the shop's display name from the server. Requires an
@@ -121,7 +131,7 @@ def _authed_get(path: str) -> list | dict:
         raise ApiError("Couldn't reach the backend. Make sure it's still running.")
 
     if response.status_code == 401:
-        raise ApiError("Session expired. Please log in again.")
+        raise SessionExpiredError("Session expired. Please log in again.")
 
     if response.status_code != 200:
         raise ApiError(f"Request failed (server returned {response.status_code}).")
@@ -169,7 +179,7 @@ def _authed_write(method: str, path: str, payload: dict) -> dict:
         raise ApiError("Couldn't reach the backend. Make sure it's still running.")
 
     if response.status_code == 401:
-        raise ApiError("Session expired. Please log in again.")
+        raise SessionExpiredError("Session expired. Please log in again.")
 
     if response.status_code not in (200, 201):
         detail = ""
@@ -344,7 +354,7 @@ def delete_user_role(user_role_id: int):
         raise ApiError("Couldn't reach the backend. Make sure it's still running.")
 
     if response.status_code == 401:
-        raise ApiError("Session expired. Please log in again.")
+        raise SessionExpiredError("Session expired. Please log in again.")
     if response.status_code not in (200, 204):
         raise ApiError(f"Request failed (server returned {response.status_code}).")
 
@@ -724,7 +734,7 @@ def delete_lookup_item(endpoint: str, item_id: int):
         raise ApiError("Couldn't reach the backend. Make sure it's still running.")
 
     if response.status_code == 401:
-        raise ApiError("Session expired. Please log in again.")
+        raise SessionExpiredError("Session expired. Please log in again.")
     if response.status_code not in (200, 204):
         message = ""
         try:
@@ -850,7 +860,7 @@ def acquire_lock(entity_type: str, entity_id: int) -> dict:
         raise ApiError("Couldn't reach the backend. Make sure it's still running.")
 
     if response.status_code == 401:
-        raise ApiError("Session expired. Please log in again.")
+        raise SessionExpiredError("Session expired. Please log in again.")
 
     if response.status_code == 409:
         message = ""
@@ -897,7 +907,7 @@ def release_lock(entity_type: str, entity_id: int):
         return
 
     if response.status_code == 401:
-        raise ApiError("Session expired. Please log in again.")
+        raise SessionExpiredError("Session expired. Please log in again.")
 
 
 def list_messages_for_ticket(ticket_id: int) -> list[dict]:

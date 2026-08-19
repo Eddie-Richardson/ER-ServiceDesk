@@ -14,7 +14,6 @@ from PySide6.QtCore import QThread, Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QCompleter,
-    QDialog,
     QHeaderView,
     QLabel,
     QLineEdit,
@@ -28,12 +27,13 @@ from PySide6.QtWidgets import (
 
 from desktop import api_client, layout
 from desktop.api_client import ApiError
+from desktop.base_dialog import AppDialog
 from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.device_save_worker import DeviceSaveWorker
 from desktop.device_user_account_dialog import DeviceUserAccountDialog
 
 
-class DeviceEditDialog(QDialog):
+class DeviceEditDialog(AppDialog):
     """
     Modal dialog for editing an existing device.
 
@@ -77,6 +77,7 @@ class DeviceEditDialog(QDialog):
     # -----------------------------------------------------------------
     def _build_ui(self):
         """Builds every field."""
+        content = QWidget()
         outer_layout = QVBoxLayout()
         outer_layout.setContentsMargins(
             layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
@@ -175,7 +176,8 @@ class DeviceEditDialog(QDialog):
         outer_layout.addWidget(cancel_button)
         outer_layout.addWidget(self.delete_button)
 
-        self.setLayout(outer_layout)
+        content.setLayout(outer_layout)
+        self.set_scrollable_content(content)
 
     def _prefill_from_device(self, device: dict):
         customer_index = self.customer_combo.findData(device.get("customer_id"))
@@ -260,14 +262,14 @@ class DeviceEditDialog(QDialog):
     def _on_save_finished(self, success: bool, result):
         """
         Args:
-            result: The saved device record on success, or a
-                human-readable error message on failure.
+            result: The saved device record on success, or the
+                caught ApiError on failure.
         """
         self.save_button.setEnabled(True)
         self.save_button.setText("Save Device")
 
         if not success:
-            self._show_error(result)
+            self.handle_api_error(result, on_other_error=self._show_error)
             return
 
         self.saved_device = result
@@ -376,7 +378,7 @@ class DeviceEditDialog(QDialog):
         try:
             api_client.delete_device(self.device["id"])
         except ApiError as e:
-            self._show_error(str(e))
+            self.handle_api_error(e, on_other_error=self._show_error)
             return
         finally:
             self.delete_button.setEnabled(True)

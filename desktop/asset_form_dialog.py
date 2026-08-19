@@ -18,7 +18,6 @@ state for an optional field.
 from PySide6.QtCore import QThread
 from PySide6.QtWidgets import (
     QComboBox,
-    QDialog,
     QLabel,
     QLineEdit,
     QPushButton,
@@ -30,13 +29,14 @@ from PySide6.QtWidgets import (
 
 from desktop import layout
 from desktop.asset_save_worker import AssetSaveWorker
+from desktop.base_dialog import AppDialog
 from desktop.window_geometry import restore_geometry, save_geometry
 
 STATUS_OPTIONS = ["Active", "In Repair", "Retired"]
 CONDITION_OPTIONS = ["New", "Good", "Fair", "Damaged"]
 
 
-class AssetFormDialog(QDialog):
+class AssetFormDialog(AppDialog):
     """
     Modal dialog for creating or editing an asset.
 
@@ -335,14 +335,14 @@ class AssetFormDialog(QDialog):
         or re-enables the form and shows the error inline on failure.
 
         Args:
-            result: The saved asset record on success, or a
-                human-readable error message on failure.
+            result: The saved asset record on success, or the caught
+                ApiError on failure.
         """
         self.save_button.setEnabled(True)
         self.save_button.setText("Save Asset")
 
         if not success:
-            self._show_error(result)
+            self.handle_api_error(result, on_other_error=self._show_error)
             return
 
         self.saved_asset = result

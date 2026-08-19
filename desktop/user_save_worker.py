@@ -31,7 +31,9 @@ class UserSaveWorker(QObject):
     Signals:
         finished(bool, object): Emitted once. First argument is success.
             On success, second argument is the saved user record (dict).
-            On failure, second argument is a human-readable error message.
+            On failure, second argument is the caught ApiError (or
+            SessionExpiredError) itself, not a stringified message --
+            callers use handle_api_error() to react to it.
     """
 
     finished = Signal(bool, object)
@@ -76,7 +78,7 @@ class UserSaveWorker(QObject):
                 result = update_user(self.user_id, self.payload)
                 self._sync_roles(self.user_id, self.desired_role_ids)
         except ApiError as e:
-            self.finished.emit(False, str(e))
+            self.finished.emit(False, e)
             return
 
         self.finished.emit(True, result)

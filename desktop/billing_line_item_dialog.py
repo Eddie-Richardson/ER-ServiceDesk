@@ -14,20 +14,21 @@ server-side; better to never show it as an option at all.
 
 from PySide6.QtWidgets import (
     QComboBox,
-    QDialog,
     QLabel,
     QMessageBox,
     QPushButton,
     QRadioButton,
     QSpinBox,
     QVBoxLayout,
+    QWidget,
 )
 
 from desktop import layout
 from desktop.api_client import ApiError
+from desktop.base_dialog import AppDialog
 
 
-class BillingLineItemDialog(QDialog):
+class BillingLineItemDialog(AppDialog):
     """
     Modal dialog for adding or editing a line item on a quote or invoice.
 
@@ -82,6 +83,7 @@ class BillingLineItemDialog(QDialog):
 
     def _build_ui(self):
         """Builds the type toggle, Service/Part pickers, and Quantity field."""
+        content = QWidget()
         outer_layout = QVBoxLayout()
         outer_layout.setContentsMargins(
             layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
@@ -159,7 +161,8 @@ class BillingLineItemDialog(QDialog):
         if self.delete_button:
             outer_layout.addWidget(self.delete_button)
 
-        self.setLayout(outer_layout)
+        content.setLayout(outer_layout)
+        self.set_scrollable_content(content)
         self._on_type_toggled()
 
     def _on_type_toggled(self):
@@ -206,7 +209,7 @@ class BillingLineItemDialog(QDialog):
         except ApiError as e:
             self.save_button.setEnabled(True)
             self.save_button.setText("Save")
-            self._show_error(str(e))
+            self.handle_api_error(e, on_other_error=self._show_error)
             return
 
         self.save_button.setEnabled(True)
@@ -237,7 +240,7 @@ class BillingLineItemDialog(QDialog):
         try:
             self.remove_func(self.line_item["id"])
         except ApiError as e:
-            self._show_error(str(e))
+            self.handle_api_error(e, on_other_error=self._show_error)
             return
         finally:
             self.delete_button.setEnabled(True)

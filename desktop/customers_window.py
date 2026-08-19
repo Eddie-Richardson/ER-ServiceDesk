@@ -26,10 +26,10 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
-    QWidget,
 )
 
 from desktop import layout
+from desktop.base_dialog import AppWindow
 from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.lock_gate import LockGate
 from desktop.customer_form_dialog import CustomerFormDialog
@@ -40,7 +40,7 @@ from desktop.settings_manager import get_saved_theme
 COLUMN_HEADERS = ["Name", "Email", "Phone", "Address"]
 
 
-class CustomersWindow(QWidget):
+class CustomersWindow(AppWindow):
     """Standalone window listing all customers, with search, create, and edit."""
 
     window_closed = Signal()
@@ -154,10 +154,10 @@ class CustomersWindow(QWidget):
         """
         Args:
             result: On success, the data dict from CustomersDataWorker.
-                On failure, a human-readable error message string.
+                On failure, the caught ApiError.
         """
         if not success:
-            self.status_label.setText(f"Couldn't load customers: {result}")
+            self.handle_api_error(result, on_other_error=lambda message: self.status_label.setText(f"Couldn't load customers: {message}"))
             return
 
         self.all_customers = result["customers"]

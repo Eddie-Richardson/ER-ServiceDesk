@@ -12,19 +12,20 @@ dots instead of the real value would defeat the purpose.
 
 from PySide6.QtWidgets import (
     QCheckBox,
-    QDialog,
     QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
     QVBoxLayout,
+    QWidget,
 )
 
 from desktop import api_client, layout
 from desktop.api_client import ApiError
+from desktop.base_dialog import AppDialog
 
 
-class DeviceUserAccountDialog(QDialog):
+class DeviceUserAccountDialog(AppDialog):
     """
     Modal dialog for creating or editing a device user account.
 
@@ -53,6 +54,7 @@ class DeviceUserAccountDialog(QDialog):
 
     def _build_ui(self):
         """Builds the Account Name, Password, and Administrator fields."""
+        content = QWidget()
         outer_layout = QVBoxLayout()
         outer_layout.setContentsMargins(
             layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
@@ -109,7 +111,8 @@ class DeviceUserAccountDialog(QDialog):
         if self.delete_button:
             outer_layout.addWidget(self.delete_button)
 
-        self.setLayout(outer_layout)
+        content.setLayout(outer_layout)
+        self.set_scrollable_content(content)
         self.account_name_input.setFocus()
 
     def _prefill_from_account(self, account: dict):
@@ -145,7 +148,7 @@ class DeviceUserAccountDialog(QDialog):
         except ApiError as e:
             self.save_button.setEnabled(True)
             self.save_button.setText("Save")
-            self._show_error(str(e))
+            self.handle_api_error(e, on_other_error=self._show_error)
             return
 
         self.save_button.setEnabled(True)
@@ -176,7 +179,7 @@ class DeviceUserAccountDialog(QDialog):
         try:
             api_client.delete_device_user_account(self.account["id"])
         except ApiError as e:
-            self._show_error(str(e))
+            self.handle_api_error(e, on_other_error=self._show_error)
             return
         finally:
             self.delete_button.setEnabled(True)

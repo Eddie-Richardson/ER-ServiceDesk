@@ -2,7 +2,7 @@
 # Shared base classes for dialogs and top-level windows
 """
 AppDialog and AppWindow are the base classes every ER-ServiceDesk
-dialog/window should inherit from instead of QDialog/QMainWindow
+dialog/window should inherit from instead of QDialog/QWidget
 directly. They provide two things centrally, so new windows get both
 for free instead of every file reimplementing the same logic:
 
@@ -20,12 +20,12 @@ for free instead of every file reimplementing the same logic:
    same as before.
 
 AppDialog and AppWindow don't share a common Qt base class (QDialog
-and QMainWindow aren't related), so the shared logic lives in
+and QWidget aren't related), so the shared logic lives in
 _SessionAwareMixin and each class inherits it alongside its own Qt
 base.
 """
 
-from PySide6.QtWidgets import QApplication, QDialog, QMainWindow, QMessageBox, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QApplication, QDialog, QMessageBox, QScrollArea, QVBoxLayout, QWidget
 
 from desktop import session
 from desktop.api_client import ApiError, SessionExpiredError
@@ -96,13 +96,20 @@ class AppDialog(QDialog, _SessionAwareMixin):
         self.setLayout(outer_layout)
 
 
-class AppWindow(QMainWindow, _SessionAwareMixin):
-    """Base class for top-level windows (Dashboard, Tickets, etc.). See module docstring."""
+class AppWindow(QWidget, _SessionAwareMixin):
+    """
+    Base class for top-level windows (Dashboard, Tickets, etc.). See
+    module docstring.
+    """
 
     def set_scrollable_content(self, content: QWidget):
-        """Wraps content in a QScrollArea and sets it as this window's central widget."""
+        """Wraps content in a QScrollArea and makes it this window's only child."""
         scroll_area = QScrollArea()
         scroll_area.setWidget(content)
         scroll_area.setWidgetResizable(True)
         scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
-        self.setCentralWidget(scroll_area)
+
+        outer_layout = QVBoxLayout()
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.addWidget(scroll_area)
+        self.setLayout(outer_layout)

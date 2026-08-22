@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from desktop import layout, session
+from desktop.base_dialog import AppWindow
 from desktop.dashboard_worker import DashboardWorker
 from desktop.billing_window import BillingWindow
 from desktop.customers_window import CustomersWindow
@@ -34,7 +35,7 @@ from desktop.theme import MONO_FONT_FAMILY, get_status_color
 NAV_ITEMS = ["Tickets", "Inventory", "Customers", "Billing", "Users & Roles", "Settings"]
 
 
-class DashboardWindow(QWidget):
+class DashboardWindow(AppWindow):
     """Main landing window shown after a successful login."""
 
     _WINDOW_BACKED_NAV_ITEMS = {"Tickets", "Inventory", "Customers", "Billing", "Users & Roles", "Settings"}
@@ -407,20 +408,12 @@ class DashboardWindow(QWidget):
 
         Args:
             result: On success, a list of {"name", "count"}
-                dicts. On failure, a human-readable error message string.
+                dicts. On failure, the caught ApiError.
         """
         self._clear_status_area()
 
         if not success:
-            error_label = QLabel(f"Couldn't load ticket counts: {result}")
-            error_label.setObjectName("subtitle")
-            error_label.setWordWrap(True)
-            self.status_area_layout.addWidget(error_label)
-
-            retry_button = QPushButton("Retry")
-            retry_button.setObjectName("secondary")
-            retry_button.clicked.connect(self._load_status_counts)
-            self.status_area_layout.addWidget(retry_button)
+            self.handle_api_error(result, on_other_error=self._show_status_load_error)
             return
 
         if not result:
@@ -443,6 +436,18 @@ class DashboardWindow(QWidget):
                 lambda _checked, name=status["name"]: self._on_status_clicked(name)
             )
             self.status_area_layout.addWidget(row)
+
+    def _show_status_load_error(self, message: str):
+        """Renders an inline error message and a Retry button in the status area."""
+        error_label = QLabel(f"Couldn't load ticket counts: {message}")
+        error_label.setObjectName("subtitle")
+        error_label.setWordWrap(True)
+        self.status_area_layout.addWidget(error_label)
+
+        retry_button = QPushButton("Retry")
+        retry_button.setObjectName("secondary")
+        retry_button.clicked.connect(self._load_status_counts)
+        self.status_area_layout.addWidget(retry_button)
 
     def _on_status_clicked(self, status_name: str):
         """

@@ -24,7 +24,9 @@ class DashboardWorker(QObject):
             On success, second argument is a list of
             {"name": str, "count": int} dicts, one per status, in the
             order returned by the backend. On failure, second argument
-            is a human-readable error message string.
+            is the caught ApiError (or SessionExpiredError) itself, not
+            a stringified message -- callers use handle_api_error() to
+            react to it.
     """
 
     finished = Signal(bool, object)
@@ -40,7 +42,7 @@ class DashboardWorker(QObject):
             statuses = list_ticket_statuses()
             tickets = list_tickets()
         except ApiError as e:
-            self.finished.emit(False, str(e))
+            self.finished.emit(False, e)
             return
 
         counts_by_status_id = {}

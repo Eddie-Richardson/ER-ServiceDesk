@@ -28,7 +28,9 @@ class InventoryDataWorker(QObject):
         finished(bool, object): Emitted once. First argument is success.
             On success, second argument is a dict with keys "assets",
             "parts", "categories", "locations". On failure, second
-            argument is a human-readable error message string.
+            argument is the caught ApiError (or SessionExpiredError)
+            itself, not a stringified message -- callers use
+            handle_api_error() to react to it.
     """
 
     finished = Signal(bool, object)
@@ -47,7 +49,7 @@ class InventoryDataWorker(QObject):
                 "parts": list_parts(),
             }
         except ApiError as e:
-            self.finished.emit(False, str(e))
+            self.finished.emit(False, e)
             return
 
         self.finished.emit(True, data)

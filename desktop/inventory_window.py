@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
 )
 
 from desktop import layout
+from desktop.base_dialog import AppWindow
 from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.lock_gate import LockGate
 from desktop.asset_form_dialog import AssetFormDialog
@@ -41,7 +42,7 @@ ASSET_COLUMN_HEADERS = ["ID", "Name", "Category", "Manufacturer", "Model", "Stat
 PART_COLUMN_HEADERS = ["ID", "Name", "SKU", "Qty On Hand", "Reorder At", "Supplier", "Location"]
 
 
-class InventoryWindow(QWidget):
+class InventoryWindow(AppWindow):
     """Standalone window with Assets and Parts tabs."""
 
     window_closed = Signal()
@@ -208,12 +209,10 @@ class InventoryWindow(QWidget):
 
         Args:
             result: On success, the reference_data dict from
-                InventoryDataWorker. On failure, a human-readable error
-                message string.
+                InventoryDataWorker. On failure, the caught ApiError.
         """
         if not success:
-            self.assets_status_label.setText(f"Couldn't load assets: {result}")
-            self.parts_status_label.setText(f"Couldn't load parts: {result}")
+            self.handle_api_error(result, on_other_error=self._show_load_error)
             return
 
         self.reference_data = result
@@ -222,6 +221,11 @@ class InventoryWindow(QWidget):
 
         self._render_assets_table()
         self._render_parts_table()
+
+    def _show_load_error(self, message: str):
+        """Shows the same load error in both tabs' status labels."""
+        self.assets_status_label.setText(f"Couldn't load assets: {message}")
+        self.parts_status_label.setText(f"Couldn't load parts: {message}")
 
     # -----------------------------------------------------------------
     # Assets tab

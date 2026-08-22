@@ -7,7 +7,6 @@ Dialog for creating a new billable service or editing an existing one.
 from PySide6.QtCore import QThread
 from PySide6.QtWidgets import (
     QCheckBox,
-    QDialog,
     QDoubleSpinBox,
     QLabel,
     QLineEdit,
@@ -17,13 +16,14 @@ from PySide6.QtWidgets import (
 )
 
 from desktop import layout
+from desktop.base_dialog import AppDialog
 from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.lookup_save_worker import LookupSaveWorker
 
 ENDPOINT = "/services/"
 
 
-class ServiceDialog(QDialog):
+class ServiceDialog(AppDialog):
     """
     Modal dialog for creating or editing a billable service.
 
@@ -156,14 +156,14 @@ class ServiceDialog(QDialog):
     def _on_save_finished(self, success: bool, result):
         """
         Args:
-            result: The saved record on success, or a human-readable
-                error message on failure.
+            result: The saved record on success, or the caught
+                ApiError on failure.
         """
         self.save_button.setEnabled(True)
         self.save_button.setText("Save")
 
         if not success:
-            self._show_error(result)
+            self.handle_api_error(result, on_other_error=self._show_error)
             return
 
         self.saved_service = result

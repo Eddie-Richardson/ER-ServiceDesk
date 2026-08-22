@@ -11,7 +11,6 @@ and endpoint rather than two near-identical dialog classes.
 from PySide6.QtCore import QThread
 from PySide6.QtWidgets import (
     QCheckBox,
-    QDialog,
     QDoubleSpinBox,
     QLabel,
     QLineEdit,
@@ -20,11 +19,12 @@ from PySide6.QtWidgets import (
 )
 
 from desktop import layout
+from desktop.base_dialog import AppDialog
 from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.lookup_save_worker import LookupSaveWorker
 
 
-class NamePercentageDialog(QDialog):
+class NamePercentageDialog(AppDialog):
     """
     Modal dialog for creating or editing a name/percentage/is_active
     catalog item.
@@ -157,14 +157,14 @@ class NamePercentageDialog(QDialog):
     def _on_save_finished(self, success: bool, result):
         """
         Args:
-            result: The saved record on success, or a human-readable
-                error message on failure.
+            result: The saved record on success, or the caught
+                ApiError on failure.
         """
         self.save_button.setEnabled(True)
         self.save_button.setText("Save")
 
         if not success:
-            self._show_error(result)
+            self.handle_api_error(result, on_other_error=self._show_error)
             return
 
         self.saved_item = result

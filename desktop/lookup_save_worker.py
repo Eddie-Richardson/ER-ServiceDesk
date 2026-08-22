@@ -26,8 +26,9 @@ class LookupSaveWorker(QObject):
         finished(bool, object): Emitted once. First argument is
             success. On a successful create/update, second argument is
             the saved record. On a successful delete, second argument
-            is None. On failure, second argument is a human-readable
-            error message.
+            is None. On failure, second argument is the caught ApiError
+            (or SessionExpiredError) itself, not a stringified message
+            -- callers use handle_api_error() to react to it.
     """
 
     finished = Signal(bool, object)
@@ -69,7 +70,7 @@ class LookupSaveWorker(QObject):
             else:
                 result = update_lookup_item(self.endpoint, self.item_id, self.payload)
         except ApiError as e:
-            self.finished.emit(False, str(e))
+            self.finished.emit(False, e)
             return
 
         self.finished.emit(True, result)

@@ -11,7 +11,6 @@ from scratch every time.
 
 from PySide6.QtCore import QThread
 from PySide6.QtWidgets import (
-    QDialog,
     QLabel,
     QLineEdit,
     QMessageBox,
@@ -22,13 +21,14 @@ from PySide6.QtWidgets import (
 
 from desktop import api_client, layout
 from desktop.api_client import ApiError
+from desktop.base_dialog import AppDialog
 from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.lookup_save_worker import LookupSaveWorker
 
 ENDPOINT = "/message_templates/"
 
 
-class MessageTemplateDialog(QDialog):
+class MessageTemplateDialog(AppDialog):
     """
     Modal dialog for creating or editing a message template.
 
@@ -170,14 +170,14 @@ class MessageTemplateDialog(QDialog):
     def _on_save_finished(self, success: bool, result):
         """
         Args:
-            result: The saved record on success, or a human-readable
-                error message on failure.
+            result: The saved record on success, or the caught
+                ApiError on failure.
         """
         self.save_button.setEnabled(True)
         self.save_button.setText("Save")
 
         if not success:
-            self._show_error(result)
+            self.handle_api_error(result, on_other_error=self._show_error)
             return
 
         self.saved_template = result
@@ -210,7 +210,7 @@ class MessageTemplateDialog(QDialog):
         try:
             api_client.delete_lookup_item(ENDPOINT, self.template["id"])
         except ApiError as e:
-            self._show_error(str(e))
+            self.handle_api_error(e, on_other_error=self._show_error)
             return
         finally:
             self.delete_button.setEnabled(True)

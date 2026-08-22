@@ -24,8 +24,9 @@ class LookupDataWorker(QObject):
     Signals:
         finished(bool, object): Emitted once. First argument is
             success. On success, second argument is the list of items.
-            On failure, second argument is a human-readable error
-            message string.
+            On failure, second argument is the caught ApiError (or
+            SessionExpiredError) itself, not a stringified message --
+            callers use handle_api_error() to react to it.
     """
 
     finished = Signal(bool, object)
@@ -48,7 +49,7 @@ class LookupDataWorker(QObject):
         try:
             items = self.list_func()
         except ApiError as e:
-            self.finished.emit(False, str(e))
+            self.finished.emit(False, e)
             return
 
         self.finished.emit(True, items)

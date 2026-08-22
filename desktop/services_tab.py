@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from desktop import api_client, layout
+from desktop.base_dialog import AppWindow
 from desktop.service_dialog import ServiceDialog
 from desktop.lock_gate import LockGate
 from desktop.lookup_save_worker import LookupSaveWorker
@@ -29,7 +30,7 @@ ENDPOINT = "/services/"
 COLUMN_HEADERS = ["Name", "Price", "Active"]
 
 
-class ServicesTab(QWidget):
+class ServicesTab(AppWindow):
     """List, create, edit, and delete billable services."""
 
     data_changed = Signal()
@@ -113,11 +114,11 @@ class ServicesTab(QWidget):
     def _on_data_loaded(self, success: bool, result):
         """
         Args:
-            result: The list of services on success, or a human-readable
-                error message on failure.
+            result: The list of services on success, or the caught
+                ApiError on failure.
         """
         if not success:
-            self.status_label.setText(f"Couldn't load services: {result}")
+            self.handle_api_error(result, on_other_error=lambda message: self.status_label.setText(f"Couldn't load services: {message}"))
             return
 
         self.all_services = result
@@ -212,13 +213,15 @@ class ServicesTab(QWidget):
     def _on_delete_finished(self, success: bool, result):
         """
         Args:
-            result: None on success, or a human-readable error message
-                on failure.
+            result: None on success, or the caught ApiError on failure.
         """
         self.delete_button.setEnabled(True)
 
         if not success:
-            QMessageBox.warning(self, "Delete Failed", str(result))
+            self.handle_api_error(
+                result,
+                on_other_error=lambda message: QMessageBox.warning(self, "Delete Failed", message),
+            )
             return
 
         self._load_data()

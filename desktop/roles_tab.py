@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 
 from desktop import layout
 from desktop.api_client import list_permissions, list_roles
+from desktop.base_dialog import AppWindow
 from desktop.lookup_save_worker import LookupSaveWorker
 from desktop.lookup_worker import LookupDataWorker
 from desktop.lock_gate import LockGate
@@ -32,7 +33,7 @@ from desktop.role_form_dialog import RoleFormDialog
 COLUMN_HEADERS = ["Name", "Description", "Permissions"]
 
 
-class RolesTab(QWidget):
+class RolesTab(AppWindow):
     """Settings tab for managing roles and their permission grants."""
 
     def __init__(self):
@@ -131,11 +132,11 @@ class RolesTab(QWidget):
     def _on_roles_loaded(self, success: bool, result):
         """
         Args:
-            result: The role list on success, or a human-readable error
-                message on failure.
+            result: The role list on success, or the caught ApiError
+                on failure.
         """
         if not success:
-            self.status_label.setText(f"Couldn't load roles: {result}")
+            self.handle_api_error(result, on_other_error=lambda message: self.status_label.setText(f"Couldn't load roles: {message}"))
             return
         self.all_roles = result
         self._render_table()
@@ -251,13 +252,15 @@ class RolesTab(QWidget):
     def _on_delete_finished(self, success: bool, result):
         """
         Args:
-            result: None on success, or a human-readable error message
-                on failure.
+            result: None on success, or the caught ApiError on failure.
         """
         self.delete_button.setEnabled(True)
 
         if not success:
-            QMessageBox.warning(self, "Delete Failed", str(result))
+            self.handle_api_error(
+                result,
+                on_other_error=lambda message: QMessageBox.warning(self, "Delete Failed", message),
+            )
             return
 
         self._load_data()

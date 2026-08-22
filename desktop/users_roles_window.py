@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
 )
 
 from desktop import layout
+from desktop.base_dialog import AppWindow
 from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.lock_gate import LockGate
 from desktop.user_form_dialog import UserFormDialog
@@ -40,7 +41,7 @@ from desktop.theme import DARK, LIGHT, MONO_FONT_FAMILY
 COLUMN_HEADERS = ["Name", "Email", "Active", "Superuser", "Roles"]
 
 
-class UsersRolesWindow(QWidget):
+class UsersRolesWindow(AppWindow):
     """Standalone window listing all users, with create, edit, and role assignment."""
 
     window_closed = Signal()
@@ -137,10 +138,10 @@ class UsersRolesWindow(QWidget):
         """
         Args:
             result: On success, the data dict from UsersRolesDataWorker.
-                On failure, a human-readable error message string.
+                On failure, the caught ApiError.
         """
         if not success:
-            self.status_label.setText(f"Couldn't load users: {result}")
+            self.handle_api_error(result, on_other_error=lambda message: self.status_label.setText(f"Couldn't load users: {message}"))
             return
 
         self.all_users = result["users"]

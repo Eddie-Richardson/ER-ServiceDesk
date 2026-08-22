@@ -21,8 +21,10 @@ class UsersRolesDataWorker(QObject):
     Signals:
         finished(bool, object): Emitted once. First argument is success.
             On success, second argument is a dict with keys "users",
-            "roles", "user_roles". On failure, second argument is a
-            human-readable error message string.
+            "roles", "user_roles". On failure, second argument is the
+            caught ApiError (or SessionExpiredError) itself, not a
+            stringified message -- callers use handle_api_error() to
+            react to it.
     """
 
     finished = Signal(bool, object)
@@ -40,7 +42,7 @@ class UsersRolesDataWorker(QObject):
                 "user_roles": list_user_roles(),
             }
         except ApiError as e:
-            self.finished.emit(False, str(e))
+            self.finished.emit(False, e)
             return
 
         self.finished.emit(True, data)

@@ -40,6 +40,7 @@ from PySide6.QtWidgets import (
 )
 
 from desktop import layout, session
+from desktop.base_dialog import AppWindow
 from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.lock_gate import LockGate
 from desktop.multi_select_filter import MultiSelectFilterButton
@@ -54,7 +55,7 @@ DEFAULT_SORT_COLUMN = 5  # Priority
 CLOSED_STATUS_NAME = "Closed"
 
 
-class TicketsWindow(QWidget):
+class TicketsWindow(AppWindow):
     """Standalone window listing all tickets, with filtering and create/edit."""
 
     window_closed = Signal()
@@ -198,11 +199,10 @@ class TicketsWindow(QWidget):
 
         Args:
             result: On success, the reference_data dict from
-                TicketsDataWorker. On failure, a human-readable error
-                message string.
+                TicketsDataWorker. On failure, the caught ApiError.
         """
         if not success:
-            self.status_label.setText(f"Couldn't load tickets: {result}")
+            self.handle_api_error(result, on_other_error=lambda message: self.status_label.setText(f"Couldn't load tickets: {message}"))
             return
 
         self.reference_data = result

@@ -18,13 +18,15 @@ class LockAcquireWorker(QObject):
     Attempts to acquire a lock in the background.
 
     Signals:
-        finished(bool, str): Emitted once. First argument is success.
-            On success, second argument is empty. On failure, second
-            argument is a human-readable message -- either who currently
-            holds the lock, or a connection/session error.
+        finished(bool, object): Emitted once. First argument is
+            success. On success, second argument is empty string. On
+            failure, second argument is the caught ApiError (or
+            SessionExpiredError, or LockConflictError) itself, not a
+            stringified message -- callers use handle_api_error() to
+            react to it.
     """
 
-    finished = Signal(bool, str)
+    finished = Signal(bool, object)
 
     def __init__(self, entity_type: str, entity_id: int):
         """
@@ -45,7 +47,7 @@ class LockAcquireWorker(QObject):
         try:
             acquire_lock(self.entity_type, self.entity_id)
         except (LockConflictError, ApiError) as e:
-            self.finished.emit(False, str(e))
+            self.finished.emit(False, e)
             return
 
         self.finished.emit(True, "")

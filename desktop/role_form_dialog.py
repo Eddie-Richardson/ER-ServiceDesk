@@ -19,20 +19,21 @@ backend's Role schema nests this directly.
 from PySide6.QtCore import QThread
 from PySide6.QtWidgets import (
     QCheckBox,
-    QDialog,
     QLabel,
     QLineEdit,
     QPushButton,
     QTextEdit,
     QVBoxLayout,
+    QWidget,
 )
 
 from desktop import layout
+from desktop.base_dialog import AppDialog
 from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.role_save_worker import RoleSaveWorker
 
 
-class RoleFormDialog(QDialog):
+class RoleFormDialog(AppDialog):
     """
     Modal dialog for creating or editing a role.
 
@@ -74,6 +75,7 @@ class RoleFormDialog(QDialog):
     # -----------------------------------------------------------------
     def _build_ui(self):
         """Builds Name, Description, and one checkbox per permission."""
+        content = QWidget()
         outer_layout = QVBoxLayout()
         outer_layout.setContentsMargins(
             layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
@@ -128,7 +130,8 @@ class RoleFormDialog(QDialog):
         outer_layout.addWidget(self.save_button)
         outer_layout.addWidget(cancel_button)
 
-        self.setLayout(outer_layout)
+        content.setLayout(outer_layout)
+        self.set_scrollable_content(content)
         self.name_input.setFocus()
 
     # -----------------------------------------------------------------
@@ -181,14 +184,14 @@ class RoleFormDialog(QDialog):
     def _on_save_finished(self, success: bool, result):
         """
         Args:
-            result: The saved role record on success, or a
-                human-readable error message on failure.
+            result: The saved role record on success, or the caught
+                ApiError on failure.
         """
         self.save_button.setEnabled(True)
         self.save_button.setText("Save Role")
 
         if not success:
-            self._show_error(result)
+            self.handle_api_error(result, on_other_error=self._show_error)
             return
 
         self.saved_role = result

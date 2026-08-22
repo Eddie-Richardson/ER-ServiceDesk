@@ -106,14 +106,21 @@ class LockGate(QObject):
 
         self._acquire_thread.start()
 
-    def _on_acquire_finished(self, success: bool, message: str):
+    def _on_acquire_finished(self, success: bool, result):
         """
         Args:
-            message: Empty on success; a human-readable reason on
-                failure (who holds it, or a connection error).
+            result: Empty string on success; on failure, the caught
+                ApiError (LockConflictError for "someone else has it",
+                or a connection/session error).
         """
         if not success:
-            QMessageBox.information(self._parent_widget, "Record Locked", message)
+            if hasattr(self._parent_widget, "handle_api_error"):
+                self._parent_widget.handle_api_error(
+                    result,
+                    on_other_error=lambda message: QMessageBox.information(self._parent_widget, "Record Locked", message),
+                )
+            else:
+                QMessageBox.information(self._parent_widget, "Record Locked", str(result))
             return
 
         dialog = self._open_dialog()

@@ -37,7 +37,9 @@ class TicketsDataWorker(QObject):
             "parts", "users", "locations", each a list of the
             corresponding records. "users" is empty for non-superuser
             sessions -- see _load_users(). On failure, second argument
-            is a human-readable error message string.
+            is the caught ApiError (or SessionExpiredError) itself, not
+            a stringified message -- callers use handle_api_error() to
+            react to it.
     """
 
     finished = Signal(bool, object)
@@ -61,7 +63,7 @@ class TicketsDataWorker(QObject):
                 "users": self._load_users(),
             }
         except ApiError as e:
-            self.finished.emit(False, str(e))
+            self.finished.emit(False, e)
             return
 
         self.finished.emit(True, data)

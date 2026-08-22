@@ -47,6 +47,7 @@ from PySide6.QtWidgets import (
 
 from desktop import api_client, layout, session
 from desktop.api_client import ApiError
+from desktop.base_dialog import AppDialog
 from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.ticket_save_worker import TicketSaveWorker
 from desktop.notes_dialog import NotesDialog
@@ -59,7 +60,7 @@ DEFAULT_STATUS_NAME = "Open"
 NEW_DEVICE_SENTINEL = "__new_device__"
 
 
-class TicketFormDialog(QDialog):
+class TicketFormDialog(AppDialog):
     """
     Modal dialog for creating or editing a ticket.
 
@@ -410,7 +411,7 @@ class TicketFormDialog(QDialog):
         try:
             updated_ticket = api_client.send_waiver(self.ticket["id"])
         except ApiError as e:
-            QMessageBox.critical(self, "Send Failed", str(e))
+            self.handle_api_error(e, title="Send Failed")
             return
 
         self.ticket = updated_ticket
@@ -697,14 +698,14 @@ class TicketFormDialog(QDialog):
         or re-enables the form and shows the error inline on failure.
 
         Args:
-            result: The saved ticket record on success, or a
-                human-readable error message on failure.
+            result: The saved ticket record on success, or the caught
+                ApiError on failure.
         """
         self.save_button.setEnabled(True)
         self.save_button.setText("Save Ticket")
 
         if not success:
-            self._show_error(result)
+            self.handle_api_error(result, on_other_error=self._show_error)
             return
 
         self.saved_ticket = result

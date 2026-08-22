@@ -11,7 +11,6 @@ just decorative.
 
 from PySide6.QtWidgets import (
     QComboBox,
-    QDialog,
     QLabel,
     QLineEdit,
     QMessageBox,
@@ -23,6 +22,7 @@ from PySide6.QtWidgets import (
 
 from desktop import api_client, layout
 from desktop.api_client import ApiError
+from desktop.base_dialog import AppDialog
 
 # Matches app/workers/tasks.py's own _PART_STATUS_MESSAGES exactly,
 # plus "needed" (the default status when a requirement is first
@@ -30,7 +30,7 @@ from desktop.api_client import ApiError
 STATUS_OPTIONS = ["needed", "ordered", "shipped", "delayed", "backordered", "received", "installed"]
 
 
-class TicketPartDialog(QDialog):
+class TicketPartDialog(AppDialog):
     """
     Modal dialog for creating or editing a part requirement on a ticket.
 
@@ -191,7 +191,7 @@ class TicketPartDialog(QDialog):
         except ApiError as e:
             self.save_button.setEnabled(True)
             self.save_button.setText("Save")
-            self._show_error(str(e))
+            self.handle_api_error(e, on_other_error=self._show_error)
             return
 
         self.save_button.setEnabled(True)
@@ -222,7 +222,7 @@ class TicketPartDialog(QDialog):
         try:
             api_client.delete_ticket_part(self.ticket_part["id"])
         except ApiError as e:
-            self._show_error(str(e))
+            self.handle_api_error(e, on_other_error=self._show_error)
             return
         finally:
             self.delete_button.setEnabled(True)

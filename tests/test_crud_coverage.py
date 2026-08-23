@@ -18,6 +18,7 @@ than a hand-written near-duplicate of the same five HTTP calls.
 
 from tests.factories import (
     make_customer,
+    make_device,
     make_role,
     make_permission,
     make_plain_user,
@@ -26,25 +27,31 @@ from tests.factories import (
 )
 
 
-def _assert_crud_lifecycle(client, headers, url, create_payload, update_payload, update_check_field=None):
+def _assert_crud_lifecycle(client, headers, url, create_payload, update_payload, update_check_field=None, read_headers=None):
     """
     Drive a full CRUD lifecycle against a resource's routes and assert
     each step behaves correctly.
 
     Args:
         client: The TestClient fixture.
-        headers: Auth header dict for a user allowed to access this route.
+        headers: Auth header dict for a user allowed to create/update/delete.
         url: The resource's base URL, e.g. "/roles" (no trailing slash).
         create_payload: JSON body for the POST request.
         update_payload: JSON body for the PUT request.
         update_check_field: If given, asserts response[field] == update_payload[field]
             after the update -- confirms the update actually took effect,
             not just that the request returned 200.
+        read_headers: Auth header dict for the list/get steps, if
+            different from headers -- e.g. a resource where GET only
+            requires billing.manage but writes require superuser. Uses
+            headers for reads too if not given.
 
     Returns:
         The created record's response JSON, in case a test needs to
         inspect anything beyond what this helper already checks.
     """
+    read_headers = read_headers if read_headers is not None else headers
+
     # Create
     create_resp = client.post(f"{url}/", json=create_payload, headers=headers)
     assert create_resp.status_code == 200, create_resp.text
@@ -53,12 +60,12 @@ def _assert_crud_lifecycle(client, headers, url, create_payload, update_payload,
     record_id = created["id"]
 
     # List includes it
-    list_resp = client.get(f"{url}/", headers=headers)
+    list_resp = client.get(f"{url}/", headers=read_headers)
     assert list_resp.status_code == 200
     assert any(item["id"] == record_id for item in list_resp.json())
 
     # Get by id
-    get_resp = client.get(f"{url}/{record_id}", headers=headers)
+    get_resp = client.get(f"{url}/{record_id}", headers=read_headers)
     assert get_resp.status_code == 200
     assert get_resp.json()["id"] == record_id
 
@@ -306,6 +313,533 @@ def test_quotes_crud(client, agent_headers, db):
 
     get_after_delete_resp = client.get(f"/quotes/{quote_id}", headers=agent_headers)
     assert get_after_delete_resp.status_code == 404
+
+
+def test_convert_quote_to_invoice(client, agent_headers, superuser_headers, db):
+    """
+    Converting a quote copies every line item over to the new invoice --
+    both service-based and part-based ones -- along with the discount/tax
+    selection and totals, then links the quote to the invoice it became.
+    Regression test: a real positional-argument mismatch in the copy loop
+    (service_id/service_name landing in the quantity/unit_price slots,
+    and part-based line items never being copied at all) shipped
+    undetected since nothing exercised this path before.
+    """
+    ticket = make_full_ticket(db)
+
+    service_resp = client.post("/services/", json={"name": "Diagnostic", "price": 50.0}, headers=superuser_headers)
+    assert service_resp.status_code == 200, service_resp.text
+    service_id = service_resp.json()["id"]
+
+    part_resp = client.post("/inventory/parts/", json={"name": "SSD 500GB", "sku": "SKU-CONVERT-001", "selling_price": 80.0}, headers=superuser_headers)
+    assert part_resp.status_code == 200, part_resp.text
+    part_id = part_resp.json()["id"]
+
+    quote_resp = client.post("/quotes/", json={"ticket_id": ticket.id}, headers=agent_headers)
+    assert quote_resp.status_code == 200, quote_resp.text
+    quote_id = quote_resp.json()["id"]
+
+    add_service_resp = client.post(f"/quotes/{quote_id}/line-items", params={"service_id": service_id, "quantity": 1}, headers=agent_headers)
+    assert add_service_resp.status_code == 200, add_service_resp.text
+
+    add_part_resp = client.post(f"/quotes/{quote_id}/line-items", params={"part_id": part_id, "quantity": 2}, headers=agent_headers)
+    assert add_part_resp.status_code == 200, add_part_resp.text
+
+    convert_resp = client.post(f"/quotes/{quote_id}/convert-to-invoice", headers=agent_headers)
+    assert convert_resp.status_code == 200, convert_resp.text
+    invoice = convert_resp.json()
+    invoice_id = invoice["id"]
+
+    invoice_line_items = invoice["line_items"]
+    assert len(invoice_line_items) == 2
+
+    service_line = next(li for li in invoice_line_items if li["service_id"] == service_id)
+    assert service_line["service_name"] == "Diagnostic"
+    assert service_line["quantity"] == 1
+    assert float(service_line["unit_price"]) == 50.0
+    assert service_line["part_id"] is None
+
+    part_line = next(li for li in invoice_line_items if li["part_id"] == part_id)
+    assert part_line["part_name"] == "SSD 500GB"
+    assert part_line["quantity"] == 2
+    assert float(part_line["unit_price"]) == 80.0
+    assert part_line["service_id"] is None
+
+    quote_after_resp = client.get(f"/quotes/{quote_id}", headers=agent_headers)
+    assert quote_after_resp.json()["converted_invoice_id"] == invoice_id
+
+
+def test_tax_rates_crud(client, agent_headers, superuser_headers):
+    """GET requires billing.manage (agent_headers has it); create/update/delete require superuser specifically."""
+    _assert_crud_lifecycle(
+        client, superuser_headers, "/tax_rates",
+        {"name": "Sales Tax", "percentage": "7.25"},
+        {"percentage": "8.00"},
+        update_check_field="percentage",
+        read_headers=agent_headers,
+    )
+
+
+def test_tax_rates_write_requires_superuser(client, agent_headers):
+    """billing.manage alone isn't enough to create a tax rate -- catalog writes are superuser-only, matching services.py's own gating split."""
+    resp = client.post("/tax_rates/", json={"name": "VAT", "percentage": "20.00"}, headers=agent_headers)
+    assert resp.status_code == 403
+
+
+def test_discounts_crud(client, agent_headers, superuser_headers):
+    """GET requires billing.manage (agent_headers has it); create/update/delete require superuser specifically."""
+    _assert_crud_lifecycle(
+        client, superuser_headers, "/discounts",
+        {"name": "Loyalty Discount", "percentage": "10.00"},
+        {"percentage": "15.00"},
+        update_check_field="percentage",
+        read_headers=agent_headers,
+    )
+
+
+def test_discounts_write_requires_superuser(client, agent_headers):
+    """billing.manage alone isn't enough to create a discount -- catalog writes are superuser-only."""
+    resp = client.post("/discounts/", json={"name": "Referral", "percentage": "5.00"}, headers=agent_headers)
+    assert resp.status_code == 403
+
+
+def test_services_crud(client, agent_headers, superuser_headers):
+    """GET requires billing.manage (agent_headers has it); create/update/delete require superuser specifically."""
+    _assert_crud_lifecycle(
+        client, superuser_headers, "/services",
+        {"name": "Diagnostic", "price": "50.00"},
+        {"price": "60.00"},
+        update_check_field="price",
+        read_headers=agent_headers,
+    )
+
+
+def test_services_write_requires_superuser(client, agent_headers):
+    """billing.manage alone isn't enough to create a service -- catalog writes are superuser-only."""
+    resp = client.post("/services/", json={"name": "Cleaning", "price": "25.00"}, headers=agent_headers)
+    assert resp.status_code == 403
+
+
+def test_asset_categories_crud(client, agent_headers):
+    """Only requires a logged-in user -- no special permission gating, unlike the billing catalogs above."""
+    _assert_crud_lifecycle(
+        client, agent_headers, "/inventory/asset_categories",
+        {"name": "Laptop", "description": "Portable computers"},
+        {"description": "Portable computers and tablets"},
+        update_check_field="description",
+    )
+
+
+def test_business_info_settings_requires_superuser(client, agent_headers):
+    """billing.manage/other ordinary permissions aren't enough -- this screen includes setting the email password, so it's superuser-only, no exceptions."""
+    resp = client.get("/business_info_settings/", headers=agent_headers)
+    assert resp.status_code == 403
+
+
+def test_business_info_settings_password_never_returned(client, superuser_headers):
+    """Setting an email password never gets it back out through the API -- only whether one is set."""
+    payload = {
+        "business_name": "Eddie's Repair Shop", "business_phone": "555-0100",
+        "email_address": "shop@example.com", "email_password": "a-genuinely-secret-value",
+        "smtp_host": "smtp.gmail.com", "smtp_port": 587,
+        "imap_host": "imap.gmail.com", "imap_port": 993,
+    }
+    update_resp = client.put("/business_info_settings/", json=payload, headers=superuser_headers)
+    assert update_resp.status_code == 200, update_resp.text
+    assert update_resp.json()["email_password_is_set"] is True
+    assert "a-genuinely-secret-value" not in update_resp.text
+
+    get_resp = client.get("/business_info_settings/", headers=superuser_headers)
+    assert get_resp.status_code == 200
+    assert get_resp.json()["email_password_is_set"] is True
+    assert "a-genuinely-secret-value" not in get_resp.text
+
+
+def test_business_info_settings_omitted_password_leaves_existing_one(client, superuser_headers):
+    """Updating other fields without sending email_password keeps the previously-set password, rather than wiping it out."""
+    initial_payload = {
+        "business_name": "Eddie's Repair Shop", "business_phone": "555-0100",
+        "email_address": "shop@example.com", "email_password": "the-original-password",
+        "smtp_host": "smtp.gmail.com", "smtp_port": 587,
+        "imap_host": "imap.gmail.com", "imap_port": 993,
+    }
+    first_resp = client.put("/business_info_settings/", json=initial_payload, headers=superuser_headers)
+    assert first_resp.status_code == 200, first_resp.text
+    assert first_resp.json()["email_password_is_set"] is True
+
+    followup_payload = dict(initial_payload)
+    followup_payload["business_phone"] = "555-0199"
+    followup_payload["email_password"] = None
+    second_resp = client.put("/business_info_settings/", json=followup_payload, headers=superuser_headers)
+    assert second_resp.status_code == 200, second_resp.text
+    assert second_resp.json()["business_phone"] == "555-0199"
+    assert second_resp.json()["email_password_is_set"] is True
+
+
+def test_business_info_narrow_endpoint_reflects_the_same_name(client, agent_headers, superuser_headers):
+    """business-info's narrow, any-logged-in-user endpoint reads the same business_name set through the full superuser management screen -- confirming the two genuinely share one underlying setting, not two separate values."""
+    payload = {
+        "business_name": "Shared Name Shop", "business_phone": "555-0100",
+        "email_address": "shop@example.com",
+        "smtp_host": "smtp.gmail.com", "smtp_port": 587,
+        "imap_host": "imap.gmail.com", "imap_port": 993,
+    }
+    update_resp = client.put("/business_info_settings/", json=payload, headers=superuser_headers)
+    assert update_resp.status_code == 200, update_resp.text
+
+    narrow_resp = client.get("/business-info/business-name", headers=agent_headers)
+    assert narrow_resp.status_code == 200
+    assert narrow_resp.json()["business_name"] == "Shared Name Shop"
+
+
+def test_device_user_account_password_round_trips_correctly(client, agent_headers, db):
+    """A password set through create() comes back as the exact same plaintext -- confirms the encrypt/decrypt round-trip genuinely works, not just that the API returns some value."""
+    customer = make_customer(db)
+    device = make_device(db, customer.id)
+
+    create_resp = client.post(
+        "/device_user_accounts/",
+        json={"device_id": device.id, "account_name": "jsmith@outlook.com", "password": "Correct-Horse-Battery-Staple-9", "is_admin": False},
+        headers=agent_headers,
+    )
+    assert create_resp.status_code == 200, create_resp.text
+    account_id = create_resp.json()["id"]
+    assert create_resp.json()["password"] == "Correct-Horse-Battery-Staple-9"
+
+    list_resp = client.get("/device_user_accounts/", params={"device_id": device.id}, headers=agent_headers)
+    assert list_resp.status_code == 200
+    listed = next(a for a in list_resp.json() if a["id"] == account_id)
+    assert listed["password"] == "Correct-Horse-Battery-Staple-9"
+
+
+def test_device_user_account_password_update_and_omit_behavior(client, agent_headers, db):
+    """Updating with a new password replaces it; updating other fields while omitting password leaves the existing one unchanged."""
+    customer = make_customer(db)
+    device = make_device(db, customer.id)
+
+    create_resp = client.post(
+        "/device_user_accounts/",
+        json={"device_id": device.id, "account_name": "jsmith@outlook.com", "password": "original-password", "is_admin": False},
+        headers=agent_headers,
+    )
+    account_id = create_resp.json()["id"]
+
+    new_password_resp = client.put(f"/device_user_accounts/{account_id}", json={"password": "replaced-password"}, headers=agent_headers)
+    assert new_password_resp.status_code == 200, new_password_resp.text
+    assert new_password_resp.json()["password"] == "replaced-password"
+
+    rename_only_resp = client.put(f"/device_user_accounts/{account_id}", json={"account_name": "jsmith-renamed@outlook.com"}, headers=agent_headers)
+    assert rename_only_resp.status_code == 200, rename_only_resp.text
+    assert rename_only_resp.json()["account_name"] == "jsmith-renamed@outlook.com"
+    assert rename_only_resp.json()["password"] == "replaced-password"
+
+
+def test_device_user_account_delete(client, agent_headers, db):
+    customer = make_customer(db)
+    device = make_device(db, customer.id)
+
+    create_resp = client.post(
+        "/device_user_accounts/",
+        json={"device_id": device.id, "account_name": "temp@outlook.com", "password": "temp-pass", "is_admin": True},
+        headers=agent_headers,
+    )
+    account_id = create_resp.json()["id"]
+
+    delete_resp = client.delete(f"/device_user_accounts/{account_id}", headers=agent_headers)
+    assert delete_resp.status_code in (200, 204)
+
+    list_resp = client.get("/device_user_accounts/", params={"device_id": device.id}, headers=agent_headers)
+    assert not any(a["id"] == account_id for a in list_resp.json())
+
+
+def test_device_user_accounts_list_requires_device_id(client, agent_headers):
+    """device_id is a required query param, not optional -- there's no legitimate reason to fetch every device's accounts across the whole app at once."""
+    resp = client.get("/device_user_accounts/", headers=agent_headers)
+    assert resp.status_code == 422
+
+
+def _make_invoice_with_total(db, total):
+    """Sets a real, known total directly via the DB session, bypassing line-item calculation -- that's a separate concern from the payment-plan math these tests exercise."""
+    from decimal import Decimal
+    ticket = make_full_ticket(db)
+    invoice = make_invoice(db, ticket.id)
+    invoice.total = Decimal(str(total))
+    db.commit()
+    db.refresh(invoice)
+    return invoice
+
+
+def test_payment_plan_create_splits_balance_correctly(client, agent_headers, db):
+    """A $250 balance at $100/installment produces two full $100 installments plus a $50 remainder installment -- the last one gets whatever's left, never more than the entered amount."""
+    invoice = _make_invoice_with_total(db, "250.00")
+
+    create_resp = client.post(
+        "/payment_plans/",
+        json={"invoice_id": invoice.id, "installment_amount": "100.00", "frequency": "monthly", "start_date": "2026-01-31"},
+        headers=agent_headers,
+    )
+    assert create_resp.status_code == 200, create_resp.text
+    plan = create_resp.json()
+    installments = plan["installments"]
+    assert len(installments) == 3
+    assert [i["planned_amount"] for i in installments] == ["100.00", "100.00", "50.00"]
+
+
+def test_payment_plan_rejects_second_plan_on_same_invoice(client, agent_headers, db):
+    invoice = _make_invoice_with_total(db, "100.00")
+    first_resp = client.post(
+        "/payment_plans/",
+        json={"invoice_id": invoice.id, "installment_amount": "50.00", "frequency": "monthly", "start_date": "2026-01-01"},
+        headers=agent_headers,
+    )
+    assert first_resp.status_code == 200, first_resp.text
+
+    second_resp = client.post(
+        "/payment_plans/",
+        json={"invoice_id": invoice.id, "installment_amount": "25.00", "frequency": "weekly", "start_date": "2026-02-01"},
+        headers=agent_headers,
+    )
+    assert second_resp.status_code == 400
+
+
+def test_payment_plan_rejects_nonpositive_installment_amount(client, agent_headers, db):
+    invoice = _make_invoice_with_total(db, "100.00")
+    resp = client.post(
+        "/payment_plans/",
+        json={"invoice_id": invoice.id, "installment_amount": "0.00", "frequency": "monthly", "start_date": "2026-01-01"},
+        headers=agent_headers,
+    )
+    assert resp.status_code == 400
+
+
+def test_payment_plan_paying_exactly_as_scheduled_leaves_remaining_amounts_unchanged(client, agent_headers, db):
+    """Paying the first installment for exactly its planned amount shouldn't change the remaining installments' amounts -- a sanity check that the rebalancing math is a no-op when there's no actual deviation."""
+    invoice = _make_invoice_with_total(db, "300.00")
+    create_resp = client.post(
+        "/payment_plans/",
+        json={"invoice_id": invoice.id, "installment_amount": "100.00", "frequency": "monthly", "start_date": "2026-01-01"},
+        headers=agent_headers,
+    )
+    installments = create_resp.json()["installments"]
+    first_id = installments[0]["id"]
+
+    pay_resp = client.post(f"/payment_plans/installments/{first_id}/pay", json={"method": "cash"}, headers=agent_headers)
+    assert pay_resp.status_code == 200, pay_resp.text
+
+    plan_resp = client.get(f"/payment_plans/{create_resp.json()['id']}", headers=agent_headers)
+    remaining = [i for i in plan_resp.json()["installments"] if i["payment_id"] is None]
+    assert len(remaining) == 2
+    assert [i["planned_amount"] for i in remaining] == ["100.00", "100.00"]
+
+
+def test_payment_plan_overpaying_reduces_remaining_installments(client, agent_headers, db):
+    """Overpaying one installment reduces what's redistributed across the rest, rather than leaving them at their original planned amount."""
+    invoice = _make_invoice_with_total(db, "300.00")
+    create_resp = client.post(
+        "/payment_plans/",
+        json={"invoice_id": invoice.id, "installment_amount": "100.00", "frequency": "monthly", "start_date": "2026-01-01"},
+        headers=agent_headers,
+    )
+    installments = create_resp.json()["installments"]
+    first_id = installments[0]["id"]
+
+    pay_resp = client.post(f"/payment_plans/installments/{first_id}/pay", json={"amount": "150.00", "method": "cash"}, headers=agent_headers)
+    assert pay_resp.status_code == 200, pay_resp.text
+
+    plan_resp = client.get(f"/payment_plans/{create_resp.json()['id']}", headers=agent_headers)
+    remaining = [i for i in plan_resp.json()["installments"] if i["payment_id"] is None]
+    assert len(remaining) == 2
+    # $300 total - $150 paid = $150 remaining, split evenly across 2 installments
+    assert [i["planned_amount"] for i in remaining] == ["75.00", "75.00"]
+
+
+def test_payment_plan_underpaying_increases_remaining_installments(client, agent_headers, db):
+    """Underpaying one installment (not the last) increases what's redistributed across the rest."""
+    invoice = _make_invoice_with_total(db, "300.00")
+    create_resp = client.post(
+        "/payment_plans/",
+        json={"invoice_id": invoice.id, "installment_amount": "100.00", "frequency": "monthly", "start_date": "2026-01-01"},
+        headers=agent_headers,
+    )
+    installments = create_resp.json()["installments"]
+    first_id = installments[0]["id"]
+
+    pay_resp = client.post(f"/payment_plans/installments/{first_id}/pay", json={"amount": "50.00", "method": "cash"}, headers=agent_headers)
+    assert pay_resp.status_code == 200, pay_resp.text
+
+    plan_resp = client.get(f"/payment_plans/{create_resp.json()['id']}", headers=agent_headers)
+    remaining = [i for i in plan_resp.json()["installments"] if i["payment_id"] is None]
+    assert len(remaining) == 2
+    # $300 total - $50 paid = $250 remaining, split evenly across 2 installments
+    assert [i["planned_amount"] for i in remaining] == ["125.00", "125.00"]
+
+
+def test_payment_plan_overpaying_to_zero_completes_early(client, agent_headers, db):
+    """Paying enough to reach a zero remaining balance deletes the leftover installments and marks the plan completed, rather than leaving zero-dollar installments behind."""
+    invoice = _make_invoice_with_total(db, "300.00")
+    create_resp = client.post(
+        "/payment_plans/",
+        json={"invoice_id": invoice.id, "installment_amount": "100.00", "frequency": "monthly", "start_date": "2026-01-01"},
+        headers=agent_headers,
+    )
+    installments = create_resp.json()["installments"]
+    first_id = installments[0]["id"]
+
+    pay_resp = client.post(f"/payment_plans/installments/{first_id}/pay", json={"amount": "300.00", "method": "cash"}, headers=agent_headers)
+    assert pay_resp.status_code == 200, pay_resp.text
+
+    plan_resp = client.get(f"/payment_plans/{create_resp.json()['id']}", headers=agent_headers)
+    plan = plan_resp.json()
+    assert plan["status"] == "completed"
+    remaining = [i for i in plan["installments"] if i["payment_id"] is None]
+    assert len(remaining) == 0
+
+
+def test_payment_plan_underpaying_last_installment_appends_a_new_one(client, agent_headers, db):
+    """Underpaying the final installment appends a new installment for what's left, since there's no other installment to redistribute onto."""
+    invoice = _make_invoice_with_total(db, "100.00")
+    create_resp = client.post(
+        "/payment_plans/",
+        json={"invoice_id": invoice.id, "installment_amount": "100.00", "frequency": "monthly", "start_date": "2026-01-01"},
+        headers=agent_headers,
+    )
+    installments = create_resp.json()["installments"]
+    assert len(installments) == 1
+    only_id = installments[0]["id"]
+
+    pay_resp = client.post(f"/payment_plans/installments/{only_id}/pay", json={"amount": "60.00", "method": "cash"}, headers=agent_headers)
+    assert pay_resp.status_code == 200, pay_resp.text
+
+    plan_resp = client.get(f"/payment_plans/{create_resp.json()['id']}", headers=agent_headers)
+    remaining = [i for i in plan_resp.json()["installments"] if i["payment_id"] is None]
+    assert len(remaining) == 1
+    assert remaining[0]["planned_amount"] == "40.00"
+    assert remaining[0]["sequence_number"] == 2
+
+
+def test_payment_plan_extend_date_uses_direct_offset_not_incremental(client, agent_headers, db):
+    """
+    Regression test for the documented Jan 31 date-extension bug class:
+    extending an installment to Jan 31 and recalculating a later monthly
+    installment must land on Mar 31, not Mar 28 -- incremental month-by-
+    month math (Jan 31 -> Feb 28 -> Mar 28) silently loses the original
+    day-of-month once a shorter month clamps it down.
+    """
+    invoice = _make_invoice_with_total(db, "300.00")
+    create_resp = client.post(
+        "/payment_plans/",
+        json={"invoice_id": invoice.id, "installment_amount": "100.00", "frequency": "monthly", "start_date": "2026-01-01"},
+        headers=agent_headers,
+    )
+    installments = create_resp.json()["installments"]
+    first_id = installments[0]["id"]
+    third_id = installments[2]["id"]
+
+    extend_resp = client.put(f"/payment_plans/installments/{first_id}/extend", json={"new_due_date": "2026-01-31"}, headers=agent_headers)
+    assert extend_resp.status_code == 200, extend_resp.text
+
+    plan_resp = client.get(f"/payment_plans/{create_resp.json()['id']}", headers=agent_headers)
+    third_installment = next(i for i in plan_resp.json()["installments"] if i["id"] == third_id)
+    assert third_installment["due_date"] == "2026-03-31"
+
+
+def _headers_for_user(user):
+    """Builds an Authorization header for an arbitrary already-created user, for tests that need two distinct authenticated users."""
+    from app.core.security import create_access_token
+    token = create_access_token({"sub": str(user.id)})
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_lock_acquire_and_release(client, agent_headers):
+    acquire_resp = client.post("/locks/acquire", json={"entity_type": "ticket", "entity_id": 1}, headers=agent_headers)
+    assert acquire_resp.status_code == 200, acquire_resp.text
+
+    release_resp = client.post("/locks/release", json={"entity_type": "ticket", "entity_id": 1}, headers=agent_headers)
+    assert release_resp.status_code == 200
+    assert release_resp.json()["released"] is True
+
+
+def test_lock_same_user_can_reacquire_their_own_lock(client, agent_headers):
+    """Re-opening the same record you already have locked succeeds, rather than treating yourself as a conflict."""
+    first_resp = client.post("/locks/acquire", json={"entity_type": "ticket", "entity_id": 2}, headers=agent_headers)
+    assert first_resp.status_code == 200
+
+    second_resp = client.post("/locks/acquire", json={"entity_type": "ticket", "entity_id": 2}, headers=agent_headers)
+    assert second_resp.status_code == 200
+
+
+def test_lock_different_user_blocked_by_active_lock(client, agent_headers, db):
+    """A second user trying to acquire a lock someone else already holds gets a 409 naming who holds it."""
+    other_user = make_plain_user(db, email="other_locker@example.com")
+    other_headers = _headers_for_user(other_user)
+
+    first_resp = client.post("/locks/acquire", json={"entity_type": "ticket", "entity_id": 3}, headers=agent_headers)
+    assert first_resp.status_code == 200
+
+    conflict_resp = client.post("/locks/acquire", json={"entity_type": "ticket", "entity_id": 3}, headers=other_headers)
+    assert conflict_resp.status_code == 409
+    assert "Currently being edited by" in conflict_resp.json()["error"]["message"]
+
+
+def test_lock_release_by_non_holder_is_a_safe_no_op(client, agent_headers, db):
+    """Releasing a lock you don't hold doesn't error and doesn't affect the actual holder's lock."""
+    other_user = make_plain_user(db, email="non_holder@example.com")
+    other_headers = _headers_for_user(other_user)
+
+    acquire_resp = client.post("/locks/acquire", json={"entity_type": "ticket", "entity_id": 4}, headers=agent_headers)
+    assert acquire_resp.status_code == 200
+
+    release_resp = client.post("/locks/release", json={"entity_type": "ticket", "entity_id": 4}, headers=other_headers)
+    assert release_resp.status_code == 200
+
+    still_conflicts_resp = client.post("/locks/acquire", json={"entity_type": "ticket", "entity_id": 4}, headers=other_headers)
+    assert still_conflicts_resp.status_code == 409
+
+
+def test_lock_release_of_never_locked_record_is_a_safe_no_op(client, agent_headers):
+    resp = client.post("/locks/release", json={"entity_type": "ticket", "entity_id": 999}, headers=agent_headers)
+    assert resp.status_code == 200
+    assert resp.json()["released"] is True
+
+
+def test_lock_stale_lock_can_be_reclaimed_by_another_user(client, agent_headers, db):
+    """A lock older than lock_timeout_minutes (default 15) is treated as abandoned and can be reclaimed by someone else, covering the case where the original holder's app crashed without releasing it."""
+    from datetime import datetime, timedelta, timezone
+    from app.models.record_lock import RecordLock
+
+    other_user = make_plain_user(db, email="reclaimer@example.com")
+    other_headers = _headers_for_user(other_user)
+
+    acquire_resp = client.post("/locks/acquire", json={"entity_type": "ticket", "entity_id": 5}, headers=agent_headers)
+    assert acquire_resp.status_code == 200
+    stale_lock = db.query(RecordLock).filter_by(entity_type="ticket", entity_id=5).first()
+    stale_lock.locked_at = datetime.now(timezone.utc) - timedelta(minutes=20)
+    db.commit()
+
+    reclaim_resp = client.post("/locks/acquire", json={"entity_type": "ticket", "entity_id": 5}, headers=other_headers)
+    assert reclaim_resp.status_code == 200, reclaim_resp.text
+
+
+def test_lock_timeout_is_configurable_via_system_setting(client, agent_headers, superuser_headers, db):
+    """A custom, shorter lock_timeout_minutes setting is genuinely honored, not just the hardcoded 15-minute default."""
+    from datetime import datetime, timedelta, timezone
+    from app.models.record_lock import RecordLock
+
+    custom_timeout_resp = client.put("/system_settings/by-key/lock_timeout_minutes", json={"value": "5"}, headers=superuser_headers)
+    assert custom_timeout_resp.status_code == 200, custom_timeout_resp.text
+
+    other_user = make_plain_user(db, email="short_timeout_reclaimer@example.com")
+    other_headers = _headers_for_user(other_user)
+
+    acquire_resp = client.post("/locks/acquire", json={"entity_type": "ticket", "entity_id": 6}, headers=agent_headers)
+    assert acquire_resp.status_code == 200
+
+    lock = db.query(RecordLock).filter_by(entity_type="ticket", entity_id=6).first()
+    lock.locked_at = datetime.now(timezone.utc) - timedelta(minutes=10)
+    db.commit()
+
+    reclaim_resp = client.post("/locks/acquire", json={"entity_type": "ticket", "entity_id": 6}, headers=other_headers)
+    assert reclaim_resp.status_code == 200, reclaim_resp.text
 
 
 def test_status_histories_is_read_only(client, agent_headers, db):

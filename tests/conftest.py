@@ -13,7 +13,7 @@ dropped and recreated for every test run.
 
 import os
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
 
@@ -57,6 +57,13 @@ def _clean_tables():
     """
     yield
     with engine.begin() as conn:
+        # quotes.converted_invoice_id and invoices.source_quote_id form a
+        # genuine circular foreign key -- null both link columns first so
+        # the normal reversed-topological delete below doesn't hit a live
+        # constraint trying to delete one side while the other still
+        # references it.
+        conn.execute(text("UPDATE quotes SET converted_invoice_id = NULL"))
+        conn.execute(text("UPDATE invoices SET source_quote_id = NULL"))
         for table in reversed(Base.metadata.sorted_tables):
             conn.execute(table.delete())
 

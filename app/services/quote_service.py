@@ -18,11 +18,13 @@ TaxRate is later renamed or deleted.
 """
 
 from fastapi import HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.crud.quote import crud_quote
 from app.crud.quote_line_item import crud_quote_line_item
 from app.crud.service import crud_service
+from app.models.quote import Quote
 from app.crud.part import crud_part
 from app.crud.discount import crud_discount
 from app.crud.tax_rate import crud_tax_rate
@@ -153,6 +155,41 @@ class QuoteService:
             db, "quote_line_item_removed", "ticket", quote.ticket_id, user_id=current_user_id,
             details=f"Removed {item_name} from Quote #{quote_id}",
         )
+
+    def delete(self, db: Session, id: int, current_user_id: int):
+        """
+        Deletes a quote outright -- the one exception to quotes/invoices
+        otherwise never being deletable. Only permitted for an accidental,
+        never-touched quote: no line items yet, never emailed, never
+        converted to an invoice, and only if it's the most recently
+        issued quote number -- deleting anything but the latest would
+        leave a permanent gap in the sequence, which is exactly what
+        the independent, sequential numbering exists to avoid.
+
+        Raises:
+            HTTPException: 404 if the quote doesn't exist. 400 if it
+                fails any of the conditions above.
+        """
+        quote = crud_quote.get(db, id)
+        if not quote:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Quote not found")
+
+        if crud_quote_line_item.get_by_quote(db, id):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This quote has line items and can't be deleted.")
+        if quote.quote_sent_at is not None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This quote has already been sent and can't be deleted.")
+        if quote.converted_invoice_id is not None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This quote has already been converted to an invoice and can't be deleted.")
+
+        most_recent_id = db.query(func.max(Quote.id)).scalar()
+        if id != most_recent_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only the most recently created quote can be deleted, to avoid leaving a gap in the numbering.")
+
+        audit_log_service.log(
+            db, "quote_deleted", "ticket", quote.ticket_id, user_id=current_user_id,
+            details=f"Deleted unsent, empty Quote #{id}",
+        )
+        crud_quote.delete(db, quote)
 
     # -----------------------------------------------------------------
     # Conversion to Invoice

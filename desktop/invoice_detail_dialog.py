@@ -54,6 +54,7 @@ class InvoiceDetailDialog(QDialog):
         self.parts: list[dict] = []
         self.payments: list[dict] = []
         self.payment_plan: dict | None = None
+        self.deleted = False  # tracked so the caller (BillingDialog) knows to remove this invoice from its list
 
         self.setWindowTitle(f"Invoice - {ticket_title}")
         self.resize(600, 700)
@@ -164,6 +165,12 @@ class InvoiceDetailDialog(QDialog):
         self.installments_table.hide()
         outer_layout.addWidget(self.installments_table)
 
+        self.delete_button = QPushButton("Delete Invoice")
+        self.delete_button.setObjectName("secondary")
+        self.delete_button.clicked.connect(self._on_delete_invoice)
+        self.delete_button.hide()
+        outer_layout.addWidget(self.delete_button)
+
         close_button = QPushButton("Close")
         close_button.setObjectName("secondary")
         close_button.clicked.connect(self.accept)
@@ -207,6 +214,25 @@ class InvoiceDetailDialog(QDialog):
         self._render_send_status()
         self._render_payments()
         self._load_payment_plan()
+        self._update_delete_visibility()
+
+    def _update_delete_visibility(self):
+        """
+        Shows Delete only when it's plausible: no line items yet,
+        never sent, not marked paid, no payments recorded, and not the
+        destination of a quote conversion. The backend is still the
+        real authority -- it additionally rejects the delete if this
+        isn't the most recently created invoice, which isn't something
+        this dialog can cheaply know client-side.
+        """
+        plausible = (
+            not self.invoice.get("line_items")
+            and self.invoice.get("invoice_sent_at") is None
+            and not self.invoice.get("is_paid")
+            and not self.payments
+            and self.invoice.get("source_quote_id") is None
+        )
+        self.delete_button.setVisible(plausible)
 
     def _populate_discount_tax_pickers(self):
         """Fills the Discount/Tax dropdowns with active options, plus the currently-selected one even if it's since been deactivated."""
@@ -459,3 +485,27 @@ class InvoiceDetailDialog(QDialog):
         dialog.exec()
         if dialog.action_taken:
             self._load_invoice()
+
+    # -----------------------------------------------------------------
+    # Deletion
+    # -----------------------------------------------------------------
+    def _on_delete_invoice(self):
+        """Deletes this invoice outright, after confirmation. Closes the dialog on success -- there's nothing left to display."""
+        confirmed = QMessageBox.question(
+            self,
+            "Delete Invoice",
+            f"Permanently delete Invoice #{self.invoice_id}? This can't be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if confirmed != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            api_client.delete_invoice(self.invoice_id)
+        except ApiError as e:
+            QMessageBox.critical(self, "Delete Failed", str(e))
+            return
+
+        self.deleted = True
+        self.accept()

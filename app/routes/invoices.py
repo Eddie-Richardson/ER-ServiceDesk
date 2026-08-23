@@ -6,7 +6,7 @@ REST endpoints for a bill generated for work performed on a ticket.
 Gated on billing.manage, same reasoning as routes/quotes.py.
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.api.dependencies import require_permission, get_current_user
@@ -30,7 +30,10 @@ def list_invoices(ticket_id: int | None = None, db: Session = Depends(get_db)):
 @router.get("/{id}", response_model=Invoice)
 def get_invoice(id: int, db: Session = Depends(get_db)):
     """Fetch a single Invoice record by ID, including its line items."""
-    return invoice_service.get(db, id)
+    invoice = invoice_service.get(db, id)
+    if not invoice:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
+    return invoice
 
 
 @router.post("/", response_model=Invoice)
@@ -52,6 +55,16 @@ def update_invoice(
 ):
     """Update an Invoice's discount/tax selection, details, or is_paid. Changing discount/tax recalculates totals."""
     return invoice_service.update(db, id, obj_in, current_user.id)
+
+
+@router.delete("/{id}")
+def delete_invoice(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Deletes an empty, never-sent, unpaid, non-converted invoice -- only if it's the most recently created one."""
+    return invoice_service.delete(db, id, current_user.id)
 
 
 @router.post("/{invoice_id}/line-items", response_model=InvoiceLineItem)

@@ -1097,6 +1097,19 @@ def send_quote(quote_id: int) -> dict:
     return _authed_post(f"/quotes/{quote_id}/send", {})
 
 
+def delete_quote(quote_id: int):
+    """
+    Deletes a quote outright.
+
+    Raises:
+        ApiError: If it has line items, has already been sent, has
+            already been converted to an invoice, or isn't the most
+            recently created quote -- see quote_service.delete()
+            server-side for the exact rules.
+    """
+    delete_lookup_item("/quotes/", quote_id)
+
+
 def convert_quote_to_invoice(quote_id: int) -> dict:
     """Converts an approved quote into a real invoice, copying its line items and discount/tax selection."""
     return _authed_post(f"/quotes/{quote_id}/convert-to-invoice", {})
@@ -1136,6 +1149,20 @@ def update_invoice_line_item(line_item_id: int, quantity: int) -> dict:
 def remove_invoice_line_item(line_item_id: int):
     """Removes a line item from an invoice."""
     delete_lookup_item("/invoices/line-items/", line_item_id)
+
+
+def delete_invoice(invoice_id: int):
+    """
+    Deletes an invoice outright.
+
+    Raises:
+        ApiError: If it has line items, has already been sent, is
+            marked paid or has payments recorded, came from a
+            converted quote, or isn't the most recently created
+            invoice -- see invoice_service.delete() server-side for
+            the exact rules.
+    """
+    delete_lookup_item("/invoices/", invoice_id)
 
 
 def list_payments_for_invoice(invoice_id: int) -> list[dict]:

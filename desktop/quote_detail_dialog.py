@@ -51,6 +51,7 @@ class QuoteDetailDialog(QDialog):
         self.services: list[dict] = []
         self.parts: list[dict] = []
         self.converted = False  # tracked so the caller (BillingDialog) knows to refresh its invoice list too
+        self.deleted = False  # tracked so the caller (BillingDialog) knows to remove this quote from its list
 
         self.setWindowTitle(f"Quote - {ticket_title}")
         self.resize(560, 520)
@@ -129,6 +130,12 @@ class QuoteDetailDialog(QDialog):
         self.converted_label.hide()
         outer_layout.addWidget(self.converted_label)
 
+        self.delete_button = QPushButton("Delete Quote")
+        self.delete_button.setObjectName("secondary")
+        self.delete_button.clicked.connect(self._on_delete_quote)
+        self.delete_button.hide()
+        outer_layout.addWidget(self.delete_button)
+
         close_button = QPushButton("Close")
         close_button.setObjectName("secondary")
         close_button.clicked.connect(self.accept)
@@ -166,6 +173,7 @@ class QuoteDetailDialog(QDialog):
         self._render_totals()
         self._update_convert_visibility()
         self._render_send_status()
+        self._update_delete_visibility()
 
     def _populate_discount_tax_pickers(self):
         """Fills the Discount/Tax dropdowns with active options, plus the currently-selected one even if it's since been deactivated."""
@@ -243,6 +251,21 @@ class QuoteDetailDialog(QDialog):
             self.send_status_label.setText(f"Quote sent on {sent_at[:10]}.")
         else:
             self.send_status_label.setText("Quote not yet sent.")
+
+    def _update_delete_visibility(self):
+        """
+        Shows Delete only when it's plausible: no line items yet,
+        never sent, never converted. The backend is still the real
+        authority -- it additionally rejects the delete if this isn't
+        the most recently created quote, which isn't something this
+        dialog can cheaply know client-side.
+        """
+        plausible = (
+            not self.quote.get("line_items")
+            and self.quote.get("quote_sent_at") is None
+            and self.quote.get("converted_invoice_id") is None
+        )
+        self.delete_button.setVisible(plausible)
 
     # -----------------------------------------------------------------
     # Line items
@@ -355,3 +378,27 @@ class QuoteDetailDialog(QDialog):
             return
 
         self._load_quote()
+
+    # -----------------------------------------------------------------
+    # Deletion
+    # -----------------------------------------------------------------
+    def _on_delete_quote(self):
+        """Deletes this quote outright, after confirmation. Closes the dialog on success -- there's nothing left to display."""
+        confirmed = QMessageBox.question(
+            self,
+            "Delete Quote",
+            f"Permanently delete Quote #{self.quote_id}? This can't be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if confirmed != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            api_client.delete_quote(self.quote_id)
+        except ApiError as e:
+            QMessageBox.critical(self, "Delete Failed", str(e))
+            return
+
+        self.deleted = True
+        self.accept()

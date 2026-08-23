@@ -13,6 +13,7 @@ is recorded that brings total payments up to the invoice's own total
 """
 
 from fastapi import HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.crud.invoice import crud_invoice
@@ -21,6 +22,8 @@ from app.crud.service import crud_service
 from app.crud.part import crud_part
 from app.crud.discount import crud_discount
 from app.crud.tax_rate import crud_tax_rate
+from app.crud.payment import crud_payment
+from app.models.invoice import Invoice
 from app.models.part_location import PartLocation
 from app.schemas.invoice import InvoiceCreate, InvoiceUpdate
 from app.schemas.invoice_line_item import InvoiceLineItemUpdate
@@ -164,6 +167,46 @@ class InvoiceService:
             db, "invoice_line_item_removed", "ticket", invoice.ticket_id, user_id=current_user_id,
             details=f"Removed {item_name} from Invoice #{invoice_id}",
         )
+
+    def delete(self, db: Session, id: int, current_user_id: int):
+        """
+        Deletes an invoice outright -- the one exception to
+        quotes/invoices otherwise never being deletable. Only permitted
+        for an accidental, never-touched invoice: no line items yet,
+        never emailed, no payments recorded, not the destination of a
+        quote conversion (deleting it would leave that quote's
+        converted_invoice_id pointing at nothing), and only if it's the
+        most recently issued invoice number -- deleting anything but
+        the latest would leave a permanent gap in the sequence, which
+        is exactly what the independent, sequential numbering exists
+        to avoid.
+
+        Raises:
+            HTTPException: 404 if the invoice doesn't exist. 400 if it
+                fails any of the conditions above.
+        """
+        invoice = crud_invoice.get(db, id)
+        if not invoice:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
+
+        if crud_invoice_line_item.get_by_invoice(db, id):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This invoice has line items and can't be deleted.")
+        if invoice.invoice_sent_at is not None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This invoice has already been sent and can't be deleted.")
+        if invoice.is_paid or crud_payment.get_by_invoice(db, id):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This invoice has payments recorded and can't be deleted.")
+        if invoice.source_quote_id is not None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This invoice came from a converted quote and can't be deleted.")
+
+        most_recent_id = db.query(func.max(Invoice.id)).scalar()
+        if id != most_recent_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only the most recently created invoice can be deleted, to avoid leaving a gap in the numbering.")
+
+        audit_log_service.log(
+            db, "invoice_deleted", "ticket", invoice.ticket_id, user_id=current_user_id,
+            details=f"Deleted unsent, empty Invoice #{id}",
+        )
+        crud_invoice.delete(db, invoice)
 
     # -----------------------------------------------------------------
     # Internal helpers

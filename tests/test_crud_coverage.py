@@ -283,7 +283,7 @@ def test_messages_crud(client, superuser_headers, db):
 
 
 def test_quotes_crud(client, agent_headers, db):
-    """Quote creation starts empty (ticket_id only) -- line items get added separately, one at a time, via their own endpoint. Quotes are deliberately not deletable (financial record) -- no create-then-delete lifecycle here, delete is confirmed rejected instead."""
+    """Quote creation starts empty (ticket_id only) -- line items get added separately, one at a time, via their own endpoint. Quotes are otherwise not deletable (financial record), except for the one narrow case exercised here: an empty, never-sent, never-converted quote that's also still the most recently created one."""
     ticket = make_full_ticket(db)
 
     create_resp = client.post("/quotes/", json={"ticket_id": ticket.id, "details": "Screen + labor"}, headers=agent_headers)
@@ -302,7 +302,10 @@ def test_quotes_crud(client, agent_headers, db):
     assert update_resp.json()["details"] == "Screen replacement + labor"
 
     delete_resp = client.delete(f"/quotes/{quote_id}", headers=agent_headers)
-    assert delete_resp.status_code == 405
+    assert delete_resp.status_code == 200, delete_resp.text
+
+    get_after_delete_resp = client.get(f"/quotes/{quote_id}", headers=agent_headers)
+    assert get_after_delete_resp.status_code == 404
 
 
 def test_status_histories_is_read_only(client, agent_headers, db):
@@ -324,7 +327,7 @@ def test_status_histories_is_read_only(client, agent_headers, db):
 # ---------------------------------------------------------------------------
 
 def test_invoices_crud(client, agent_headers, db):
-    """Invoice creation starts empty (ticket_id only), same as Quote. Invoices are deliberately not deletable (financial record) -- see test_quotes_crud for the same reasoning."""
+    """Invoice creation starts empty (ticket_id only), same as Quote. Invoices are otherwise not deletable (financial record); this one is additionally blocked because it's marked paid -- see test_quotes_crud for the narrow empty/unsent/most-recent case where deletion succeeds."""
     ticket = make_full_ticket(db)
 
     create_resp = client.post("/invoices/", json={"ticket_id": ticket.id}, headers=agent_headers)
@@ -343,7 +346,7 @@ def test_invoices_crud(client, agent_headers, db):
     assert update_resp.json()["is_paid"] is True
 
     delete_resp = client.delete(f"/invoices/{invoice_id}", headers=agent_headers)
-    assert delete_resp.status_code == 405
+    assert delete_resp.status_code == 400
 
 
 def test_payments_crud(client, agent_headers, db):

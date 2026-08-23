@@ -13,7 +13,7 @@ Thin HTTP layer: validates the request via the schema layer and
 delegates all real work to the service layer.
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.api.dependencies import require_permission, get_current_user
@@ -38,7 +38,10 @@ def list_quotes(ticket_id: int | None = None, db: Session = Depends(get_db)):
 @router.get("/{id}", response_model=Quote)
 def get_quote(id: int, db: Session = Depends(get_db)):
     """Fetch a single Quote record by ID, including its line items."""
-    return quote_service.get(db, id)
+    quote = quote_service.get(db, id)
+    if not quote:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Quote not found")
+    return quote
 
 
 @router.post("/", response_model=Quote)
@@ -60,6 +63,16 @@ def update_quote(
 ):
     """Update a Quote's discount/tax selection or details. Changing discount/tax recalculates totals."""
     return quote_service.update(db, id, obj_in, current_user.id)
+
+
+@router.delete("/{id}")
+def delete_quote(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Deletes an empty, never-sent, never-converted quote -- only if it's the most recently created one."""
+    return quote_service.delete(db, id, current_user.id)
 
 
 @router.post("/{quote_id}/line-items", response_model=QuoteLineItem)

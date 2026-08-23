@@ -38,4 +38,8 @@ class InvoiceCRUD:
         db.refresh(db_obj)
         return db_obj
 
+    def delete(self, db: Session, db_obj: Invoice):
+        db.delete(db_obj)
+        db.commit()
+
 crud_invoice = InvoiceCRUD()

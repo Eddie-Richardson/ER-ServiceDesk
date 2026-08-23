@@ -233,8 +233,9 @@ class QuoteService:
 
         for quote_line_item in crud_quote_line_item.get_by_quote(db, quote_id):
             crud_invoice_line_item.create(
-                db, new_invoice.id, quote_line_item.service_id, quote_line_item.service_name,
-                quote_line_item.quantity, quote_line_item.unit_price,
+                db, new_invoice.id, quote_line_item.quantity, quote_line_item.unit_price,
+                service_id=quote_line_item.service_id, service_name=quote_line_item.service_name,
+                part_id=quote_line_item.part_id, part_name=quote_line_item.part_name,
             )
 
         quote.converted_invoice_id = new_invoice.id

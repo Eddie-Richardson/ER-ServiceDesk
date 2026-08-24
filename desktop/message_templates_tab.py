@@ -1,8 +1,8 @@
 # ER-ServiceDesk/desktop/message_templates_tab.py
 
 """
-Settings tab for managing reusable message templates -- create, edit,
-and delete the subject/body pairs available via the Notes composer's
+Settings tab for managing reusable notes templates -- create, edit,
+and delete the bodies of text available via the Notes composer's
 quick-insert dropdown (see notes_dialog.py).
 """
 
@@ -22,11 +22,11 @@ from desktop import api_client, layout
 from desktop.api_client import ApiError
 from desktop.message_template_dialog import MessageTemplateDialog
 
-COLUMN_HEADERS = ["Name", "Subject"]
+COLUMN_HEADERS = ["Name"]
 
 
 class MessageTemplatesTab(QWidget):
-    """List, create, edit, and delete message templates."""
+    """List, create, edit, and delete notes templates."""
 
     def __init__(self):
         """Builds the toolbar and table, then loads data."""
@@ -45,7 +45,7 @@ class MessageTemplatesTab(QWidget):
         outer_layout.setSpacing(layout.SPACE_SM)
 
         toolbar = QHBoxLayout()
-        new_button = QPushButton("New Template")
+        new_button = QPushButton("New Notes Template")
         new_button.setFixedHeight(layout.BUTTON_HEIGHT)
         new_button.clicked.connect(self._open_new_template_dialog)
         toolbar.addWidget(new_button)
@@ -88,7 +88,7 @@ class MessageTemplatesTab(QWidget):
         """Renders self.all_templates into the table."""
         self.table.setRowCount(len(self.all_templates))
         for row, template in enumerate(self.all_templates):
-            values = [template.get("name", ""), template.get("subject", "")]
+            values = [template.get("name", "")]
             for col, value in enumerate(values):
                 item = QTableWidgetItem(value)
                 item.setData(Qt.ItemDataRole.UserRole, template)

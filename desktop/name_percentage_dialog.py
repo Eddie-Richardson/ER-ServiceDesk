@@ -133,7 +133,7 @@ class NamePercentageDialog(AppDialog):
 
         payload = {
             "name": name,
-            "percentage": str(self.percentage_input.value()),
+            "percentage": f"{self.percentage_input.value():.2f}",
             "is_active": self.active_checkbox.isChecked(),
         }
 

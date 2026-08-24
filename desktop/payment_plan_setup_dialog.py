@@ -114,7 +114,7 @@ class PaymentPlanSetupDialog(QDialog):
 
         try:
             self.saved_plan = api_client.create_payment_plan(
-                self.invoice_id, str(self.amount_input.value()),
+                self.invoice_id, f"{self.amount_input.value():.2f}",
                 self.frequency_combo.currentData(), start_date_str,
             )
         except ApiError as e:

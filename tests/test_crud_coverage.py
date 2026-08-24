@@ -235,7 +235,7 @@ def test_background_jobs_is_read_only(client, agent_headers):
 def test_message_templates_crud(client, agent_headers):
     _assert_crud_lifecycle(
         client, agent_headers, "/message_templates",
-        {"name": "ticket_created", "subject": "Your ticket was created", "body": "We got your ticket."},
+        {"name": "ticket_created", "body": "We got your ticket."},
         {"body": "We received your repair request."},
         update_check_field="body",
     )

@@ -104,7 +104,7 @@ class SettingsWindow(QWidget):
         tabs.addTab(SystemSettingsTab(), "System Settings")
         tabs.addTab(AuditLogTab(), "Audit Log")
         tabs.addTab(BackgroundJobsTab(), "Background Jobs")
-        tabs.addTab(MessageTemplatesTab(), "Message Templates")
+        tabs.addTab(MessageTemplatesTab(), "Notes Templates")
         tabs.addTab(ServicesTab(), "Services")
         tabs.addTab(NamePercentageTab("Discount", list_discounts, "/discounts/", "discount"), "Discounts")
         tabs.addTab(NamePercentageTab("Tax Rate", list_tax_rates, "/tax_rates/", "tax_rate"), "Tax Rates")

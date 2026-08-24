@@ -1,12 +1,11 @@
 # ER-ServiceDesk/desktop/message_template_dialog.py
 
 """
-Dialog for creating a new message template or editing an existing one.
+Dialog for creating a new notes template or editing an existing one.
 
-A template is a reusable subject/body pair for standardized customer
-communication -- inserted into the Notes composer via a quick-pick
-dropdown (see notes_dialog.py) rather than typing the same message
-from scratch every time.
+A template is a reusable body of text for standardized ticket notes --
+inserted into the Notes composer via a quick-pick dropdown (see
+notes_dialog.py) rather than typing the same note from scratch every time.
 """
 
 from PySide6.QtCore import QThread
@@ -46,7 +45,7 @@ class MessageTemplateDialog(AppDialog):
         self._thread: QThread | None = None
         self._worker: LookupSaveWorker | None = None
 
-        self.setWindowTitle("Edit Message Template" if template else "New Message Template")
+        self.setWindowTitle("Edit Notes Template" if template else "New Notes Template")
         self.setMinimumWidth(layout.DIALOG_WIDTH)
         restore_geometry(self, "MessageTemplateDialog")
 
@@ -70,10 +69,6 @@ class MessageTemplateDialog(AppDialog):
         self.name_input = QLineEdit()
         self.name_input.setPlaceholderText("Name, e.g. 'Ticket Created' (required)")
         self.name_input.setFixedHeight(layout.INPUT_HEIGHT)
-
-        self.subject_input = QLineEdit()
-        self.subject_input.setPlaceholderText("Subject (required)")
-        self.subject_input.setFixedHeight(layout.INPUT_HEIGHT)
 
         self.body_input = QTextEdit()
         self.body_input.setPlaceholderText(
@@ -99,14 +94,13 @@ class MessageTemplateDialog(AppDialog):
 
         self.delete_button = None
         if self.template:
-            self.delete_button = QPushButton("Delete Template")
+            self.delete_button = QPushButton("Delete Notes Template")
             self.delete_button.setObjectName("danger")
             self.delete_button.setFixedHeight(layout.BUTTON_HEIGHT)
             self.delete_button.clicked.connect(self._attempt_delete)
 
         for label_text, widget in [
             ("Name", self.name_input),
-            ("Subject", self.subject_input),
             ("Body", self.body_input),
         ]:
             field_label = QLabel(label_text)
@@ -126,7 +120,6 @@ class MessageTemplateDialog(AppDialog):
 
     def _prefill_from_template(self, template: dict):
         self.name_input.setText(template.get("name", ""))
-        self.subject_input.setText(template.get("subject", ""))
         self.body_input.setPlainText(template.get("body", ""))
 
     # -----------------------------------------------------------------
@@ -135,20 +128,16 @@ class MessageTemplateDialog(AppDialog):
     def _attempt_save(self):
         """Validates the form, then starts the save request on a background thread."""
         name = self.name_input.text().strip()
-        subject = self.subject_input.text().strip()
         body = self.body_input.toPlainText().strip()
 
         if not name:
             self._show_error("Enter a name.")
             return
-        if not subject:
-            self._show_error("Enter a subject.")
-            return
         if not body:
             self._show_error("Enter a body.")
             return
 
-        payload = {"name": name, "subject": subject, "body": body}
+        payload = {"name": name, "body": body}
 
         self.save_button.setEnabled(False)
         self.save_button.setText("Saving...")

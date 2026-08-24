@@ -1259,10 +1259,10 @@ def list_tax_rates() -> list[dict]:
 
 def list_message_templates() -> list[dict]:
     """
-    Returns every reusable message template.
+    Returns every reusable notes template.
 
     Returns:
-        A list of {"id", "name", "subject", "body"} dicts.
+        A list of {"id", "name", "body"} dicts.
     """
     return _authed_get("/message_templates/")
 

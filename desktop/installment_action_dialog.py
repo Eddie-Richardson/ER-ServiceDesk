@@ -123,7 +123,7 @@ class InstallmentActionDialog(QDialog):
 
         entered_amount = self.amount_input.value()
         planned_amount = float(self.installment["planned_amount"])
-        amount_to_send = None if abs(entered_amount - planned_amount) < 0.005 else str(entered_amount)
+        amount_to_send = None if abs(entered_amount - planned_amount) < 0.005 else f"{entered_amount:.2f}"
 
         try:
             api_client.record_installment_payment(self.installment["id"], amount_to_send, self.method_combo.currentData())

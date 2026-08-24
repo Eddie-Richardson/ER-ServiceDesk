@@ -132,7 +132,7 @@ class ServiceDialog(AppDialog):
         payload = {
             "name": name,
             "description": self.description_input.toPlainText().strip() or None,
-            "price": str(self.price_input.value()),
+            "price": f"{self.price_input.value():.2f}",
             "is_active": self.active_checkbox.isChecked(),
         }
 

@@ -97,7 +97,7 @@ class PaymentDialog(QDialog):
 
         try:
             self.saved_payment = api_client.create_payment(
-                self.invoice_id, str(self.amount_input.value()), self.method_combo.currentData(),
+                self.invoice_id, f"{self.amount_input.value():.2f}", self.method_combo.currentData(),
             )
         except ApiError as e:
             self.save_button.setEnabled(True)

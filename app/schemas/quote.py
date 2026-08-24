@@ -38,6 +38,7 @@ class QuoteUpdate(BaseModel):
 class Quote(QuoteBase):
     """Schema returned to the client for a Quote record (server -> client)."""
     id: int
+    quote_number: int
     subtotal: Decimal
     discount_name: str | None = None
     discount_amount: Decimal
@@ -45,6 +46,7 @@ class Quote(QuoteBase):
     tax_amount: Decimal
     total: Decimal
     converted_invoice_id: int | None = None
+    converted_invoice_number: int | None = None
     quote_sent_at: datetime | None = None
     line_items: list[QuoteLineItemSchema] = []
     created_at: datetime

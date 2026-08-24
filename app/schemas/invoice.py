@@ -31,6 +31,7 @@ class InvoiceUpdate(BaseModel):
 class Invoice(InvoiceBase):
     """Schema returned to the client for an Invoice record (server -> client)."""
     id: int
+    invoice_number: int
     subtotal: Decimal
     discount_name: str | None = None
     discount_amount: Decimal

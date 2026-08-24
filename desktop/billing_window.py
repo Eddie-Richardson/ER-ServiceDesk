@@ -205,9 +205,9 @@ class BillingWindow(QWidget):
     def _render_quotes(self, quotes: list[dict]):
         self.quotes_table.setRowCount(len(quotes))
         for row, quote in enumerate(quotes):
-            status = f"Converted to Invoice #{quote['converted_invoice_id']}" if quote.get("converted_invoice_id") else "Open"
+            status = f"Converted to Invoice #{quote['converted_invoice_number']}" if quote.get("converted_invoice_id") else "Open"
             values = [
-                f"#{quote['id']}",
+                f"#{quote['quote_number']}",
                 self._customer_name_for_ticket(quote["ticket_id"]),
                 f"#{quote['ticket_id']}",
                 f"${quote['total']}",
@@ -222,7 +222,7 @@ class BillingWindow(QWidget):
         self.invoices_table.setRowCount(len(invoices))
         for row, invoice in enumerate(invoices):
             values = [
-                f"#{invoice['id']}",
+                f"#{invoice['invoice_number']}",
                 self._customer_name_for_ticket(invoice["ticket_id"]),
                 f"#{invoice['ticket_id']}",
                 f"${invoice['total']}",

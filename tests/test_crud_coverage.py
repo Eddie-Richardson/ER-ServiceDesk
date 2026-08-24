@@ -366,7 +366,9 @@ def test_convert_quote_to_invoice(client, agent_headers, superuser_headers, db):
     assert part_line["service_id"] is None
 
     quote_after_resp = client.get(f"/quotes/{quote_id}", headers=agent_headers)
-    assert quote_after_resp.json()["converted_invoice_id"] == invoice_id
+    quote_after = quote_after_resp.json()
+    assert quote_after["converted_invoice_id"] == invoice_id
+    assert quote_after["converted_invoice_number"] == invoice["invoice_number"]
 
 
 def test_tax_rates_crud(client, agent_headers, superuser_headers):

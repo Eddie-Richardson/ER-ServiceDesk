@@ -494,7 +494,7 @@ class InvoiceDetailDialog(QDialog):
         confirmed = QMessageBox.question(
             self,
             "Delete Invoice",
-            f"Permanently delete Invoice #{self.invoice_id}? This can't be undone.",
+            f"Permanently delete Invoice #{self.invoice['invoice_number']}? This can't be undone.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )

@@ -14,6 +14,11 @@ class Invoice(Base):
     Represents a billing record tied to a ticket, tracking amount owed and payment status.
 
     Attributes:
+        invoice_number: The business-facing, sequential invoice number
+            shown to customers ("Invoice #12") -- deliberately separate
+            from id (the internal database primary key). Same reuse
+            reasoning as Quote.quote_number; see
+            invoice_service._next_invoice_number().
         subtotal: Sum of every line item (quantity x unit_price),
             before discount or tax. Computed and stored, not derived
             live -- see Quote.subtotal for the same reasoning.
@@ -39,6 +44,7 @@ class Invoice(Base):
     """
     __tablename__ = "invoices"
     id = Column(Integer, primary_key=True, index=True)
+    invoice_number = Column(Integer, nullable=False, unique=True, index=True)
     ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=False)
 
     subtotal = Column(Numeric, nullable=False, default=0)

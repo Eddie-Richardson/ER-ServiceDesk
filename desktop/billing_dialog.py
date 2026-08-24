@@ -120,8 +120,8 @@ class BillingDialog(QDialog):
 
         self.quotes_table.setRowCount(len(quotes))
         for row, quote in enumerate(quotes):
-            status = f"Converted to Invoice #{quote['converted_invoice_id']}" if quote.get("converted_invoice_id") else "Open"
-            values = [f"#{quote['id']}", f"${quote['total']}", status]
+            status = f"Converted to Invoice #{quote['converted_invoice_number']}" if quote.get("converted_invoice_id") else "Open"
+            values = [f"#{quote['quote_number']}", f"${quote['total']}", status]
             for col, value in enumerate(values):
                 cell = QTableWidgetItem(value)
                 cell.setData(Qt.ItemDataRole.UserRole, quote)
@@ -137,7 +137,7 @@ class BillingDialog(QDialog):
 
         self.invoices_table.setRowCount(len(invoices))
         for row, invoice in enumerate(invoices):
-            values = [f"#{invoice['id']}", f"${invoice['total']}", "Yes" if invoice.get("is_paid") else "No"]
+            values = [f"#{invoice['invoice_number']}", f"${invoice['total']}", "Yes" if invoice.get("is_paid") else "No"]
             for col, value in enumerate(values):
                 cell = QTableWidgetItem(value)
                 cell.setData(Qt.ItemDataRole.UserRole, invoice)

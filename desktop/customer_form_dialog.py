@@ -316,7 +316,7 @@ class CustomerFormDialog(AppDialog):
         self.invoices_table.setRowCount(len(my_invoices))
         for row, invoice in enumerate(my_invoices):
             values = [
-                f"#{invoice['id']}",
+                f"#{invoice['invoice_number']}",
                 f"#{invoice['ticket_id']}",
                 f"${invoice['total']}",
                 "Yes" if invoice.get("is_paid") else "No",

@@ -15,6 +15,13 @@ class Quote(Base):
 
     Attributes:
         ticket_id: The ticket this quote is for.
+        quote_number: The business-facing, sequential quote number
+            shown to customers ("Quote #12") -- deliberately separate
+            from id (the internal database primary key). When the
+            most recent quote is deleted, the next quote created
+            reuses that freed number rather than skipping past it, so
+            the visible sequence never has a permanent gap. See
+            quote_service._next_quote_number().
         subtotal: Sum of every line item (quantity x unit_price),
             before discount or tax. Computed and stored (not derived
             live), so a quote's own totals stay accurate even if a
@@ -37,6 +44,9 @@ class Quote(Base):
         converted_invoice_id: The Invoice this quote became, once
             approved and converted -- null until that happens. See
             quote_service.convert_to_invoice().
+        converted_invoice_number: The converted invoice's real,
+            business-facing number (not its internal id) -- a computed
+            property, not a real column.
         quote_sent_at: Timestamp this quote was last emailed to the
             customer, or None if never sent. Email-only, same design
             as Ticket.waiver_sent_at -- the customer's "I APPROVE"
@@ -47,6 +57,7 @@ class Quote(Base):
     """
     __tablename__ = "quotes"
     id = Column(Integer, primary_key=True, index=True)
+    quote_number = Column(Integer, nullable=False, unique=True, index=True)
     ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=False)
 
     subtotal = Column(Numeric, nullable=False, default=0)
@@ -85,3 +96,8 @@ class Quote(Base):
     # foreign_keys= disambiguates the circular reference with Invoice
     # -- see the comment on converted_invoice_id above for why.
     converted_invoice = relationship("Invoice", foreign_keys=[converted_invoice_id])
+
+    @property
+    def converted_invoice_number(self) -> int | None:
+        """The converted invoice's real business number, for display -- converted_invoice_id alone is just the internal database key."""
+        return self.converted_invoice.invoice_number if self.converted_invoice else None

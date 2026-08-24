@@ -46,12 +46,15 @@ class InvoiceService:
 
     def create(self, db: Session, obj_in: InvoiceCreate, current_user_id: int):
         """Creates directly (not via quote conversion -- see quote_service.convert_to_invoice() for that path). Starts with zero line items and zero totals."""
-        new_invoice = crud_invoice.create(db, obj_in)
+        new_invoice = Invoice(**obj_in.model_dump(), invoice_number=self._next_invoice_number(db))
+        db.add(new_invoice)
+        db.commit()
+        db.refresh(new_invoice)
         self._snapshot_discount_and_tax_names(db, new_invoice)
 
         audit_log_service.log(
             db, "invoice_created", "ticket", new_invoice.ticket_id, user_id=current_user_id,
-            details=f"Invoice #{new_invoice.id} created",
+            details=f"Invoice #{new_invoice.invoice_number} created",
         )
 
         return new_invoice
@@ -65,7 +68,7 @@ class InvoiceService:
 
         audit_log_service.log(
             db, "invoice_updated", "ticket", updated.ticket_id, user_id=current_user_id,
-            details=f"Invoice #{updated.id} updated",
+            details=f"Invoice #{updated.invoice_number} updated",
         )
 
         return updated
@@ -116,7 +119,7 @@ class InvoiceService:
 
         audit_log_service.log(
             db, "invoice_line_item_added", "ticket", invoice.ticket_id, user_id=current_user_id,
-            details=f"Added {item_name} x{quantity} (${item_price}) to Invoice #{invoice_id}",
+            details=f"Added {item_name} x{quantity} (${item_price}) to Invoice #{invoice.invoice_number}",
         )
 
         return line_item
@@ -141,7 +144,7 @@ class InvoiceService:
 
         audit_log_service.log(
             db, "invoice_line_item_updated", "ticket", invoice.ticket_id, user_id=current_user_id,
-            details=f"Updated {updated.service_name or updated.part_name} to x{updated.quantity} on Invoice #{updated.invoice_id}",
+            details=f"Updated {updated.service_name or updated.part_name} to x{updated.quantity} on Invoice #{invoice.invoice_number}",
         )
 
         return updated
@@ -165,7 +168,7 @@ class InvoiceService:
 
         audit_log_service.log(
             db, "invoice_line_item_removed", "ticket", invoice.ticket_id, user_id=current_user_id,
-            details=f"Removed {item_name} from Invoice #{invoice_id}",
+            details=f"Removed {item_name} from Invoice #{invoice.invoice_number}",
         )
 
     def delete(self, db: Session, id: int, current_user_id: int):
@@ -198,19 +201,32 @@ class InvoiceService:
         if invoice.source_quote_id is not None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This invoice came from a converted quote and can't be deleted.")
 
-        most_recent_id = db.query(func.max(Invoice.id)).scalar()
-        if id != most_recent_id:
+        most_recent_number = db.query(func.max(Invoice.invoice_number)).scalar()
+        if invoice.invoice_number != most_recent_number:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only the most recently created invoice can be deleted, to avoid leaving a gap in the numbering.")
 
         audit_log_service.log(
             db, "invoice_deleted", "ticket", invoice.ticket_id, user_id=current_user_id,
-            details=f"Deleted unsent, empty Invoice #{id}",
+            details=f"Deleted unsent, empty Invoice #{invoice.invoice_number}",
         )
         crud_invoice.delete(db, invoice)
 
     # -----------------------------------------------------------------
     # Internal helpers
     # -----------------------------------------------------------------
+    def _next_invoice_number(self, db: Session) -> int:
+        """
+        Returns:
+            The next invoice_number to assign: the current highest
+            plus one, or 1 if there are no invoices at all. Same
+            reasoning as quote_service._next_quote_number() -- delete()
+            only ever permits deleting the single most-recently-
+            numbered invoice, so max()+1 always correctly reuses
+            whatever number was just freed.
+        """
+        current_max = db.query(func.max(Invoice.invoice_number)).scalar()
+        return (current_max or 0) + 1
+
     def _deduction_location_id(self, db: Session) -> int:
         """
         Reads the Admin-configured part_deduction_location_id

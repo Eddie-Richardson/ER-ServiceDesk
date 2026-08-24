@@ -30,9 +30,9 @@ from app.crud.discount import crud_discount
 from app.crud.tax_rate import crud_tax_rate
 from app.crud.invoice import crud_invoice
 from app.crud.invoice_line_item import crud_invoice_line_item
+from app.models.invoice import Invoice
 from app.schemas.quote import QuoteCreate, QuoteUpdate
 from app.schemas.quote_line_item import QuoteLineItemUpdate
-from app.schemas.invoice import InvoiceCreate
 from app.services.billing_calculations import calculate_totals
 from app.services.audit_log_service import audit_log_service
 
@@ -51,12 +51,15 @@ class QuoteService:
 
     def create(self, db: Session, obj_in: QuoteCreate, current_user_id: int):
         """Starts with zero line items and zero totals -- add_line_item() builds it up from there."""
-        new_quote = crud_quote.create(db, obj_in)
+        new_quote = Quote(**obj_in.model_dump(), quote_number=self._next_quote_number(db))
+        db.add(new_quote)
+        db.commit()
+        db.refresh(new_quote)
         self._snapshot_discount_and_tax_names(db, new_quote)
 
         audit_log_service.log(
             db, "quote_created", "ticket", new_quote.ticket_id, user_id=current_user_id,
-            details=f"Quote #{new_quote.id} created",
+            details=f"Quote #{new_quote.quote_number} created",
         )
 
         return new_quote
@@ -70,7 +73,7 @@ class QuoteService:
 
         audit_log_service.log(
             db, "quote_updated", "ticket", updated.ticket_id, user_id=current_user_id,
-            details=f"Quote #{updated.id} updated",
+            details=f"Quote #{updated.quote_number} updated",
         )
 
         return updated
@@ -118,7 +121,7 @@ class QuoteService:
 
         audit_log_service.log(
             db, "quote_line_item_added", "ticket", quote.ticket_id, user_id=current_user_id,
-            details=f"Added {item_name} x{quantity} (${item_price}) to Quote #{quote_id}",
+            details=f"Added {item_name} x{quantity} (${item_price}) to Quote #{quote.quote_number}",
         )
 
         return line_item
@@ -133,7 +136,7 @@ class QuoteService:
 
         audit_log_service.log(
             db, "quote_line_item_updated", "ticket", quote.ticket_id, user_id=current_user_id,
-            details=f"Updated {updated.service_name or updated.part_name} to x{updated.quantity} on Quote #{updated.quote_id}",
+            details=f"Updated {updated.service_name or updated.part_name} to x{updated.quantity} on Quote #{quote.quote_number}",
         )
 
         return updated
@@ -153,7 +156,7 @@ class QuoteService:
 
         audit_log_service.log(
             db, "quote_line_item_removed", "ticket", quote.ticket_id, user_id=current_user_id,
-            details=f"Removed {item_name} from Quote #{quote_id}",
+            details=f"Removed {item_name} from Quote #{quote.quote_number}",
         )
 
     def delete(self, db: Session, id: int, current_user_id: int):
@@ -181,13 +184,13 @@ class QuoteService:
         if quote.converted_invoice_id is not None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This quote has already been converted to an invoice and can't be deleted.")
 
-        most_recent_id = db.query(func.max(Quote.id)).scalar()
-        if id != most_recent_id:
+        most_recent_number = db.query(func.max(Quote.quote_number)).scalar()
+        if quote.quote_number != most_recent_number:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only the most recently created quote can be deleted, to avoid leaving a gap in the numbering.")
 
         audit_log_service.log(
             db, "quote_deleted", "ticket", quote.ticket_id, user_id=current_user_id,
-            details=f"Deleted unsent, empty Quote #{id}",
+            details=f"Deleted unsent, empty Quote #{quote.quote_number}",
         )
         crud_quote.delete(db, quote)
 
@@ -210,17 +213,23 @@ class QuoteService:
         if not quote:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Quote not found")
         if quote.converted_invoice_id is not None:
+            existing_invoice = crud_invoice.get(db, quote.converted_invoice_id)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"This quote was already converted to Invoice #{quote.converted_invoice_id}.",
+                detail=f"This quote was already converted to Invoice #{existing_invoice.invoice_number if existing_invoice else quote.converted_invoice_id}.",
             )
 
-        new_invoice = crud_invoice.create(db, InvoiceCreate(
+        next_invoice_number = (db.query(func.max(Invoice.invoice_number)).scalar() or 0) + 1
+        new_invoice = Invoice(
             ticket_id=quote.ticket_id,
             discount_id=quote.discount_id,
             tax_rate_id=quote.tax_rate_id,
             details=quote.details,
-        ))
+            invoice_number=next_invoice_number,
+        )
+        db.add(new_invoice)
+        db.commit()
+        db.refresh(new_invoice)
         new_invoice.subtotal = quote.subtotal
         new_invoice.discount_name = quote.discount_name
         new_invoice.discount_amount = quote.discount_amount
@@ -243,7 +252,7 @@ class QuoteService:
 
         audit_log_service.log(
             db, "quote_converted_to_invoice", "ticket", quote.ticket_id, user_id=current_user_id,
-            details=f"Quote #{quote_id} converted to Invoice #{new_invoice.id}",
+            details=f"Quote #{quote.quote_number} converted to Invoice #{new_invoice.invoice_number}",
         )
 
         return new_invoice
@@ -251,6 +260,21 @@ class QuoteService:
     # -----------------------------------------------------------------
     # Internal helpers
     # -----------------------------------------------------------------
+    def _next_quote_number(self, db: Session) -> int:
+        """
+        Returns:
+            The next quote_number to assign: the current highest plus
+            one, or 1 if there are no quotes at all. This correctly
+            reuses a freed number without needing a full gap search,
+            because delete() only ever permits deleting the single
+            most-recently-numbered quote -- a number can only ever go
+            missing at the very top of the sequence, never in the
+            middle, so max()+1 is always the same as "the lowest
+            genuinely available number."
+        """
+        current_max = db.query(func.max(Quote.quote_number)).scalar()
+        return (current_max or 0) + 1
+
     def _recalculate(self, db: Session, quote):
         line_items = crud_quote_line_item.get_by_quote(db, quote.id)
         discount = crud_discount.get(db, quote.discount_id) if quote.discount_id else None

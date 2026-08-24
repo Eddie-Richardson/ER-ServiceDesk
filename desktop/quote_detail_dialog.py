@@ -239,7 +239,7 @@ class QuoteDetailDialog(QDialog):
         already_converted = self.quote.get("converted_invoice_id") is not None
         self.convert_button.setVisible(not already_converted)
         if already_converted:
-            self.converted_label.setText(f"Converted to Invoice #{self.quote['converted_invoice_id']}.")
+            self.converted_label.setText(f"Converted to Invoice #{self.quote['converted_invoice_number']}.")
             self.converted_label.show()
         else:
             self.converted_label.hide()
@@ -387,7 +387,7 @@ class QuoteDetailDialog(QDialog):
         confirmed = QMessageBox.question(
             self,
             "Delete Quote",
-            f"Permanently delete Quote #{self.quote_id}? This can't be undone.",
+            f"Permanently delete Quote #{self.quote['quote_number']}? This can't be undone.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )

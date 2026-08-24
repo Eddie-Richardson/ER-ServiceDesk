@@ -6,6 +6,8 @@ ORM (bypassing the API) so individual tests can focus on the behavior
 actually under test instead of repeating setup boilerplate.
 """
 
+from sqlalchemy import func
+
 from app.models.customer import Customer
 from app.models.location import Location
 from app.models.device import Device
@@ -76,7 +78,8 @@ def make_full_ticket(db) -> Ticket:
 
 def make_invoice(db, ticket_id: int) -> Invoice:
     """Create and persist a minimal Invoice record for the given ticket. Starts with no line items -- totals default to 0, matching a genuinely fresh Invoice."""
-    obj = Invoice(ticket_id=ticket_id, is_paid=False)
+    current_max = db.query(func.max(Invoice.invoice_number)).scalar()
+    obj = Invoice(ticket_id=ticket_id, is_paid=False, invoice_number=(current_max or 0) + 1)
     db.add(obj)
     db.commit()
     db.refresh(obj)

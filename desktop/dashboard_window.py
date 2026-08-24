@@ -57,6 +57,7 @@ class DashboardWindow(AppWindow):
         self._tickets_window = None  # kept alive while open
         self._inventory_window = None  # kept alive while open
         self._customers_window = None  # kept alive while open
+        self._billing_window = None  # kept alive while open
         self._users_roles_window = None  # kept alive while open
         self._settings_window = None  # kept alive while open
 
@@ -198,117 +199,93 @@ class DashboardWindow(AppWindow):
             self, name, f"The {name} window isn't built yet -- coming soon."
         )
 
-    def _open_tickets_window(self, initial_status_filter: str | None = None):
+    def _show_or_focus_window(self, attr_name: str, create_window, nav_button_name: str):
         """
-        Opens the Tickets window and keeps its nav button highlighted for
-        exactly as long as the window is actually open -- not just "was
-        clicked at some point." The button un-highlights itself via
-        TicketsWindow.window_closed once the person closes the window.
+        Shared logic for every nav window: if one's already open, bring
+        it to the front and give it focus instead of opening a second,
+        duplicate copy. If not, create a fresh one via create_window()
+        and wire up the same nav-button-highlight/window_closed pattern
+        every feature window already uses.
 
         Args:
-            initial_status_filter: Passed straight through to
-                TicketsWindow, e.g. when opened from a Dashboard status
-                card rather than the sidebar.
+            attr_name: The instance attribute tracking this window,
+                e.g. "_tickets_window". Set to None on close (not left
+                pointing at a closed widget) so this check stays a
+                simple None-check rather than ever touching a possibly-
+                already-deleted Qt object.
+            create_window: A zero-argument callable that constructs and
+                returns a fresh window instance.
+            nav_button_name: The key into self._nav_buttons for this
+                window's sidebar entry.
         """
-        self._tickets_window = TicketsWindow(initial_status_filter=initial_status_filter)
+        existing = getattr(self, attr_name, None)
+        if existing is not None:
+            existing.raise_()
+            existing.activateWindow()
+            return
 
-        tickets_button = self._nav_buttons.get("Tickets")
-        if tickets_button:
-            tickets_button.setChecked(True)
-            self._tickets_window.window_closed.connect(
-                lambda: tickets_button.setChecked(False)
-            )
+        window = create_window()
+        setattr(self, attr_name, window)
 
-        self._tickets_window.show()
+        nav_button = self._nav_buttons.get(nav_button_name)
+        if nav_button:
+            nav_button.setChecked(True)
+
+        def _on_closed():
+            setattr(self, attr_name, None)
+            if nav_button:
+                nav_button.setChecked(False)
+
+        window.window_closed.connect(_on_closed)
+        window.show()
+
+    def _open_tickets_window(self, initial_status_filter: str | None = None):
+        """
+        Opens the Tickets window, or brings it to focus if already open.
+        A status filter passed in only applies when actually creating a
+        fresh window -- if one's already open, this just focuses it
+        without silently overriding whatever filter the person already
+        has set there.
+
+        Args:
+            initial_status_filter: Passed to TicketsWindow when creating
+                a new one, e.g. when opened from a Dashboard status card.
+        """
+        self._show_or_focus_window(
+            "_tickets_window",
+            lambda: TicketsWindow(initial_status_filter=initial_status_filter),
+            "Tickets",
+        )
 
     def _open_inventory_window(self):
-        """
-        Opens the Inventory window and keeps its nav button highlighted
-        for exactly as long as the window is actually open, same pattern
-        as _open_tickets_window.
-        """
-        self._inventory_window = InventoryWindow()
-
-        inventory_button = self._nav_buttons.get("Inventory")
-        if inventory_button:
-            inventory_button.setChecked(True)
-            self._inventory_window.window_closed.connect(
-                lambda: inventory_button.setChecked(False)
-            )
-
-        self._inventory_window.show()
+        """Opens the Inventory window, or brings it to focus if already open."""
+        self._show_or_focus_window("_inventory_window", InventoryWindow, "Inventory")
 
     def _open_customers_window(self):
-        """
-        Opens the Customers window and keeps its nav button highlighted
-        for exactly as long as the window is actually open, same pattern
-        as _open_tickets_window and _open_inventory_window.
-        """
-        self._customers_window = CustomersWindow()
-
-        customers_button = self._nav_buttons.get("Customers")
-        if customers_button:
-            customers_button.setChecked(True)
-            self._customers_window.window_closed.connect(
-                lambda: customers_button.setChecked(False)
-            )
-
-        self._customers_window.show()
+        """Opens the Customers window, or brings it to focus if already open."""
+        self._show_or_focus_window("_customers_window", CustomersWindow, "Customers")
 
     def _open_billing_window(self):
-        """
-        Opens the Billing window and keeps its nav button highlighted
-        for exactly as long as the window is actually open, same
-        pattern as every other feature window.
-        """
-        self._billing_window = BillingWindow()
-
-        billing_button = self._nav_buttons.get("Billing")
-        if billing_button:
-            billing_button.setChecked(True)
-            self._billing_window.window_closed.connect(
-                lambda: billing_button.setChecked(False)
-            )
-
-        self._billing_window.show()
+        """Opens the Billing window, or brings it to focus if already open."""
+        self._show_or_focus_window("_billing_window", BillingWindow, "Billing")
 
     def _open_users_roles_window(self):
         """
-        Opens the Users & Roles window and keeps its nav button
-        highlighted for exactly as long as the window is actually open,
-        same pattern as every other feature window. Only ever reachable
-        by superusers -- _visible_nav_items() hides this nav item for
-        everyone else, so no additional check is needed here.
+        Opens the Users & Roles window, or brings it to focus if
+        already open. Only ever reachable by superusers --
+        _visible_nav_items() hides this nav item for everyone else, so
+        no additional check is needed here.
         """
-        self._users_roles_window = UsersRolesWindow()
-
-        users_roles_button = self._nav_buttons.get("Users & Roles")
-        if users_roles_button:
-            users_roles_button.setChecked(True)
-            self._users_roles_window.window_closed.connect(
-                lambda: users_roles_button.setChecked(False)
-            )
-
-        self._users_roles_window.show()
+        self._show_or_focus_window("_users_roles_window", UsersRolesWindow, "Users & Roles")
 
     def _open_settings_window(self):
         """
-        Opens the Settings window and keeps its nav button highlighted
-        for exactly as long as the window is actually open, same
-        pattern as every other feature window. Only ever reachable by
-        superusers -- _visible_nav_items() hides this nav item for
-        everyone else, so no additional check is needed here.
+        Opens the Settings window, or brings it to focus if already
+        open. Only ever reachable by superusers -- _visible_nav_items()
+        hides this nav item for everyone else, so no additional check
+        is needed here.
         """
-        self._settings_window = SettingsWindow()
-
-        settings_button = self._nav_buttons.get("Settings")
-        if settings_button:
-            settings_button.setChecked(True)
-            self._settings_window.window_closed.connect(
-                lambda: settings_button.setChecked(False)
-            )
-
-        self._settings_window.show()
+        self._show_or_focus_window("_settings_window", SettingsWindow, "Settings")
 
     def _on_logout(self):
         """

@@ -26,12 +26,12 @@ def get_device(id: int, db: Session = Depends(get_db)):
     return device_service.get(db, id)
 
 @router.post("/", response_model=Device)
-def create_device(obj_in: DeviceCreate, db: Session = Depends(get_db)):
-    return device_service.create(db, obj_in)
+def create_device(obj_in: DeviceCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return device_service.create(db, obj_in, current_user.id)
 
 @router.put("/{id}", response_model=Device)
-def update_device(id: int, obj_in: DeviceUpdate, db: Session = Depends(get_db)):
-    return device_service.update(db, id, obj_in)
+def update_device(id: int, obj_in: DeviceUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return device_service.update(db, id, obj_in, current_user.id)
 
 @router.delete("/{id}")
 def delete_device(

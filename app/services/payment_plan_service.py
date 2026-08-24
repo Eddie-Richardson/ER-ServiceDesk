@@ -134,13 +134,29 @@ class PaymentPlanService:
         installment.payment_id = new_payment.id
         db.commit()
 
-        total_paid = sum((p.amount for p in crud_payment.get_by_invoice(db, invoice.id)), Decimal("0"))
-        remaining_balance = invoice.total - total_paid
-
+        overpayment = actual_amount - installment.planned_amount
         remaining_installments = [
             i for i in crud_payment_plan_installment.get_by_plan(db, plan.id)
             if i.payment_id is None
         ]
+
+        # An overpayment that fully covers one or more of the next
+        # installments marks those paid outright too, linked to this
+        # same payment -- it's genuinely one real transaction covering
+        # multiple installments, not several fabricated smaller ones.
+        # Once what's left can't fully cover the next installment,
+        # fall through to the same redistribution used for a partial
+        # (underpaid) amount.
+        also_paid_sequence_numbers = []
+        while overpayment > 0 and remaining_installments and overpayment >= remaining_installments[0].planned_amount:
+            next_installment = remaining_installments.pop(0)
+            overpayment -= next_installment.planned_amount
+            next_installment.payment_id = new_payment.id
+            also_paid_sequence_numbers.append(next_installment.sequence_number)
+            db.commit()
+
+        total_paid = sum((p.amount for p in crud_payment.get_by_invoice(db, invoice.id)), Decimal("0"))
+        remaining_balance = invoice.total - total_paid
 
         if remaining_balance <= 0:
             for remaining in remaining_installments:
@@ -153,9 +169,10 @@ class PaymentPlanService:
             next_date = self._date_at_offset(installment.due_date, plan.frequency, 1)
             crud_payment_plan_installment.create(db, plan.id, installment.sequence_number + 1, next_date, remaining_balance)
 
+        also_paid_note = f" -- also fully covered installment(s) #{', #'.join(str(n) for n in also_paid_sequence_numbers)}" if also_paid_sequence_numbers else ""
         audit_log_service.log(
             db, "payment_plan_installment_paid", "ticket", invoice.ticket_id, user_id=current_user_id,
-            details=f"Paid ${actual_amount} on installment #{installment.sequence_number} of Payment Plan #{plan.id}",
+            details=f"Paid ${actual_amount} on installment #{installment.sequence_number} of Payment Plan #{plan.id}{also_paid_note}",
         )
 
         # Sent here, not from payment_service.create() or the /payments/

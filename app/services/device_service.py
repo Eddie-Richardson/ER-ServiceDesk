@@ -24,12 +24,28 @@ class DeviceService:
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
         return crud_device.get_multi(db, skip, limit)
 
-    def create(self, db: Session, obj_in: DeviceCreate):
-        return crud_device.create(db, obj_in)
+    def create(self, db: Session, obj_in: DeviceCreate, current_user_id: int):
+        new_device = crud_device.create(db, obj_in)
 
-    def update(self, db: Session, id: int, obj_in: DeviceUpdate):
+        label = " ".join(filter(None, [new_device.brand, new_device.model])) or new_device.device_type
+        audit_log_service.log(
+            db, "device_created", "device", new_device.id, user_id=current_user_id,
+            details=f"Created device: {label}",
+        )
+
+        return new_device
+
+    def update(self, db: Session, id: int, obj_in: DeviceUpdate, current_user_id: int):
         db_obj = crud_device.get(db, id)
-        return crud_device.update(db, db_obj, obj_in)
+        updated = crud_device.update(db, db_obj, obj_in)
+
+        label = " ".join(filter(None, [updated.brand, updated.model])) or updated.device_type
+        audit_log_service.log(
+            db, "device_updated", "device", id, user_id=current_user_id,
+            details=f"Updated device: {label}",
+        )
+
+        return updated
 
     def delete(self, db: Session, id: int, current_user_id: int):
         """

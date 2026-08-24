@@ -273,6 +273,24 @@ def test_devices_crud(client, agent_headers, db):
     )
 
 
+def test_device_create_and_update_appear_in_audit_log(client, superuser_headers, db):
+    """Regression test: device_service.create()/update() previously never logged to the audit trail at all -- only delete() did, so no device creation or edit ever showed up in the Audit Log."""
+    customer = make_customer(db)
+
+    create_resp = client.post("/devices/", json={"customer_id": customer.id, "device_type": "Laptop", "brand": "Dell", "model": "Latitude 5420"}, headers=superuser_headers)
+    assert create_resp.status_code == 200, create_resp.text
+    device_id = create_resp.json()["id"]
+
+    update_resp = client.put(f"/devices/{device_id}", json={"brand": "HP"}, headers=superuser_headers)
+    assert update_resp.status_code == 200, update_resp.text
+
+    audit_resp = client.get("/audit_logs/", headers=superuser_headers)
+    assert audit_resp.status_code == 200
+    actions = [entry["action"] for entry in audit_resp.json() if entry["entity_type"] == "device" and entry["entity_id"] == device_id]
+    assert "device_created" in actions
+    assert "device_updated" in actions
+
+
 # ---------------------------------------------------------------------------
 # Resources needing a full Ticket
 # ---------------------------------------------------------------------------
@@ -674,6 +692,75 @@ def test_payment_plan_underpaying_increases_remaining_installments(client, agent
     assert len(remaining) == 2
     # $300 total - $50 paid = $250 remaining, split evenly across 2 installments
     assert [i["planned_amount"] for i in remaining] == ["125.00", "125.00"]
+
+
+def test_payment_plan_overpaying_by_a_full_installment_marks_the_next_one_paid(client, agent_headers, db):
+    """
+    Eddie's own example: a $20/week plan, paying $40 against the first
+    installment should mark the next installment paid too (fully
+    covered by the extra $20), not just reduce what's owed on it.
+    """
+    invoice = _make_invoice_with_total(db, "80.00")
+    create_resp = client.post(
+        "/payment_plans/",
+        json={"invoice_id": invoice.id, "installment_amount": "20.00", "frequency": "weekly", "start_date": "2026-01-01"},
+        headers=agent_headers,
+    )
+    installments = create_resp.json()["installments"]
+    assert len(installments) == 4
+    first_id = installments[0]["id"]
+    second_id = installments[1]["id"]
+
+    pay_resp = client.post(f"/payment_plans/installments/{first_id}/pay", json={"amount": "40.00", "method": "cash"}, headers=agent_headers)
+    assert pay_resp.status_code == 200, pay_resp.text
+
+    plan_resp = client.get(f"/payment_plans/{create_resp.json()['id']}", headers=agent_headers)
+    plan_installments = plan_resp.json()["installments"]
+
+    first = next(i for i in plan_installments if i["id"] == first_id)
+    second = next(i for i in plan_installments if i["id"] == second_id)
+    assert first["payment_id"] is not None
+    assert second["payment_id"] is not None
+    assert second["payment_id"] == first["payment_id"]  # one real $40 transaction, not two fabricated $20 ones
+
+    remaining = [i for i in plan_installments if i["payment_id"] is None]
+    assert len(remaining) == 2
+    assert [i["planned_amount"] for i in remaining] == ["20.00", "20.00"]  # untouched -- no leftover to redistribute
+
+
+def test_payment_plan_overpaying_partway_into_the_next_installment_covers_it_then_redistributes(client, agent_headers, db):
+    """
+    A partial overpayment into the next installment -- enough to fully
+    cover it, with some left over that's not enough for the one after
+    that -- marks the covered one paid, then redistributes only the
+    genuine leftover across what's still actually remaining.
+    """
+    invoice = _make_invoice_with_total(db, "80.00")
+    create_resp = client.post(
+        "/payment_plans/",
+        json={"invoice_id": invoice.id, "installment_amount": "20.00", "frequency": "weekly", "start_date": "2026-01-01"},
+        headers=agent_headers,
+    )
+    installments = create_resp.json()["installments"]
+    first_id = installments[0]["id"]
+    second_id = installments[1]["id"]
+
+    # $50 paid: $20 covers the first installment, $20 more fully
+    # covers the second, $10 left over redistributes across the
+    # remaining 2 installments.
+    pay_resp = client.post(f"/payment_plans/installments/{first_id}/pay", json={"amount": "50.00", "method": "cash"}, headers=agent_headers)
+    assert pay_resp.status_code == 200, pay_resp.text
+
+    plan_resp = client.get(f"/payment_plans/{create_resp.json()['id']}", headers=agent_headers)
+    plan_installments = plan_resp.json()["installments"]
+
+    second = next(i for i in plan_installments if i["id"] == second_id)
+    assert second["payment_id"] is not None
+
+    remaining = [i for i in plan_installments if i["payment_id"] is None]
+    assert len(remaining) == 2
+    # $80 total - $50 paid = $30 remaining, split evenly across 2 installments
+    assert [i["planned_amount"] for i in remaining] == ["15.00", "15.00"]
 
 
 def test_payment_plan_overpaying_to_zero_completes_early(client, agent_headers, db):

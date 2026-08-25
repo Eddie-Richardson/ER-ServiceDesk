@@ -582,6 +582,25 @@ def login(email: str, password: str) -> str:
     return token
 
 
+def heartbeat() -> str:
+    """
+    Calls POST /auth/heartbeat and returns the freshly-renewed access
+    token. Called by activity_monitor.py on genuine, detected user
+    activity, not on a fixed schedule -- see that module for the real
+    trigger logic.
+
+    Returns:
+        The new JWT access token string.
+
+    Raises:
+        ApiError: If there's no active session, the backend can't be
+            reached, or the response isn't a success -- e.g. the
+            session already genuinely expired before this call fired.
+    """
+    data = _authed_post("/auth/heartbeat", {})
+    return data["access_token"]
+
+
 def change_password(email: str, current_password: str, new_password: str) -> str:
     """
     Sets a new password for an account whose login was blocked by

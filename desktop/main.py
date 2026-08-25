@@ -55,6 +55,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 
 from desktop.login_window import LoginWindow
 from desktop.dashboard_window import DashboardWindow
+from desktop.activity_monitor import ActivityMonitor
 from desktop.app_paths import get_compose_dir, get_env_backup_dir, get_icon_path
 from desktop.env_recovery import ensure_env_available
 from desktop.settings_manager import (
@@ -115,6 +116,15 @@ def main():
             sys.exit(1)
 
     app = QApplication(sys.argv)
+
+    # Created once, lives for the app's entire lifetime (main() itself
+    # doesn't return until the app quits, so this local reference is
+    # genuinely sufficient to keep it alive -- no need for the
+    # window_holder pattern used below, which exists specifically for
+    # windows that get replaced multiple times during the app's life).
+    # Does nothing at all until a real session exists -- see
+    # activity_monitor.py's own docstring.
+    activity_monitor = ActivityMonitor(app)
 
     # Setting this on the QApplication (rather than per-window) makes it
     # the default for every window that doesn't explicitly override it

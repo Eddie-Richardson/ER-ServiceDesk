@@ -291,6 +291,37 @@ class NotesDialog(QDialog):
         self.send_to_customer_checkbox.setChecked(False)
         self._refresh_entries()
 
+    def has_unsaved_draft(self) -> bool:
+        """Whether the composer currently has unsent text -- checked by activity_monitor.py before an idle-timeout logout."""
+        return bool(self.composer_input.toPlainText().strip())
+
+    def auto_save_draft(self):
+        """
+        Silently posts whatever's currently in the composer as a real,
+        internal note, right before an idle-timeout logout -- so
+        in-progress work is never just lost, and another agent picking
+        up the ticket later can see exactly where it was left off.
+        Always internal, regardless of the Send to Customer checkbox --
+        an incomplete, half-typed note should never accidentally go out
+        to a real customer. Best-effort: if the save itself fails (e.g.
+        the connection is down), the logout still proceeds rather than
+        blocking on it, since the person is idle either way.
+        """
+        content = self.composer_input.toPlainText().strip()
+        if not content:
+            return
+
+        payload = {
+            "ticket_id": self.ticket_id,
+            "user_id": session.current_user_id(),
+            "direction": "internal",
+            "content": content,
+        }
+        try:
+            api_client.create_message(payload)
+        except ApiError:
+            pass
+
     def _on_edit_entry(self, entry: dict):
         """Opens a small edit dialog for this entry's content, then saves if confirmed."""
         dialog = _EditNoteDialog(entry.get("content", ""), self)

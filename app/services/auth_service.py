@@ -61,5 +61,27 @@ class AuthService:
             "token_type": "bearer"
         }
 
+    def heartbeat(self, user: User):
+        """
+        Issue a freshly-renewed access token for an already-verified,
+        currently-active session -- called on genuine user activity to
+        keep a session alive without requiring a full re-login every
+        ACCESS_TOKEN_EXPIRE_MINUTES. Deliberately doesn't log to the
+        audit trail the way login() does -- this fires repeatedly
+        throughout a normal work session, and logging each one would
+        flood the audit log with entries that aren't real login events.
+        """
+        permissions = sorted(permission_service.get_user_permission_names(user))
+        return {
+            "access_token": create_access_token({
+                "sub": str(user.id),
+                "is_superuser": user.is_superuser,
+                "permissions": permissions,
+                "email": user.email,
+                "full_name": user.full_name,
+            }),
+            "token_type": "bearer"
+        }
+
 
 auth_service = AuthService()

@@ -31,6 +31,32 @@ from desktop import session
 from desktop.api_client import ApiError, SessionExpiredError
 
 
+def force_logout():
+    """
+    Closes every open window (regardless of nesting) and shows a fresh
+    Login window. Standalone (not a method) so both _SessionAwareMixin
+    (a session-expired API response, caught from within some specific
+    dialog) and activity_monitor.py (an idle timeout, which isn't
+    itself a dialog/window instance) can trigger the exact same logout
+    flow from two genuinely different situations.
+    """
+    # Imported here (not at module level) to avoid a circular import:
+    # login_window.py imports change_password_dialog.py, which (once
+    # migrated to AppDialog) would import this same module -- keeping
+    # this lazy keeps base_dialog.py safe to import from anywhere
+    # without risk of that cycle.
+    from desktop.login_window import LoginWindow
+
+    session.clear()
+    QApplication.instance().closeAllWindows()
+
+    login_window = LoginWindow()
+    login_window.show()
+    # Keep a reference on the QApplication itself so this window
+    # isn't garbage-collected the moment this function returns.
+    QApplication.instance()._logged_out_login_window = login_window
+
+
 class _SessionAwareMixin:
     """Shared session-expiry handling for AppDialog and AppWindow."""
 
@@ -46,7 +72,7 @@ class _SessionAwareMixin:
                 Not called for a SessionExpiredError.
         """
         if isinstance(error, SessionExpiredError):
-            self._force_logout()
+            force_logout()
             return
 
         message = str(error) if isinstance(error, ApiError) else "An unexpected error occurred."
@@ -54,30 +80,6 @@ class _SessionAwareMixin:
             on_other_error(message)
         else:
             QMessageBox.critical(self, title, message)
-
-    def _force_logout(self):
-        """
-        Closes every open window (regardless of nesting -- this dialog
-        may be several windows deep) and shows a fresh Login window.
-        Mirrors DashboardWindow's own manual logout, but doesn't rely
-        on a logout_callback being wired up, since session expiry can
-        be caught from any dialog, not just the Dashboard.
-        """
-        # Imported here (not at module level) to avoid a circular
-        # import: login_window.py imports change_password_dialog.py,
-        # which (once migrated to AppDialog) would import this same
-        # module -- keeping this lazy keeps base_dialog.py safe to
-        # import from anywhere without risk of that cycle.
-        from desktop.login_window import LoginWindow
-
-        session.clear()
-        QApplication.instance().closeAllWindows()
-
-        login_window = LoginWindow()
-        login_window.show()
-        # Keep a reference on the QApplication itself so this window
-        # isn't garbage-collected the moment this function returns.
-        QApplication.instance()._logged_out_login_window = login_window
 
 
 class AppDialog(QDialog, _SessionAwareMixin):

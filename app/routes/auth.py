@@ -7,8 +7,10 @@ Public-facing authentication endpoint(s).
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import get_current_user
 from app.core.security import hash_password
 from app.db.session import get_db
+from app.models.user import User
 from app.services.auth_service import auth_service
 from app.schemas.user import ChangePasswordRequest, UserLogin
 
@@ -83,3 +85,18 @@ def change_password(request: ChangePasswordRequest, db: Session = Depends(get_db
     db.commit()
 
     return auth_service.login(db, user)
+
+
+@router.post("/heartbeat")
+def heartbeat(current_user: User = Depends(get_current_user)):
+    """
+    Renews the caller's access token, keeping their session alive.
+    Called by the desktop app on genuine, detected activity -- see
+    activity_monitor.py -- rather than on a fixed schedule, so a
+    session only stays alive while someone is actually using the app,
+    not just because the app is open in the background.
+
+    Returns:
+        A dict with `access_token` and `token_type`, same shape as login.
+    """
+    return auth_service.heartbeat(current_user)

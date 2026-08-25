@@ -90,3 +90,41 @@ def test_superuser_can_access_admin_route(client, superuser_headers):
     """A superuser can access admin-only routes like user management."""
     response = client.get("/users/", headers=superuser_headers)
     assert response.status_code == 200
+
+
+def test_heartbeat_renews_token(client, agent_headers):
+    """A heartbeat call returns a fresh, usable access token -- the whole point is keeping a genuinely active session alive without a full re-login."""
+    heartbeat_resp = client.post("/auth/heartbeat", headers=agent_headers)
+    assert heartbeat_resp.status_code == 200
+    body = heartbeat_resp.json()
+    assert "access_token" in body
+    assert body["token_type"] == "bearer"
+
+    new_headers = {"Authorization": f"Bearer {body['access_token']}"}
+    check_resp = client.get("/tickets/", headers=new_headers)
+    assert check_resp.status_code == 200
+
+
+def test_heartbeat_requires_auth(client):
+    """No token, no heartbeat -- same as any other authenticated route."""
+    response = client.post("/auth/heartbeat")
+    assert response.status_code == 401
+
+
+def test_heartbeat_does_not_log_a_false_login_event(client, superuser_headers, agent_headers):
+    """
+    Regression guard: heartbeat() deliberately doesn't call
+    audit_log_service.log() the way login() does -- a heartbeat fires
+    repeatedly throughout a normal work session, and logging each one
+    as a real login event would flood the audit trail.
+    """
+    before_resp = client.get("/audit_logs/", headers=superuser_headers)
+    login_count_before = sum(1 for entry in before_resp.json() if entry["action"] == "login_success")
+
+    heartbeat_resp = client.post("/auth/heartbeat", headers=agent_headers)
+    assert heartbeat_resp.status_code == 200
+
+    after_resp = client.get("/audit_logs/", headers=superuser_headers)
+    login_count_after = sum(1 for entry in after_resp.json() if entry["action"] == "login_success")
+
+    assert login_count_after == login_count_before

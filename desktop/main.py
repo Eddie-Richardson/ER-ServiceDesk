@@ -53,8 +53,7 @@ except Exception:
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from desktop.login_window import LoginWindow
-from desktop.dashboard_window import DashboardWindow
+from desktop.base_dialog import show_login
 from desktop.activity_monitor import ActivityMonitor
 from desktop.app_paths import get_compose_dir, get_env_backup_dir, get_icon_path
 from desktop.env_recovery import ensure_env_available
@@ -120,10 +119,10 @@ def main():
     # Created once, lives for the app's entire lifetime (main() itself
     # doesn't return until the app quits, so this local reference is
     # genuinely sufficient to keep it alive -- no need for the
-    # window_holder pattern used below, which exists specifically for
-    # windows that get replaced multiple times during the app's life).
-    # Does nothing at all until a real session exists -- see
-    # activity_monitor.py's own docstring.
+    # QApplication-attribute pattern used below, which exists
+    # specifically for windows that get replaced multiple times
+    # during the app's life). Does nothing at all until a real
+    # session exists -- see activity_monitor.py's own docstring.
     activity_monitor = ActivityMonitor(app)
 
     # Setting this on the QApplication (rather than per-window) makes it
@@ -156,23 +155,6 @@ def main():
         )
         sys.exit(1)
 
-    window_holder = {}  # avoids windows being garbage-collected once referenced only locally
-
-    def show_login():
-        """Opens a fresh Login window. Used both at startup and after logout."""
-        login_window = LoginWindow()
-        login_window.login_succeeded.connect(lambda: show_dashboard(login_window))
-        login_window.show()
-        window_holder["login"] = login_window
-
-    def show_dashboard(previous_window):
-        """Opens the Dashboard and closes the window that led here."""
-        dashboard = DashboardWindow()
-        dashboard.logout_callback = show_login
-        dashboard.show()
-        window_holder["dashboard"] = dashboard
-        previous_window.close()
-
     def start_normal_flow():
         """Shows the startup splash screen and, once healthy, the Login window."""
         startup_window = StartupWindow(compose_dir=COMPOSE_DIR)
@@ -184,7 +166,11 @@ def main():
 
         startup_window.backend_ready.connect(on_backend_ready)
         startup_window.show()
-        window_holder["startup"] = startup_window
+        # Kept alive on the QApplication itself, same pattern
+        # show_login() uses for its own windows -- a plain local
+        # variable would go out of scope (and the window with it) the
+        # moment start_normal_flow() returns.
+        app._startup_window = startup_window
 
     start_normal_flow()
 

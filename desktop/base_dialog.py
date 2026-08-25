@@ -31,30 +31,57 @@ from desktop import session
 from desktop.api_client import ApiError, SessionExpiredError
 
 
-def force_logout():
+def show_login():
     """
-    Closes every open window (regardless of nesting) and shows a fresh
-    Login window. Standalone (not a method) so both _SessionAwareMixin
-    (a session-expired API response, caught from within some specific
-    dialog) and activity_monitor.py (an idle timeout, which isn't
-    itself a dialog/window instance) can trigger the exact same logout
-    flow from two genuinely different situations.
+    Opens a fresh Login window and wires up the transition to the
+    Dashboard once login succeeds. The one real implementation of
+    "what happens after a successful login" -- shared by main.py (both
+    the initial app-startup login and the Dashboard's own Logout
+    button) and force_logout() below, rather than a second, separate
+    copy that can silently drift out of sync. That's exactly what
+    happened before this fix: force_logout() built its own, independent
+    LoginWindow but never connected its login_succeeded signal to
+    anything, so entering correct credentials after an idle-timeout
+    logout did nothing visible at all -- the login itself likely
+    succeeded on the backend, but nothing was listening for it.
     """
     # Imported here (not at module level) to avoid a circular import:
     # login_window.py imports change_password_dialog.py, which (once
     # migrated to AppDialog) would import this same module -- keeping
     # this lazy keeps base_dialog.py safe to import from anywhere
-    # without risk of that cycle.
+    # without risk of that cycle. dashboard_window.py is imported
+    # lazily for the same underlying reason.
     from desktop.login_window import LoginWindow
-
-    session.clear()
-    QApplication.instance().closeAllWindows()
+    from desktop.dashboard_window import DashboardWindow
 
     login_window = LoginWindow()
+
+    def _on_login_succeeded():
+        dashboard = DashboardWindow()
+        dashboard.logout_callback = show_login
+        dashboard.show()
+        # Keep a reference on the QApplication itself so this window
+        # isn't garbage-collected once this closure returns.
+        QApplication.instance()._current_top_level_window = dashboard
+        login_window.close()
+
+    login_window.login_succeeded.connect(_on_login_succeeded)
     login_window.show()
-    # Keep a reference on the QApplication itself so this window
-    # isn't garbage-collected the moment this function returns.
-    QApplication.instance()._logged_out_login_window = login_window
+    QApplication.instance()._current_top_level_window = login_window
+
+
+def force_logout():
+    """
+    Closes every open window (regardless of nesting) and shows a fresh
+    Login window via show_login() above. Standalone (not a method) so
+    both _SessionAwareMixin (a session-expired API response, caught
+    from within some specific dialog) and activity_monitor.py (an idle
+    timeout, which isn't itself a dialog/window instance) can trigger
+    the exact same logout flow from two genuinely different situations.
+    """
+    session.clear()
+    QApplication.instance().closeAllWindows()
+    show_login()
 
 
 class _SessionAwareMixin:

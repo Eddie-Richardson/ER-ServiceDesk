@@ -35,6 +35,7 @@ from app.schemas.quote import QuoteCreate, QuoteUpdate
 from app.schemas.quote_line_item import QuoteLineItemUpdate
 from app.services.billing_calculations import calculate_totals
 from app.services.audit_log_service import audit_log_service
+from app.services.part_service import part_service
 
 
 class QuoteService:
@@ -246,6 +247,8 @@ class QuoteService:
                 service_id=quote_line_item.service_id, service_name=quote_line_item.service_name,
                 part_id=quote_line_item.part_id, part_name=quote_line_item.part_name,
             )
+            if quote_line_item.part_id is not None:
+                part_service.deduct_stock(db, quote_line_item.part_id, quote_line_item.quantity)
 
         quote.converted_invoice_id = new_invoice.id
         db.commit()

@@ -19,6 +19,7 @@ than a hand-written near-duplicate of the same five HTTP calls.
 from tests.factories import (
     make_customer,
     make_device,
+    make_location,
     make_role,
     make_permission,
     make_plain_user,
@@ -341,9 +342,16 @@ def test_convert_quote_to_invoice(client, agent_headers, superuser_headers, db):
     Regression test: a real positional-argument mismatch in the copy loop
     (service_id/service_name landing in the quantity/unit_price slots,
     and part-based line items never being copied at all) shipped
-    undetected since nothing exercised this path before.
+    undetected since nothing exercised this path before. Also covers a
+    second, separate gap found afterward: convert_to_invoice() copied
+    line item data but never triggered inventory deduction for
+    part-based ones, since it bypasses add_line_item() entirely --
+    only the direct-invoice-line-item path deducted stock before this.
     """
     ticket = make_full_ticket(db)
+    location = make_location(db)
+    location_setting_resp = client.put("/system_settings/by-key/part_deduction_location_id", json={"value": str(location.id)}, headers=superuser_headers)
+    assert location_setting_resp.status_code == 200, location_setting_resp.text
 
     service_resp = client.post("/services/", json={"name": "Diagnostic", "price": 50.0}, headers=superuser_headers)
     assert service_resp.status_code == 200, service_resp.text
@@ -387,6 +395,11 @@ def test_convert_quote_to_invoice(client, agent_headers, superuser_headers, db):
     quote_after = quote_after_resp.json()
     assert quote_after["converted_invoice_id"] == invoice_id
     assert quote_after["converted_invoice_number"] == invoice["invoice_number"]
+
+    part_after_resp = client.get(f"/inventory/parts/{part_id}", headers=agent_headers)
+    assert part_after_resp.status_code == 200
+    part_location = next(loc for loc in part_after_resp.json()["locations"] if loc["location_id"] == location.id)
+    assert part_location["quantity"] == -2  # started at 0 (no initial stock breakdown), 2 units deducted
 
 
 def test_tax_rates_crud(client, agent_headers, superuser_headers):

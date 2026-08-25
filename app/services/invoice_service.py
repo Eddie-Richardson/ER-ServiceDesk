@@ -24,12 +24,11 @@ from app.crud.discount import crud_discount
 from app.crud.tax_rate import crud_tax_rate
 from app.crud.payment import crud_payment
 from app.models.invoice import Invoice
-from app.models.part_location import PartLocation
 from app.schemas.invoice import InvoiceCreate, InvoiceUpdate
 from app.schemas.invoice_line_item import InvoiceLineItemUpdate
 from app.services.billing_calculations import calculate_totals
 from app.services.audit_log_service import audit_log_service
-from app.services.system_setting_service import system_setting_service
+from app.services.part_service import part_service
 
 
 class InvoiceService:
@@ -112,7 +111,7 @@ class InvoiceService:
                 db, invoice_id, quantity, part.selling_price, part_id=part_id, part_name=part.name,
             )
             item_name, item_price = part.name, part.selling_price
-            self._deduct_part_stock(db, part_id, quantity)
+            part_service.deduct_stock(db, part_id, quantity)
 
         invoice = crud_invoice.get(db, invoice_id)
         self._recalculate(db, invoice)
@@ -135,9 +134,9 @@ class InvoiceService:
         if is_part_line and obj_in.quantity is not None and obj_in.quantity != old_quantity:
             delta = obj_in.quantity - old_quantity
             if delta > 0:
-                self._deduct_part_stock(db, updated.part_id, delta)
+                part_service.deduct_stock(db, updated.part_id, delta)
             else:
-                self._restore_part_stock(db, updated.part_id, -delta)
+                part_service.restore_stock(db, updated.part_id, -delta)
 
         invoice = crud_invoice.get(db, updated.invoice_id)
         self._recalculate(db, invoice)
@@ -159,7 +158,7 @@ class InvoiceService:
         item_name = db_obj.service_name or db_obj.part_name
 
         if db_obj.part_id is not None:
-            self._restore_part_stock(db, db_obj.part_id, db_obj.quantity)
+            part_service.restore_stock(db, db_obj.part_id, db_obj.quantity)
 
         crud_invoice_line_item.delete(db, line_item_id)
 
@@ -226,50 +225,6 @@ class InvoiceService:
         """
         current_max = db.query(func.max(Invoice.invoice_number)).scalar()
         return (current_max or 0) + 1
-
-    def _deduction_location_id(self, db: Session) -> int:
-        """
-        Reads the Admin-configured part_deduction_location_id
-        SystemSetting.
-
-        Raises:
-            HTTPException: 400 if no deduction location is configured
-                -- deliberately a hard failure rather than silently
-                skipping the deduction, since a part being billed
-                without inventory actually moving would be a silent
-                data-integrity problem, not just a missing convenience.
-        """
-        location_id = system_setting_service.get_int(db, "part_deduction_location_id", 0)
-        if not location_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No part deduction location is configured -- set one in Settings -> System Settings before billing parts.",
-            )
-        return location_id
-
-    def _deduct_part_stock(self, db: Session, part_id: int, quantity: int):
-        """Creates a zero-quantity PartLocation row at the deduction location first if none exists yet, then deducts."""
-        location_id = self._deduction_location_id(db)
-        part_location = db.query(PartLocation).filter(
-            PartLocation.part_id == part_id, PartLocation.location_id == location_id,
-        ).first()
-        if not part_location:
-            part_location = PartLocation(part_id=part_id, location_id=location_id, quantity=0)
-            db.add(part_location)
-        part_location.quantity -= quantity
-        db.commit()
-
-    def _restore_part_stock(self, db: Session, part_id: int, quantity: int):
-        """Reverses a prior deduction -- called when a part line item is removed, or its quantity is reduced."""
-        location_id = self._deduction_location_id(db)
-        part_location = db.query(PartLocation).filter(
-            PartLocation.part_id == part_id, PartLocation.location_id == location_id,
-        ).first()
-        if not part_location:
-            part_location = PartLocation(part_id=part_id, location_id=location_id, quantity=0)
-            db.add(part_location)
-        part_location.quantity += quantity
-        db.commit()
 
     def _recalculate(self, db: Session, invoice):
         line_items = crud_invoice_line_item.get_by_invoice(db, invoice.id)

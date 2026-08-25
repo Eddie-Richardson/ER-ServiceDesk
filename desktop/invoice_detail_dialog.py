@@ -13,7 +13,6 @@ pieces on top of that.
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
-    QDialog,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -22,10 +21,13 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
+    QWidget,
 )
 
 from desktop import api_client, layout
 from desktop.api_client import ApiError
+from desktop.app_paths import debug_log
+from desktop.base_dialog import AppDialog
 from desktop.billing_line_item_dialog import BillingLineItemDialog
 from desktop.installment_action_dialog import InstallmentActionDialog
 from desktop.payment_dialog import PaymentDialog
@@ -36,7 +38,7 @@ LINE_ITEM_COLUMN_HEADERS = ["Service", "Qty", "Unit Price", "Line Total"]
 INSTALLMENT_COLUMN_HEADERS = ["#", "Due Date", "Amount", "Status"]
 
 
-class InvoiceDetailDialog(QDialog):
+class InvoiceDetailDialog(AppDialog):
     """Modal dialog for viewing and managing a single invoice."""
 
     def __init__(self, invoice_id: int, ticket_id: int, ticket_title: str, parent=None):
@@ -70,6 +72,7 @@ class InvoiceDetailDialog(QDialog):
 
     def _build_ui(self):
         """Builds every section: ticket reference, line items, discount/tax, totals, payments, and payment plan."""
+        content = QWidget()
         outer_layout = QVBoxLayout()
         outer_layout.setContentsMargins(
             layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
@@ -176,7 +179,8 @@ class InvoiceDetailDialog(QDialog):
         close_button.clicked.connect(self.accept)
         outer_layout.addWidget(close_button)
 
-        self.setLayout(outer_layout)
+        content.setLayout(outer_layout)
+        self.set_scrollable_content(content)
 
     # -----------------------------------------------------------------
     # Loading
@@ -200,7 +204,7 @@ class InvoiceDetailDialog(QDialog):
         try:
             self.invoice = api_client.get_invoice(self.invoice_id)
         except ApiError as e:
-            QMessageBox.critical(self, "Load Failed", str(e))
+            self.handle_api_error(e, title="Load Failed")
             return
 
         try:
@@ -372,7 +376,7 @@ class InvoiceDetailDialog(QDialog):
         try:
             self.invoice = api_client.update_invoice(self.invoice_id, {"discount_id": discount_id})
         except ApiError as e:
-            QMessageBox.critical(self, "Update Failed", str(e))
+            self.handle_api_error(e, title="Update Failed")
             return
         self._render_line_items()
         self._render_totals()
@@ -383,7 +387,7 @@ class InvoiceDetailDialog(QDialog):
         try:
             self.invoice = api_client.update_invoice(self.invoice_id, {"tax_rate_id": tax_rate_id})
         except ApiError as e:
-            QMessageBox.critical(self, "Update Failed", str(e))
+            self.handle_api_error(e, title="Update Failed")
             return
         self._render_line_items()
         self._render_totals()
@@ -410,7 +414,7 @@ class InvoiceDetailDialog(QDialog):
         try:
             api_client.send_invoice(self.invoice_id)
         except ApiError as e:
-            QMessageBox.critical(self, "Send Failed", str(e))
+            self.handle_api_error(e, title="Send Failed")
             return
 
         self._load_invoice()
@@ -433,6 +437,10 @@ class InvoiceDetailDialog(QDialog):
             self.payment_plan = api_client.get_payment_plan_by_invoice(self.invoice_id)
         except ApiError:
             self.payment_plan = None
+
+        if self.payment_plan:
+            installment_states = [(i["sequence_number"], i["payment_id"]) for i in self.payment_plan.get("installments", [])]
+            debug_log(f"_load_payment_plan: invoice {self.invoice_id}, plan {self.payment_plan['id']}, (sequence, payment_id) = {installment_states}")
 
         has_plan = self.payment_plan is not None
         self.setup_plan_button.setVisible(not has_plan and not self.invoice.get("is_paid"))
@@ -483,6 +491,7 @@ class InvoiceDetailDialog(QDialog):
 
         dialog = InstallmentActionDialog(installment, parent=self)
         dialog.exec()
+        debug_log(f"_on_installment_double_clicked: installment {installment['id']}, dialog.action_taken = {dialog.action_taken}")
         if dialog.action_taken:
             self._load_invoice()
 
@@ -504,7 +513,7 @@ class InvoiceDetailDialog(QDialog):
         try:
             api_client.delete_invoice(self.invoice_id)
         except ApiError as e:
-            QMessageBox.critical(self, "Delete Failed", str(e))
+            self.handle_api_error(e, title="Delete Failed")
             return
 
         self.deleted = True

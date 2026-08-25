@@ -191,13 +191,13 @@ class NotesDialog(QDialog):
         self._render_entries(entries)
 
     def _render_entries(self, entries: list[dict]):
-        """Clears and rebuilds the timeline display from fresh data, oldest first."""
+        """Clears and rebuilds the timeline display from fresh data, newest first."""
         while self.entries_layout.count() > 1:
             item = self.entries_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
-        entries_sorted = sorted(entries, key=lambda e: e.get("created_at", ""))
+        entries_sorted = sorted(entries, key=lambda e: e.get("created_at", ""), reverse=True)
         for entry in entries_sorted:
             card = self._build_entry_card(entry)
             self.entries_layout.insertWidget(self.entries_layout.count() - 1, card)

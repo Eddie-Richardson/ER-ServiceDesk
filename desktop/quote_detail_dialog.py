@@ -15,7 +15,6 @@ pairing screen.
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
-    QDialog,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -24,17 +23,19 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
+    QWidget,
 )
 
 from desktop import api_client, layout
 from desktop.api_client import ApiError
+from desktop.base_dialog import AppDialog
 from desktop.billing_line_item_dialog import BillingLineItemDialog
 from desktop.window_geometry import restore_geometry, save_geometry
 
 LINE_ITEM_COLUMN_HEADERS = ["Service", "Qty", "Unit Price", "Line Total"]
 
 
-class QuoteDetailDialog(QDialog):
+class QuoteDetailDialog(AppDialog):
     """Modal dialog for viewing and managing a single quote."""
 
     def __init__(self, quote_id: int, ticket_id: int, ticket_title: str, parent=None):
@@ -67,6 +68,7 @@ class QuoteDetailDialog(QDialog):
 
     def _build_ui(self):
         """Builds the line items table, discount/tax pickers, totals summary, and convert button."""
+        content = QWidget()
         outer_layout = QVBoxLayout()
         outer_layout.setContentsMargins(
             layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
@@ -141,7 +143,8 @@ class QuoteDetailDialog(QDialog):
         close_button.clicked.connect(self.accept)
         outer_layout.addWidget(close_button)
 
-        self.setLayout(outer_layout)
+        content.setLayout(outer_layout)
+        self.set_scrollable_content(content)
 
     # -----------------------------------------------------------------
     # Loading
@@ -165,7 +168,7 @@ class QuoteDetailDialog(QDialog):
         try:
             self.quote = api_client.get_quote(self.quote_id)
         except ApiError as e:
-            QMessageBox.critical(self, "Load Failed", str(e))
+            self.handle_api_error(e, title="Load Failed")
             return
 
         self._populate_discount_tax_pickers()
@@ -308,7 +311,7 @@ class QuoteDetailDialog(QDialog):
         try:
             self.quote = api_client.update_quote(self.quote_id, {"discount_id": discount_id})
         except ApiError as e:
-            QMessageBox.critical(self, "Update Failed", str(e))
+            self.handle_api_error(e, title="Update Failed")
             return
         self._render_line_items()
         self._render_totals()
@@ -319,7 +322,7 @@ class QuoteDetailDialog(QDialog):
         try:
             self.quote = api_client.update_quote(self.quote_id, {"tax_rate_id": tax_rate_id})
         except ApiError as e:
-            QMessageBox.critical(self, "Update Failed", str(e))
+            self.handle_api_error(e, title="Update Failed")
             return
         self._render_line_items()
         self._render_totals()
@@ -346,7 +349,7 @@ class QuoteDetailDialog(QDialog):
         try:
             api_client.convert_quote_to_invoice(self.quote_id)
         except ApiError as e:
-            QMessageBox.critical(self, "Conversion Failed", str(e))
+            self.handle_api_error(e, title="Conversion Failed")
             return
 
         self.converted = True
@@ -374,7 +377,7 @@ class QuoteDetailDialog(QDialog):
         try:
             api_client.send_quote(self.quote_id)
         except ApiError as e:
-            QMessageBox.critical(self, "Send Failed", str(e))
+            self.handle_api_error(e, title="Send Failed")
             return
 
         self._load_quote()
@@ -397,7 +400,7 @@ class QuoteDetailDialog(QDialog):
         try:
             api_client.delete_quote(self.quote_id)
         except ApiError as e:
-            QMessageBox.critical(self, "Delete Failed", str(e))
+            self.handle_api_error(e, title="Delete Failed")
             return
 
         self.deleted = True

@@ -220,6 +220,8 @@ class DashboardWindow(AppWindow):
         """
         existing = getattr(self, attr_name, None)
         if existing is not None:
+            if existing.isMinimized():
+                existing.showNormal()
             existing.raise_()
             existing.activateWindow()
             return

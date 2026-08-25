@@ -203,8 +203,9 @@ class BillingWindow(QWidget):
         self.status_label.setText(f"{len(filtered_quotes)} quote(s), {len(filtered_invoices)} invoice(s).")
 
     def _render_quotes(self, quotes: list[dict]):
-        self.quotes_table.setRowCount(len(quotes))
-        for row, quote in enumerate(quotes):
+        quotes_sorted = sorted(quotes, key=lambda q: q["quote_number"], reverse=True)
+        self.quotes_table.setRowCount(len(quotes_sorted))
+        for row, quote in enumerate(quotes_sorted):
             status = f"Converted to Invoice #{quote['converted_invoice_number']}" if quote.get("converted_invoice_id") else "Open"
             values = [
                 f"#{quote['quote_number']}",
@@ -219,8 +220,9 @@ class BillingWindow(QWidget):
                 self.quotes_table.setItem(row, col, cell)
 
     def _render_invoices(self, invoices: list[dict]):
-        self.invoices_table.setRowCount(len(invoices))
-        for row, invoice in enumerate(invoices):
+        invoices_sorted = sorted(invoices, key=lambda i: i["invoice_number"], reverse=True)
+        self.invoices_table.setRowCount(len(invoices_sorted))
+        for row, invoice in enumerate(invoices_sorted):
             values = [
                 f"#{invoice['invoice_number']}",
                 self._customer_name_for_ticket(invoice["ticket_id"]),

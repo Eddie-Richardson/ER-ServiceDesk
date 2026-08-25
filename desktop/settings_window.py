@@ -66,7 +66,7 @@ class SettingsWindow(QWidget):
         """Builds every tab."""
         super().__init__()
         self.setWindowTitle("ER-ServiceDesk - Settings")
-        self.resize(760, 560)
+        self.resize(900, 750)
         restore_geometry(self, "SettingsWindow")
 
         self._build_ui()

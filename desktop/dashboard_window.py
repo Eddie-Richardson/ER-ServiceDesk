@@ -224,6 +224,16 @@ class DashboardWindow(AppWindow):
                 existing.showNormal()
             existing.raise_()
             existing.activateWindow()
+
+            # Qt's own checkable-button default toggles the checked
+            # state on every click, independent of the explicit
+            # setChecked() calls below -- re-asserting it here corrects
+            # that back to "on" regardless of what Qt's toggle just
+            # did, so the button reflects "is the window open," not
+            # "was it clicked an even or odd number of times."
+            nav_button = self._nav_buttons.get(nav_button_name)
+            if nav_button:
+                nav_button.setChecked(True)
             return
 
         window = create_window()

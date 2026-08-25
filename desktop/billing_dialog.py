@@ -118,8 +118,9 @@ class BillingDialog(QDialog):
             QMessageBox.critical(self, "Load Failed", f"Couldn't load quotes: {e}")
             return
 
-        self.quotes_table.setRowCount(len(quotes))
-        for row, quote in enumerate(quotes):
+        quotes_sorted = sorted(quotes, key=lambda q: q["quote_number"], reverse=True)
+        self.quotes_table.setRowCount(len(quotes_sorted))
+        for row, quote in enumerate(quotes_sorted):
             status = f"Converted to Invoice #{quote['converted_invoice_number']}" if quote.get("converted_invoice_id") else "Open"
             values = [f"#{quote['quote_number']}", f"${quote['total']}", status]
             for col, value in enumerate(values):
@@ -135,8 +136,9 @@ class BillingDialog(QDialog):
             QMessageBox.critical(self, "Load Failed", f"Couldn't load invoices: {e}")
             return
 
-        self.invoices_table.setRowCount(len(invoices))
-        for row, invoice in enumerate(invoices):
+        invoices_sorted = sorted(invoices, key=lambda i: i["invoice_number"], reverse=True)
+        self.invoices_table.setRowCount(len(invoices_sorted))
+        for row, invoice in enumerate(invoices_sorted):
             values = [f"#{invoice['invoice_number']}", f"${invoice['total']}", "Yes" if invoice.get("is_paid") else "No"]
             for col, value in enumerate(values):
                 cell = QTableWidgetItem(value)

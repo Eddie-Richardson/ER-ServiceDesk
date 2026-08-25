@@ -22,16 +22,32 @@ PAYMENT_METHODS = ["cash", "credit_card", "debit_card", "check", "other"]
 class PaymentDialog(QDialog):
     """Modal dialog for recording a payment against an invoice."""
 
-    def __init__(self, invoice_id: int, remaining_balance: float, parent=None):
+    def __init__(self, invoice_id: int, remaining_balance: float, next_unpaid_installment_id: int | None = None, parent=None):
         """
         Args:
             remaining_balance: The current amount owed, used as the
                 default payment amount (the common "paying it off"
                 case).
+            next_unpaid_installment_id: If this invoice has an active
+                payment plan, the id of its next unpaid installment
+                (lowest sequence_number with no payment_id yet) --
+                the payment applies against the plan itself (and its
+                overpayment/redistribution rules) rather than being
+                recorded as a standalone payment. None if there's no
+                active plan.
         """
         super().__init__(parent)
         self.invoice_id = invoice_id
+        self.next_unpaid_installment_id = next_unpaid_installment_id
+        self.remaining_balance = remaining_balance
         self.saved_payment: dict | None = None
+
+        # Set by _attempt_save() when a payment plan doesn't already
+        # exist and this payment doesn't cover the full balance --
+        # the caller checks this after exec() to offer setting one up
+        # for what's left.
+        self.offer_payment_plan = False
+        self.new_remaining_balance = 0.0
 
         self.setWindowTitle("Record Payment")
         self.setMinimumWidth(layout.DIALOG_WIDTH)
@@ -95,15 +111,26 @@ class PaymentDialog(QDialog):
         self.save_button.setText("Recording...")
         self.error_label.hide()
 
+        amount = self.amount_input.value()
+
         try:
-            self.saved_payment = api_client.create_payment(
-                self.invoice_id, f"{self.amount_input.value():.2f}", self.method_combo.currentData(),
-            )
+            if self.next_unpaid_installment_id is not None:
+                self.saved_payment = api_client.record_installment_payment(
+                    self.next_unpaid_installment_id, f"{amount:.2f}", self.method_combo.currentData(),
+                )
+            else:
+                self.saved_payment = api_client.create_payment(
+                    self.invoice_id, f"{amount:.2f}", self.method_combo.currentData(),
+                )
         except ApiError as e:
             self.save_button.setEnabled(True)
             self.save_button.setText("Record Payment")
             self.error_label.setText(str(e))
             self.error_label.show()
             return
+
+        if self.next_unpaid_installment_id is None and amount < self.remaining_balance:
+            self.offer_payment_plan = True
+            self.new_remaining_balance = self.remaining_balance - amount
 
         self.accept()

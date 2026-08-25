@@ -57,14 +57,12 @@ class TicketTypesStagesTab(QWidget):
         lists_row = QHBoxLayout()
 
         self.types_tab = LookupTab("Ticket Type", api_client.list_ticket_types, "/ticket_types/", "ticket_type")
-        self.types_tab.setMaximumHeight(220)
         lists_row.addWidget(self.types_tab)
 
         self.stages_tab = LookupTab("Ticket Stage", api_client.list_ticket_stages, "/ticket_stages/", "ticket_stage")
-        self.stages_tab.setMaximumHeight(220)
         lists_row.addWidget(self.stages_tab)
 
-        outer_layout.addLayout(lists_row, stretch=0)
+        outer_layout.addLayout(lists_row, stretch=1)
 
         # Types/Stages are managed above via their own New/Edit/Delete
         # flows -- the pairing dropdown and checklist need to reflect

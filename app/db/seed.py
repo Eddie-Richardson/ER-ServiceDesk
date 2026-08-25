@@ -267,6 +267,7 @@ def seed_data(db: Session):
         ("Bench 1", "Repair workbench 1"),
         ("Bench 2", "Repair workbench 2"),
         ("Parts Shelf", "Parts storage"),
+        ("Asset Inventory", "Business-owned assets -- kept separate from customer-repair parts storage"),
         ("Shipping/Receiving", "Inbound/outbound shipping area"),
         ("Customer Pickup Shelf", "Completed jobs awaiting pickup"),
     ]

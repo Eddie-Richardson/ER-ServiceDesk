@@ -11,7 +11,18 @@ supporting a clean "nothing entered" state.
 """
 
 from PySide6.QtCore import QDate
-from PySide6.QtWidgets import QDateEdit, QHBoxLayout, QPushButton, QWidget
+from PySide6.QtWidgets import QComboBox, QDateEdit, QHBoxLayout, QPushButton, QWidget
+
+# Range of years shown in the year dropdown -- covers a genuinely old
+# asset's purchase date on the low end, and a reasonable warranty
+# expiration on the high end, without an unwieldy list.
+_YEAR_RANGE_PAST = 50
+_YEAR_RANGE_FUTURE = 10
+
+_MONTH_NAMES = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+]
 
 
 class OptionalDateEdit(QWidget):
@@ -24,14 +35,7 @@ class OptionalDateEdit(QWidget):
         self._date_edit.setCalendarPopup(True)
         self._date_edit.setDisplayFormat("MM/dd/yyyy")
         self._date_edit.setDate(QDate.currentDate())
-        # Qt's calendar popup has a genuinely tiny built-in year editor
-        # by default (a QSpinBox around 52x17px) that clips the number
-        # -- this widens/heightens it via a stylesheet on the calendar
-        # itself, not the QDateEdit field, since the popup is a
-        # separate widget the field's own stylesheet doesn't cascade to.
-        self._date_edit.calendarWidget().setStyleSheet(
-            "QSpinBox { min-height: 28px; min-width: 70px; font-size: 13px; }"
-        )
+        self._build_calendar_nav_bar()
         # Starts cleared -- see is_set's docstring for why a separate
         # flag is needed rather than inferring this from the date value.
         self._is_set = False
@@ -48,6 +52,74 @@ class OptionalDateEdit(QWidget):
         outer_layout.addWidget(self._date_edit, stretch=1)
         outer_layout.addWidget(clear_button)
         self.setLayout(outer_layout)
+
+    def _build_calendar_nav_bar(self):
+        """
+        Replaces the calendar popup's own built-in navigation bar with
+        a real month dropdown and year dropdown -- Qt's default year
+        control is a genuinely tiny spinbox (confirmed too small to
+        read on real hardware) that a stylesheet couldn't reliably fix.
+        Uses QCalendarWidget's own documented public API
+        (setNavigationBarVisible, setCurrentPage, currentPageChanged)
+        rather than reaching into its internal widget structure.
+        """
+        calendar = self._date_edit.calendarWidget()
+        calendar.setNavigationBarVisible(False)
+
+        current_year = QDate.currentDate().year()
+
+        prev_button = QPushButton("<")
+        prev_button.setFixedWidth(28)
+        prev_button.clicked.connect(calendar.showPreviousMonth)
+
+        self._month_combo = QComboBox()
+        for index, name in enumerate(_MONTH_NAMES):
+            self._month_combo.addItem(name, userData=index + 1)
+
+        self._year_combo = QComboBox()
+        for year in range(current_year + _YEAR_RANGE_FUTURE, current_year - _YEAR_RANGE_PAST - 1, -1):
+            self._year_combo.addItem(str(year), userData=year)
+
+        next_button = QPushButton(">")
+        next_button.setFixedWidth(28)
+        next_button.clicked.connect(calendar.showNextMonth)
+
+        self._month_combo.currentIndexChanged.connect(self._on_nav_combo_changed)
+        self._year_combo.currentIndexChanged.connect(self._on_nav_combo_changed)
+        calendar.currentPageChanged.connect(self._sync_nav_combos_to_calendar)
+
+        nav_row = QHBoxLayout()
+        nav_row.addWidget(prev_button)
+        nav_row.addWidget(self._month_combo, stretch=1)
+        nav_row.addWidget(self._year_combo)
+        nav_row.addWidget(next_button)
+
+        # QCalendarWidget lays itself out with a real QVBoxLayout of
+        # its own -- inserting this custom row at the very top puts it
+        # exactly where the now-hidden built-in nav bar used to be.
+        calendar.layout().insertLayout(0, nav_row)
+
+        self._sync_nav_combos_to_calendar(calendar.yearShown(), calendar.monthShown())
+
+    def _on_nav_combo_changed(self):
+        """Navigates the calendar to whatever month/year is now selected in the dropdowns."""
+        calendar = self._date_edit.calendarWidget()
+        calendar.setCurrentPage(self._year_combo.currentData(), self._month_combo.currentData())
+
+    def _sync_nav_combos_to_calendar(self, year: int, month: int):
+        """
+        Keeps the dropdowns showing whatever month/year the calendar is
+        actually on -- needed because the Prev/Next buttons (and
+        clicking a date near a month boundary) change the calendar's
+        page directly, bypassing the dropdowns entirely.
+        """
+        month_index = self._month_combo.findData(month)
+        if month_index >= 0:
+            self._month_combo.setCurrentIndex(month_index)
+
+        year_index = self._year_combo.findData(year)
+        if year_index >= 0:
+            self._year_combo.setCurrentIndex(year_index)
 
     def date_string(self) -> str | None:
         """Returns the picked date as "YYYY-MM-DD" (the backend's expected format), or None if cleared/never set."""

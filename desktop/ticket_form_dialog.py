@@ -48,6 +48,7 @@ from PySide6.QtWidgets import (
 
 from desktop import api_client, layout, session
 from desktop.api_client import ApiError
+from desktop.app_paths import debug_log
 from desktop.base_dialog import AppDialog
 from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.ticket_save_worker import TicketSaveWorker
@@ -624,6 +625,7 @@ class TicketFormDialog(AppDialog):
     # -----------------------------------------------------------------
     def _attempt_save(self):
         """Validates the form, then starts the save request on a background thread."""
+        debug_log(f"ticket_form: save attempt ({'edit' if self.ticket else 'create'}, ticket_id={self.ticket['id'] if self.ticket else None})")
         payload, new_device_payload, error = self._build_payload()
         if error:
             self._show_error(error)

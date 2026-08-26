@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from desktop import layout, session
+from desktop.app_paths import debug_log
 from desktop.base_dialog import AppWindow
 from desktop.dashboard_worker import DashboardWorker
 from desktop.billing_window import BillingWindow
@@ -219,6 +220,7 @@ class DashboardWindow(AppWindow):
                 window's sidebar entry.
         """
         existing = getattr(self, attr_name, None)
+        debug_log(f"nav: {nav_button_name} ({'focus existing' if existing is not None else 'open new'})")
         if existing is not None:
             if existing.isMinimized():
                 existing.showNormal()

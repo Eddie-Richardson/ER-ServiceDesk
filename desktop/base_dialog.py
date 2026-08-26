@@ -29,6 +29,7 @@ from PySide6.QtWidgets import QApplication, QDialog, QMessageBox, QScrollArea, Q
 
 from desktop import session
 from desktop.api_client import ApiError, SessionExpiredError
+from desktop.app_paths import debug_log
 
 
 def show_login():
@@ -55,8 +56,10 @@ def show_login():
     from desktop.dashboard_window import DashboardWindow
 
     login_window = LoginWindow()
+    debug_log("show_login: Login window shown")
 
     def _on_login_succeeded():
+        debug_log("show_login: login succeeded, opening Dashboard")
         dashboard = DashboardWindow()
         dashboard.logout_callback = show_login
         dashboard.show()
@@ -79,6 +82,7 @@ def force_logout():
     timeout, which isn't itself a dialog/window instance) can trigger
     the exact same logout flow from two genuinely different situations.
     """
+    debug_log("force_logout: closing all windows (session expiry or idle timeout)")
     session.clear()
     QApplication.instance().closeAllWindows()
     show_login()

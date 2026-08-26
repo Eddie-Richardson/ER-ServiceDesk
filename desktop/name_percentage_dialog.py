@@ -41,6 +41,7 @@ class NamePercentageDialog(AppDialog):
             endpoint: The resource path, e.g. "/discounts/".
         """
         super().__init__(parent)
+        self.display_name = display_name
         self.endpoint = endpoint
         self.item = item
         self.saved_item: dict | None = None
@@ -70,7 +71,8 @@ class NamePercentageDialog(AppDialog):
         outer_layout.setSpacing(layout.SPACE_SM)
 
         self.name_input = QLineEdit()
-        self.name_input.setPlaceholderText("Name, e.g. 'Teacher' (required)")
+        example = "Sales Tax" if self.display_name == "Tax Rate" else "Teacher"
+        self.name_input.setPlaceholderText(f"Name, e.g. '{example}' (required)")
         self.name_input.setFixedHeight(layout.INPUT_HEIGHT)
 
         self.percentage_input = QDoubleSpinBox()

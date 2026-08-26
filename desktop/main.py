@@ -50,6 +50,31 @@ try:
 except Exception:
     pass
 
+# faulthandler above only catches low-level (C++) faults -- a genuine
+# unhandled Python exception is a different kind of event entirely, and
+# in this console=False build, Python's own default exception handling
+# tries to print to sys.stderr, which is None here (not just
+# invisible), so it fails just as silently as the app itself would.
+# This replaces the default handler with one that writes the real
+# traceback to its own log file, so an unhandled exception leaves an
+# actual trace to diagnose from instead of the app just disappearing.
+try:
+    _python_crash_log_path = os.path.join(os.environ.get("TEMP", "."), "er-servicedesk-python-crash-log.txt")
+
+    def _log_unhandled_exception(exc_type, exc_value, exc_traceback):
+        import traceback
+        from datetime import datetime
+        try:
+            with open(_python_crash_log_path, "a", encoding="utf-8") as f:
+                f.write(f"\n[{datetime.now().isoformat(timespec='seconds')}]\n")
+                traceback.print_exception(exc_type, exc_value, exc_traceback, file=f)
+        except Exception:
+            pass
+
+    sys.excepthook = _log_unhandled_exception
+except Exception:
+    pass
+
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 

@@ -10,9 +10,11 @@ world vocabularies are small and stable ("Active"/"In Repair"/"Retired",
 keys, populated as dropdowns from the backend so they can't drift out of
 sync the way free text would. Everything else (name, sku, manufacturer,
 model, serial number, assigned_to, notes) is genuinely open-ended free
-text; price/dates are free text too, parsed and validated on save rather
-than forced into date-picker widgets that don't have a clean "not set"
-state for an optional field.
+text; price stays free text, parsed and validated on save. Purchase
+date and warranty expiration use OptionalDateEdit -- a real calendar-
+popup picker with an explicit Clear button, rather than free text --
+since it can represent "not set" cleanly while still ruling out invalid
+dates entirely (unlike free text, which needed its own format check).
 """
 
 from PySide6.QtCore import QThread
@@ -30,6 +32,7 @@ from PySide6.QtWidgets import (
 from desktop import layout
 from desktop.asset_save_worker import AssetSaveWorker
 from desktop.base_dialog import AppDialog
+from desktop.optional_date_edit import OptionalDateEdit
 from desktop.window_geometry import restore_geometry, save_geometry
 
 STATUS_OPTIONS = ["Active", "In Repair", "Retired"]
@@ -132,13 +135,9 @@ class AssetFormDialog(AppDialog):
         self.price_input.setPlaceholderText("e.g. 499.99")
         self.price_input.setFixedHeight(layout.INPUT_HEIGHT)
 
-        self.purchase_date_input = QLineEdit()
-        self.purchase_date_input.setPlaceholderText("YYYY-MM-DD")
-        self.purchase_date_input.setFixedHeight(layout.INPUT_HEIGHT)
+        self.purchase_date_input = OptionalDateEdit()
 
-        self.warranty_expiration_input = QLineEdit()
-        self.warranty_expiration_input.setPlaceholderText("YYYY-MM-DD")
-        self.warranty_expiration_input.setFixedHeight(layout.INPUT_HEIGHT)
+        self.warranty_expiration_input = OptionalDateEdit()
 
         self.assigned_to_input = QLineEdit()
         self.assigned_to_input.setPlaceholderText("Person or department (optional)")
@@ -235,8 +234,8 @@ class AssetFormDialog(AppDialog):
         self.price_input.setText(
             "" if asset.get("price") is None else str(asset["price"])
         )
-        self.purchase_date_input.setText(asset.get("purchase_date") or "")
-        self.warranty_expiration_input.setText(asset.get("warranty_expiration") or "")
+        self.purchase_date_input.set_date_string(asset.get("purchase_date"))
+        self.warranty_expiration_input.set_date_string(asset.get("warranty_expiration"))
         self.assigned_to_input.setText(asset.get("assigned_to") or "")
         self._select_combo_by_data(self.condition_combo, asset.get("condition"))
         self.notes_input.setPlainText(asset.get("notes") or "")
@@ -295,11 +294,8 @@ class AssetFormDialog(AppDialog):
             except ValueError:
                 return {}, "Price must be a number, e.g. 499.99."
 
-        purchase_date = self.purchase_date_input.text().strip() or None
-        warranty_expiration = self.warranty_expiration_input.text().strip() or None
-        for label, value in [("Purchase date", purchase_date), ("Warranty expiration", warranty_expiration)]:
-            if value and not self._looks_like_date(value):
-                return {}, f"{label} must be in YYYY-MM-DD format."
+        purchase_date = self.purchase_date_input.date_string()
+        warranty_expiration = self.warranty_expiration_input.date_string()
 
         payload = {
             "name": name,
@@ -318,16 +314,6 @@ class AssetFormDialog(AppDialog):
             "notes": self.notes_input.toPlainText().strip() or None,
         }
         return payload, ""
-
-    def _looks_like_date(self, value: str) -> bool:
-        """
-        Returns:
-            Whether value matches YYYY-MM-DD shape. Deliberately simple
-            (length + dash positions) rather than a full parse -- this is
-            a friendly format hint, not a calendar validity check; the
-            backend still validates the real date on save.
-        """
-        return len(value) == 10 and value[4] == "-" and value[7] == "-"
 
     def _on_save_finished(self, success: bool, result):
         """

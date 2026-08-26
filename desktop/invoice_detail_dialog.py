@@ -428,28 +428,14 @@ class InvoiceDetailDialog(AppDialog):
         recorded. If an active payment plan exists, the payment
         applies against its next unpaid installment instead of being
         recorded as a standalone payment. If there's no plan and the
-        payment doesn't cover the full balance, offers setting one up
-        for what's left.
+        payment doesn't cover the full balance, PaymentDialog itself
+        offers setting one up (for the real, full balance) before
+        recording anything.
         """
         next_unpaid_installment_id = self._next_unpaid_installment_id()
         dialog = PaymentDialog(self.invoice_id, self._remaining_balance(), next_unpaid_installment_id, parent=self)
-        if not dialog.exec():
-            return
-
-        self._load_invoice()
-
-        if dialog.offer_payment_plan:
-            confirmed = QMessageBox.question(
-                self,
-                "Set Up Payment Plan?",
-                f"This payment doesn't cover the full balance. Set up a payment plan for the remaining ${dialog.new_remaining_balance:.2f}?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No,
-            )
-            if confirmed == QMessageBox.StandardButton.Yes:
-                plan_dialog = PaymentPlanSetupDialog(self.invoice_id, dialog.new_remaining_balance, parent=self)
-                if plan_dialog.exec():
-                    self._load_invoice()
+        if dialog.exec():
+            self._load_invoice()
 
     def _next_unpaid_installment_id(self) -> int | None:
         """Returns the lowest-sequence-number installment on the active plan (if any) that hasn't been paid yet, or None if there's no active plan or every installment is already paid."""

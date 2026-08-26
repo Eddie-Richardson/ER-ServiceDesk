@@ -14,6 +14,7 @@ during ticket intake.
 
 from PySide6.QtCore import QThread, Qt
 from PySide6.QtWidgets import (
+    QComboBox,
     QHeaderView,
     QLabel,
     QLineEdit,
@@ -33,6 +34,7 @@ from desktop.customer_save_worker import CustomerSaveWorker
 from desktop.device_edit_dialog import DeviceEditDialog
 from desktop.invoice_detail_dialog import InvoiceDetailDialog
 from desktop.lock_gate import LockGate
+from desktop.us_states import US_STATES
 
 DEVICE_COLUMN_HEADERS = ["Type", "Brand", "Model", "Serial Number"]
 INVOICE_COLUMN_HEADERS = ["Invoice #", "Ticket #", "Total", "Paid"]
@@ -123,8 +125,16 @@ class CustomerFormDialog(AppDialog):
         self.phone_input = QLineEdit()
         self.phone_input.setFixedHeight(layout.INPUT_HEIGHT)
 
-        self.address_input = QLineEdit()
-        self.address_input.setFixedHeight(layout.INPUT_HEIGHT)
+        self.street_input = QLineEdit()
+        self.street_input.setFixedHeight(layout.INPUT_HEIGHT)
+
+        self.state_combo = QComboBox()
+        self.state_combo.addItem("", userData=None)
+        for state in US_STATES:
+            self.state_combo.addItem(state, userData=state)
+
+        self.zip_code_input = QLineEdit()
+        self.zip_code_input.setFixedHeight(layout.INPUT_HEIGHT)
 
         self.error_label = QLabel("")
         self.error_label.setObjectName("subtitle")
@@ -159,7 +169,9 @@ class CustomerFormDialog(AppDialog):
             ("Last Name", self.last_name_input),
             ("Email", self.email_input),
             ("Phone", self.phone_input),
-            ("Address", self.address_input),
+            ("Street", self.street_input),
+            ("State", self.state_combo),
+            ("Zip", self.zip_code_input),
         ]:
             field_label = QLabel(label_text)
             field_label.setObjectName("subtitle")
@@ -356,7 +368,11 @@ class CustomerFormDialog(AppDialog):
         self.last_name_input.setText(customer.get("last_name", ""))
         self.email_input.setText(customer.get("email", ""))
         self.phone_input.setText(customer.get("phone") or "")
-        self.address_input.setText(customer.get("address") or "")
+        self.street_input.setText(customer.get("street") or "")
+        state_index = self.state_combo.findData(customer.get("state"))
+        if state_index >= 0:
+            self.state_combo.setCurrentIndex(state_index)
+        self.zip_code_input.setText(customer.get("zip_code") or "")
 
     # -----------------------------------------------------------------
     # Save
@@ -405,7 +421,9 @@ class CustomerFormDialog(AppDialog):
             "last_name": last_name,
             "email": email,
             "phone": self.phone_input.text().strip() or None,
-            "address": self.address_input.text().strip() or None,
+            "street": self.street_input.text().strip() or None,
+            "state": self.state_combo.currentData(),
+            "zip_code": self.zip_code_input.text().strip() or None,
         }
         return payload, ""
 

@@ -13,7 +13,9 @@ class CustomerBase(BaseModel):
     last_name: str
     email: str
     phone: str | None = None
-    address: str | None = None
+    street: str | None = None
+    state: str | None = None
+    zip_code: str | None = None
 
 class CustomerCreate(CustomerBase):
     """Schema for creating a new Customer record (client -> server)."""
@@ -25,7 +27,9 @@ class CustomerUpdate(BaseModel):
     last_name: str | None = None
     email: str | None = None
     phone: str | None = None
-    address: str | None = None
+    street: str | None = None
+    state: str | None = None
+    zip_code: str | None = None
     is_archived: bool | None = None
     updated_at: datetime | None = None
 

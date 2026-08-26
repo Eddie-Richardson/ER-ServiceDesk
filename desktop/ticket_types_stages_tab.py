@@ -35,6 +35,13 @@ from desktop.lookup_tab import LookupTab
 class TicketTypesStagesTab(QWidget):
     """Combined management for Ticket Types, Ticket Stages, and which stages are allowed for which type."""
 
+    # Real floor so the two lookup boxes stay readable regardless of
+    # how small the Settings window gets -- the whole tab is wrapped
+    # in a scroll area below, so this doesn't force the window itself
+    # to stay large; it just means this tab's content scrolls once the
+    # window shrinks past what fits.
+    _LOOKUP_TAB_MIN_HEIGHT = 240
+
     def __init__(self):
         """Builds the Types/Stages lists and the pairing section, then loads the pairing data."""
         super().__init__()
@@ -46,23 +53,26 @@ class TicketTypesStagesTab(QWidget):
         self._load_pairing_reference_data()
 
     def _build_ui(self):
-        """Builds the two compact lookup lists on top, and the pairing checklist below."""
-        outer_layout = QVBoxLayout()
-        outer_layout.setContentsMargins(
+        """Builds the two lookup lists (side by side, each with a real minimum height) and the pairing checklist below, all wrapped in one scroll area."""
+        content = QWidget()
+        content_layout = QVBoxLayout()
+        content_layout.setContentsMargins(
             layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
             layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
         )
-        outer_layout.setSpacing(layout.SPACE_MD)
+        content_layout.setSpacing(layout.SPACE_MD)
 
         lists_row = QHBoxLayout()
 
         self.types_tab = LookupTab("Ticket Type", api_client.list_ticket_types, "/ticket_types/", "ticket_type")
+        self.types_tab.setMinimumHeight(self._LOOKUP_TAB_MIN_HEIGHT)
         lists_row.addWidget(self.types_tab)
 
         self.stages_tab = LookupTab("Ticket Stage", api_client.list_ticket_stages, "/ticket_stages/", "ticket_stage")
+        self.stages_tab.setMinimumHeight(self._LOOKUP_TAB_MIN_HEIGHT)
         lists_row.addWidget(self.stages_tab)
 
-        outer_layout.addLayout(lists_row, stretch=1)
+        content_layout.addLayout(lists_row)
 
         # Types/Stages are managed above via their own New/Edit/Delete
         # flows -- the pairing dropdown and checklist need to reflect
@@ -73,7 +83,7 @@ class TicketTypesStagesTab(QWidget):
 
         pairing_label = QLabel("Allowed Stages")
         pairing_label.setObjectName("subtitle")
-        outer_layout.addWidget(pairing_label)
+        content_layout.addWidget(pairing_label)
 
         type_picker_row = QHBoxLayout()
         type_picker_row.addWidget(QLabel("Ticket Type:"))
@@ -81,22 +91,27 @@ class TicketTypesStagesTab(QWidget):
         self.type_picker.currentIndexChanged.connect(self._on_type_selected)
         type_picker_row.addWidget(self.type_picker)
         type_picker_row.addStretch()
-        outer_layout.addLayout(type_picker_row)
+        content_layout.addLayout(type_picker_row)
 
         self.status_label = QLabel("")
         self.status_label.setObjectName("subtitle")
-        outer_layout.addWidget(self.status_label)
+        content_layout.addWidget(self.status_label)
 
         self.checkboxes_container = QWidget()
         self.checkboxes_layout = QVBoxLayout()
         self.checkboxes_layout.addStretch()
         self.checkboxes_container.setLayout(self.checkboxes_layout)
+        content_layout.addWidget(self.checkboxes_container)
+
+        content.setLayout(content_layout)
 
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_area.setWidget(self.checkboxes_container)
-        outer_layout.addWidget(scroll_area, stretch=1)
+        scroll_area.setWidget(content)
 
+        outer_layout = QVBoxLayout()
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.addWidget(scroll_area)
         self.setLayout(outer_layout)
 
     # -----------------------------------------------------------------

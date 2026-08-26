@@ -263,17 +263,17 @@ def seed_data(db: Session):
     # Locations (where a device/asset/part physically is)
     # -------------------------------------------------------------------
     locations = [
-        ("Front Desk", "Customer intake/pickup counter"),
-        ("Bench 1", "Repair workbench 1"),
-        ("Bench 2", "Repair workbench 2"),
-        ("Parts Shelf", "Parts storage"),
-        ("Asset Inventory", "Business-owned assets -- kept separate from customer-repair parts storage"),
-        ("Shipping/Receiving", "Inbound/outbound shipping area"),
-        ("Customer Pickup Shelf", "Completed jobs awaiting pickup"),
+        ("Front Desk", "Customer intake/pickup counter", True),
+        ("Bench 1", "Repair workbench 1", True),
+        ("Bench 2", "Repair workbench 2", True),
+        ("Parts Shelf", "Parts storage", False),
+        ("Asset Inventory", "Business-owned assets -- kept separate from customer-repair parts storage", False),
+        ("Shipping/Receiving", "Inbound/outbound shipping area", True),
+        ("Customer Pickup Shelf", "Completed jobs awaiting pickup", True),
     ]
-    for name, desc in locations:
+    for name, desc, show_in_ticket_picker in locations:
         if not db.query(Location).filter_by(name=name).first():
-            db.add(Location(name=name, description=desc))
+            db.add(Location(name=name, description=desc, show_in_ticket_picker=show_in_ticket_picker))
     db.commit()
 
     # -------------------------------------------------------------------

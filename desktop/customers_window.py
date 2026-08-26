@@ -40,6 +40,14 @@ from desktop.settings_manager import get_saved_theme
 COLUMN_HEADERS = ["Name", "Email", "Phone", "Address"]
 
 
+def _format_address(customer: dict) -> str:
+    """Combines street/state/zip into one readable line for the list view, in natural US address order (street, then state+zip together) -- the edit form keeps them as real, separate fields; this is display-only."""
+    street = customer.get("street")
+    state_zip = " ".join(p for p in [customer.get("state"), customer.get("zip_code")] if p)
+    parts = [p for p in [street, state_zip] if p]
+    return ", ".join(parts) or "-"
+
+
 class CustomersWindow(AppWindow):
     """Standalone window listing all customers, with search, create, and edit."""
 
@@ -202,7 +210,7 @@ class CustomersWindow(AppWindow):
                 f"{customer['first_name']} {customer['last_name']}",
                 customer.get("email", ""),
                 customer.get("phone") or "-",
-                customer.get("address") or "-",
+                _format_address(customer),
             ]
             for col, value in enumerate(values):
                 item = QTableWidgetItem(value)

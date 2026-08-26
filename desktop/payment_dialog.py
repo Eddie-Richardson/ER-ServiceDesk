@@ -2,6 +2,13 @@
 
 """
 Dialog for recording a payment against an invoice.
+
+If the invoice has an active payment plan, the payment applies against
+its next unpaid installment (see next_unpaid_installment_id) instead of
+being recorded standalone. If there's no plan yet and the entered
+amount doesn't cover the full balance, offers setting one up for the
+real, full balance before recording anything -- see
+PaymentPlanSetupDialog.
 """
 
 from PySide6.QtWidgets import (
@@ -9,12 +16,14 @@ from PySide6.QtWidgets import (
     QDialog,
     QDoubleSpinBox,
     QLabel,
+    QMessageBox,
     QPushButton,
     QVBoxLayout,
 )
 
 from desktop import api_client, layout
 from desktop.api_client import ApiError
+from desktop.payment_plan_setup_dialog import PaymentPlanSetupDialog
 
 PAYMENT_METHODS = ["cash", "credit_card", "debit_card", "check", "other"]
 
@@ -41,13 +50,6 @@ class PaymentDialog(QDialog):
         self.next_unpaid_installment_id = next_unpaid_installment_id
         self.remaining_balance = remaining_balance
         self.saved_payment: dict | None = None
-
-        # Set by _attempt_save() when a payment plan doesn't already
-        # exist and this payment doesn't cover the full balance --
-        # the caller checks this after exec() to offer setting one up
-        # for what's left.
-        self.offer_payment_plan = False
-        self.new_remaining_balance = 0.0
 
         self.setWindowTitle("Record Payment")
         self.setMinimumWidth(layout.DIALOG_WIDTH)
@@ -113,6 +115,35 @@ class PaymentDialog(QDialog):
 
         amount = self.amount_input.value()
 
+        # No active plan, and this payment wouldn't cover the full
+        # balance -- offer to set one up for the full, real remaining
+        # balance before recording anything, so the plan's own
+        # installment schedule reflects the actual balance rather than
+        # something already reduced by this payment.
+        if self.next_unpaid_installment_id is None and amount < self.remaining_balance:
+            confirmed = QMessageBox.question(
+                self,
+                "Set Up Payment Plan?",
+                f"This payment doesn't cover the full ${self.remaining_balance:.2f} balance. "
+                f"Set up a payment plan for the full balance, then apply this payment to it?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if confirmed == QMessageBox.StandardButton.Yes:
+                plan_dialog = PaymentPlanSetupDialog(self.invoice_id, self.remaining_balance, parent=self)
+                if not plan_dialog.exec():
+                    # Backed out of setting up a plan -- re-enable the
+                    # form so they can decide again (a different
+                    # amount, a standalone payment, or cancel outright)
+                    # rather than silently falling through to a
+                    # standalone payment they didn't actually choose.
+                    self.save_button.setEnabled(True)
+                    self.save_button.setText("Record Payment")
+                    return
+
+                first_installment = min(plan_dialog.saved_plan["installments"], key=lambda i: i["sequence_number"])
+                self.next_unpaid_installment_id = first_installment["id"]
+
         try:
             if self.next_unpaid_installment_id is not None:
                 self.saved_payment = api_client.record_installment_payment(
@@ -128,9 +159,5 @@ class PaymentDialog(QDialog):
             self.error_label.setText(str(e))
             self.error_label.show()
             return
-
-        if self.next_unpaid_installment_id is None and amount < self.remaining_balance:
-            self.offer_payment_plan = True
-            self.new_remaining_balance = self.remaining_balance - amount
 
         self.accept()

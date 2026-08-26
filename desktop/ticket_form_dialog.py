@@ -200,8 +200,10 @@ class TicketFormDialog(AppDialog):
         self.location_combo = QComboBox()
         self.location_combo.setFixedHeight(layout.INPUT_HEIGHT)
         self.location_combo.addItem("-- None --", userData=None)
+        current_location_id = self.ticket.get("current_location_id") if self.ticket else None
         for location in self.reference_data.get("locations", []):
-            self.location_combo.addItem(location["name"], userData=location["id"])
+            if location.get("show_in_ticket_picker", True) or location["id"] == current_location_id:
+                self.location_combo.addItem(location["name"], userData=location["id"])
 
         self.title_input = QLineEdit()
         self.title_input.setPlaceholderText("Short summary of the issue")

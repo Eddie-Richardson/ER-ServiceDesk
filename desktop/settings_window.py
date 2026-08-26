@@ -34,7 +34,6 @@ from PySide6.QtWidgets import QTabWidget, QVBoxLayout, QWidget
 from desktop.api_client import (
     list_asset_categories,
     list_discounts,
-    list_locations,
     list_tax_rates,
     list_ticket_categories,
     list_ticket_statuses,
@@ -42,6 +41,7 @@ from desktop.api_client import (
 from desktop.audit_log_tab import AuditLogTab
 from desktop.background_jobs_tab import BackgroundJobsTab
 from desktop.database_backup_tab import DatabaseBackupTab
+from desktop.locations_tab import LocationsTab
 from desktop.lookup_tab import LookupTab
 from desktop.message_templates_tab import MessageTemplatesTab
 from desktop.migrate_to_server_tab import MigrateToServerTab
@@ -66,7 +66,7 @@ class SettingsWindow(QWidget):
         """Builds every tab."""
         super().__init__()
         self.setWindowTitle("ER-ServiceDesk - Settings")
-        self.resize(900, 750)
+        self.resize(760, 560)
         restore_geometry(self, "SettingsWindow")
 
         self._build_ui()
@@ -82,10 +82,7 @@ class SettingsWindow(QWidget):
         outer_layout.setContentsMargins(0, 0, 0, 0)
 
         tabs = QTabWidget()
-        tabs.addTab(
-            LookupTab("Location", list_locations, "/inventory/locations/", "location"),
-            "Locations",
-        )
+        tabs.addTab(LocationsTab(), "Locations")
         tabs.addTab(
             LookupTab("Asset Category", list_asset_categories, "/inventory/asset_categories/", "asset_category"),
             "Asset Categories",

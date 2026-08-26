@@ -24,6 +24,14 @@ class OptionalDateEdit(QWidget):
         self._date_edit.setCalendarPopup(True)
         self._date_edit.setDisplayFormat("MM/dd/yyyy")
         self._date_edit.setDate(QDate.currentDate())
+        # Qt's calendar popup has a genuinely tiny built-in year editor
+        # by default (a QSpinBox around 52x17px) that clips the number
+        # -- this widens/heightens it via a stylesheet on the calendar
+        # itself, not the QDateEdit field, since the popup is a
+        # separate widget the field's own stylesheet doesn't cascade to.
+        self._date_edit.calendarWidget().setStyleSheet(
+            "QSpinBox { min-height: 28px; min-width: 70px; font-size: 13px; }"
+        )
         # Starts cleared -- see is_set's docstring for why a separate
         # flag is needed rather than inferring this from the date value.
         self._is_set = False

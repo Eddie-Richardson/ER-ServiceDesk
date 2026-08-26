@@ -254,9 +254,9 @@ def test_locations_crud(client, agent_headers):
 def test_customers_crud(client, agent_headers):
     _assert_crud_lifecycle(
         client, agent_headers, "/customers",
-        {"first_name": "Jane", "last_name": "Doe", "email": "jane@example.com", "street": "123 Main St", "state": "TX", "zip_code": "75001"},
-        {"phone": "555-1234", "street": "456 Oak Ave", "state": "CA", "zip_code": "90210"},
-        update_check_field="zip_code",
+        {"first_name": "Jane", "last_name": "Doe", "email": "jane@example.com", "street": "123 Main St", "city": "Dallas", "state": "TX", "zip_code": "75001"},
+        {"phone": "555-1234", "street": "456 Oak Ave", "city": "Los Angeles", "state": "CA", "zip_code": "90210"},
+        update_check_field="city",
     )
 
 

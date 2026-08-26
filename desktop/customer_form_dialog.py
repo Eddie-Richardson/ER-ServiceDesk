@@ -128,6 +128,9 @@ class CustomerFormDialog(AppDialog):
         self.street_input = QLineEdit()
         self.street_input.setFixedHeight(layout.INPUT_HEIGHT)
 
+        self.city_input = QLineEdit()
+        self.city_input.setFixedHeight(layout.INPUT_HEIGHT)
+
         self.state_combo = QComboBox()
         self.state_combo.addItem("", userData=None)
         for state in US_STATES:
@@ -170,6 +173,7 @@ class CustomerFormDialog(AppDialog):
             ("Email", self.email_input),
             ("Phone", self.phone_input),
             ("Street", self.street_input),
+            ("City", self.city_input),
             ("State", self.state_combo),
             ("Zip", self.zip_code_input),
         ]:
@@ -369,6 +373,7 @@ class CustomerFormDialog(AppDialog):
         self.email_input.setText(customer.get("email", ""))
         self.phone_input.setText(customer.get("phone") or "")
         self.street_input.setText(customer.get("street") or "")
+        self.city_input.setText(customer.get("city") or "")
         state_index = self.state_combo.findData(customer.get("state"))
         if state_index >= 0:
             self.state_combo.setCurrentIndex(state_index)
@@ -422,6 +427,7 @@ class CustomerFormDialog(AppDialog):
             "email": email,
             "phone": self.phone_input.text().strip() or None,
             "street": self.street_input.text().strip() or None,
+            "city": self.city_input.text().strip() or None,
             "state": self.state_combo.currentData(),
             "zip_code": self.zip_code_input.text().strip() or None,
         }

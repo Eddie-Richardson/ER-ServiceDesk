@@ -14,6 +14,7 @@ class CustomerBase(BaseModel):
     email: str
     phone: str | None = None
     street: str | None = None
+    city: str | None = None
     state: str | None = None
     zip_code: str | None = None
 
@@ -28,6 +29,7 @@ class CustomerUpdate(BaseModel):
     email: str | None = None
     phone: str | None = None
     street: str | None = None
+    city: str | None = None
     state: str | None = None
     zip_code: str | None = None
     is_archived: bool | None = None

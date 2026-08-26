@@ -31,6 +31,7 @@ class Customer(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     phone = Column(String, nullable=True)
     street = Column(String, nullable=True)
+    city = Column(String, nullable=True)
     state = Column(String, nullable=True)
     zip_code = Column(String, nullable=True)
     is_archived = Column(Boolean, nullable=False, default=False)

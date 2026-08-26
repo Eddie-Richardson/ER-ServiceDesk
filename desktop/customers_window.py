@@ -41,10 +41,11 @@ COLUMN_HEADERS = ["Name", "Email", "Phone", "Address"]
 
 
 def _format_address(customer: dict) -> str:
-    """Combines street/state/zip into one readable line for the list view, in natural US address order (street, then state+zip together) -- the edit form keeps them as real, separate fields; this is display-only."""
+    """Combines street/city/state/zip into one readable line for the list view, in natural US address order (street, city, then state+zip together) -- the edit form keeps them as real, separate fields; this is display-only."""
     street = customer.get("street")
+    city = customer.get("city")
     state_zip = " ".join(p for p in [customer.get("state"), customer.get("zip_code")] if p)
-    parts = [p for p in [street, state_zip] if p]
+    parts = [p for p in [street, city, state_zip] if p]
     return ", ".join(parts) or "-"
 
 

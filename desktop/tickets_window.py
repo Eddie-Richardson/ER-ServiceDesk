@@ -331,10 +331,11 @@ class TicketsWindow(AppWindow):
             assigned_to: The ticket's assigned_to field (a user id, or None).
 
         Returns:
-            "Unassigned", "Me", the resolved technician's name (only
-            possible for superuser sessions, which have the full user
-            list), or a generic "Assigned" fallback when the name can't
-            be resolved.
+            "Unassigned", "Me", or the resolved person's name -- now
+            available for every role, not just superuser sessions
+            (see TicketsDataWorker/api_client.list_assignable_users()).
+            Falls back to a generic "Assigned" only if the id genuinely
+            can't be resolved, e.g. a data inconsistency.
         """
         if assigned_to is None:
             return "Unassigned"

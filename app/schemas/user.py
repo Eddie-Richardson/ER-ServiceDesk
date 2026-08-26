@@ -76,3 +76,20 @@ class User(UserBase):
     full_name: str
 
     model_config = ConfigDict(from_attributes=True)
+
+class AssignableUser(BaseModel):
+    """
+    A deliberately minimal view of a user, for resolving/picking a
+    ticket's assignee -- available to any authenticated user, not just
+    superusers. Only exposes what's actually needed for that: a name to
+    display, and whether this person is front desk (who can assign
+    tickets to others but should never be an assignment target
+    themselves). None of the sensitive account-management fields the
+    full User schema exposes (email, is_active, must_change_password,
+    etc.) belong in something every role can query.
+    """
+    id: int
+    full_name: str
+    is_front_desk: bool
+
+    model_config = ConfigDict(from_attributes=True)

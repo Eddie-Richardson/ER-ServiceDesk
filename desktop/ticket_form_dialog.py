@@ -14,10 +14,11 @@ stable, the same reasoning behind Asset's fixed Status/Condition lists.
 
 Assigned To always offers "Unassigned" and "Me" (self-assignment), using
 the current user's own id from their JWT claims -- no API call needed,
-and it works regardless of role. The backend's /users endpoint is
-superuser-only, so the full technician list is only added to the dropdown
-when the session has permission to fetch it; regular agents simply don't
-see other technicians as assignment targets yet.
+and it works regardless of role. The full list of other assignable
+users is available to every role now (see api_client.list_assignable_
+users()), excluding anyone with the front_desk role -- front desk can
+assign tickets to agents, but should never be an assignment target
+themselves.
 
 The device dropdown always includes a "+ Add New Device" option, since
 intake in practice usually means a device is seeing the system for the
@@ -75,8 +76,9 @@ class TicketFormDialog(AppDialog):
         Args:
             reference_data: Dict with keys "statuses", "categories",
                 "types", "customers", "devices", "users" -- the lookup
-                lists loaded by TicketsDataWorker. "users" is empty for
-                non-superuser sessions.
+                lists loaded by TicketsDataWorker. "users" now includes
+                every active user for every role (id/full_name/
+                is_front_desk); see api_client.list_assignable_users().
         """
         super().__init__(parent)
         self.reference_data = reference_data
@@ -517,22 +519,30 @@ class TicketFormDialog(AppDialog):
 
     def _populate_assigned_to(self):
         """
-        Fills the Assigned To dropdown with "Unassigned", "Me" (using the
-        current user's own id -- no API call needed, works for any
-        role), and the rest of the technician list if it was available
-        (superuser sessions only; see TicketsDataWorker._load_users).
+        Fills the Assigned To dropdown with "Unassigned", "Me" (unless
+        the current user is themselves front desk -- see below), and
+        every other assignable user, excluding anyone with the
+        front_desk role entirely. Front desk can assign tickets to
+        agents, but should never be an assignment target themselves,
+        since they work the front desk rather than tickets directly.
         """
         self.assigned_to_combo.addItem("Unassigned", userData=None)
 
         my_id = session.current_user_id()
         my_name = session.current_full_name() or "Me"
-        if my_id is not None:
+        i_am_front_desk = any(
+            user["id"] == my_id and user.get("is_front_desk")
+            for user in self.reference_data.get("users", [])
+        )
+        i_am_currently_assigned = self.ticket is not None and self.ticket.get("assigned_to") == my_id
+        if my_id is not None and (not i_am_front_desk or i_am_currently_assigned):
             self.assigned_to_combo.addItem(f"Me ({my_name})", userData=my_id)
 
         for user in self.reference_data.get("users", []):
             if user["id"] == my_id:
-                continue  # already listed as "Me" above
-            if not user.get("is_active", True):
+                continue  # already listed as "Me" above, or correctly excluded if front desk
+            currently_assigned = self.ticket is not None and self.ticket.get("assigned_to") == user["id"]
+            if user.get("is_front_desk") and not currently_assigned:
                 continue
             self.assigned_to_combo.addItem(user["full_name"], userData=user["id"])
 

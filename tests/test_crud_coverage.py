@@ -172,6 +172,31 @@ def test_users_requires_superuser_not_just_auth(client, agent_headers):
     assert resp.status_code == 403
 
 
+def test_assignable_users_available_to_non_superuser(client, agent_headers, db):
+    """Unlike the rest of /users, /users/assignable is genuinely available to any authenticated user -- resolving a ticket's assignee is something every role needs, not just admins."""
+    resp = client.get("/users/assignable", headers=agent_headers)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert len(body) >= 1
+    entry = body[0]
+    assert set(entry.keys()) == {"id", "full_name", "is_front_desk"}
+
+
+def test_assignable_users_correctly_flags_front_desk(client, agent_headers, db):
+    """A user with the front_desk role shows is_front_desk=True; others show False -- lets the desktop filter front desk out of the assignment picker."""
+    from app.models.user_role import UserRole
+
+    front_desk_role = make_role(db, "front_desk")
+    front_desk_user = make_plain_user(db, email="fd_test@example.com")
+    db.add(UserRole(user_id=front_desk_user.id, role_id=front_desk_role.id))
+    db.commit()
+
+    resp = client.get("/users/assignable", headers=agent_headers)
+    assert resp.status_code == 200
+    entries = {e["id"]: e["is_front_desk"] for e in resp.json()}
+    assert entries[front_desk_user.id] is True
+
+
 # ---------------------------------------------------------------------------
 # Standalone lookup-table resources (any authenticated user)
 # ---------------------------------------------------------------------------
@@ -942,6 +967,51 @@ def test_lock_timeout_is_configurable_via_system_setting(client, agent_headers, 
 
     reclaim_resp = client.post("/locks/acquire", json={"entity_type": "ticket", "entity_id": 6}, headers=other_headers)
     assert reclaim_resp.status_code == 200, reclaim_resp.text
+
+
+def test_ticket_update_audit_log_only_lists_genuinely_changed_fields(client, superuser_headers, db):
+    """
+    Regression test: the desktop's ticket form always sends the full
+    payload on save (every field, not just the ones edited), matching
+    the current values for anything untouched. The audit log used to
+    report every field in the request as "changed" regardless of
+    whether its value actually differed -- e.g. assigning a ticket to
+    yourself showed up as if the customer, device, title, and every
+    other field had also been edited. Now it should only list the
+    field(s) that genuinely changed value.
+    """
+    ticket = make_full_ticket(db)
+
+    full_payload = {
+        "customer_id": ticket.customer_id,
+        "device_id": ticket.device_id,
+        "category_id": ticket.category_id,
+        "type_id": ticket.type_id,
+        "status_id": ticket.status_id,
+        "priority": ticket.priority,
+        "title": ticket.title,
+        "assigned_to": None,
+    }
+    update_resp = client.put(f"/tickets/{ticket.id}", json=full_payload, headers=superuser_headers)
+    assert update_resp.status_code == 200, update_resp.text
+
+    other_user = make_plain_user(db, email="assign_target@example.com")
+
+    second_payload = dict(full_payload)
+    second_payload["assigned_to"] = other_user.id
+    update_resp = client.put(f"/tickets/{ticket.id}", json=second_payload, headers=superuser_headers)
+    assert update_resp.status_code == 200, update_resp.text
+
+    audit_resp = client.get("/audit_logs/", headers=superuser_headers)
+    assert audit_resp.status_code == 200
+    entries = [e for e in audit_resp.json() if e["entity_type"] == "ticket" and e["entity_id"] == ticket.id and e["action"] == "ticket_updated"]
+    assert entries, "Expected at least one ticket_updated audit log entry"
+
+    most_recent = entries[0]
+    assert "assigned_to" in most_recent["details"]
+    assert "customer_id" not in most_recent["details"]
+    assert "title" not in most_recent["details"]
+    assert "category_id" not in most_recent["details"]
 
 
 def test_status_histories_is_read_only(client, agent_headers, db):

@@ -273,6 +273,17 @@ def list_users() -> list[dict]:
     return _authed_get("/users/")
 
 
+def list_assignable_users() -> list[dict]:
+    """
+    Returns every active user's {"id", "full_name", "is_front_desk"} --
+    available to any authenticated user, not just superusers. Used to
+    both resolve a ticket's assigned_to for display, and populate the
+    "Assigned To" picker, without requiring superuser access the way
+    the full list_users() does.
+    """
+    return _authed_get("/users/assignable")
+
+
 def list_roles() -> list[dict]:
     """Returns all roles. Requires a superuser session (backend is superuser-gated)."""
     return _authed_get("/roles/")

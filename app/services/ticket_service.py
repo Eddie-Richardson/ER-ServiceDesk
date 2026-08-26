@@ -97,6 +97,8 @@ class TicketService:
         effective_stage_id = update_data.get("stage_id", db_obj.stage_id)
         self._validate_stage_for_type(db, effective_type_id, effective_stage_id)
 
+        changed_fields = [field for field in update_data if getattr(db_obj, field) != update_data[field]]
+
         updated = crud_ticket.update(db, db_obj, obj_in)
 
         if "status_id" in update_data and update_data["status_id"] != previous_status_id:
@@ -106,7 +108,6 @@ class TicketService:
                 changed_by=current_user_id,
             ))
 
-        changed_fields = list(update_data.keys())
         if changed_fields:
             audit_log_service.log(
                 db, "ticket_updated", "ticket", id, user_id=current_user_id,

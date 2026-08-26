@@ -43,3 +43,8 @@ class User(Base):
     def full_name(self):
         """Return the user's first and last name joined with a space."""
         return f"{self.first_name} {self.last_name}"
+
+    @property
+    def is_front_desk(self) -> bool:
+        """Whether this user has the front_desk role. Front desk can assign tickets to agents, but should never be an assignment target themselves -- see AssignableUser."""
+        return any(user_role.role.name == "front_desk" for user_role in self.roles)

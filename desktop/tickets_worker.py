@@ -11,9 +11,9 @@ ticket form's dropdowns, in one pass.
 
 from PySide6.QtCore import QObject, Signal
 
-from desktop import session
 from desktop.api_client import (
     ApiError,
+    list_assignable_users,
     list_customers,
     list_devices,
     list_locations,
@@ -22,7 +22,6 @@ from desktop.api_client import (
     list_ticket_statuses,
     list_ticket_types,
     list_tickets,
-    list_users,
 )
 
 
@@ -35,11 +34,13 @@ class TicketsDataWorker(QObject):
             On success, second argument is a dict with keys "tickets",
             "statuses", "categories", "types", "customers", "devices",
             "parts", "users", "locations", each a list of the
-            corresponding records. "users" is empty for non-superuser
-            sessions -- see _load_users(). On failure, second argument
-            is the caught ApiError (or SessionExpiredError) itself, not
-            a stringified message -- callers use handle_api_error() to
-            react to it.
+            corresponding records. "users" is now every active user's
+            minimal {"id", "full_name", "is_front_desk"} -- available
+            to any authenticated session, not just superusers; see
+            api_client.list_assignable_users(). On failure, second
+            argument is the caught ApiError (or SessionExpiredError)
+            itself, not a stringified message -- callers use
+            handle_api_error() to react to it.
     """
 
     finished = Signal(bool, object)
@@ -60,31 +61,10 @@ class TicketsDataWorker(QObject):
                 "locations": list_locations(),
                 "parts": list_parts(),
                 "tickets": list_tickets(),
-                "users": self._load_users(),
+                "users": list_assignable_users(),
             }
         except ApiError as e:
             self.finished.emit(False, e)
             return
 
         self.finished.emit(True, data)
-
-    def _load_users(self) -> list[dict]:
-        """
-        Fetches the full user list, but only for superuser sessions --
-        the backend's /users router rejects everyone else. Regular
-        agents get an empty list here and fall back to self-assignment
-        only in the ticket form, which needs no API call at all.
-
-        Returns:
-            The full user list for a superuser session, or an empty
-            list otherwise (including if the fetch unexpectedly fails --
-            the "Assigned To" field degrading to self-only is an
-            acceptable fallback, not worth failing the whole window
-            load over).
-        """
-        if not session.is_superuser():
-            return []
-        try:
-            return list_users()
-        except ApiError:
-            return []

@@ -10,9 +10,26 @@ from app.db.session import get_db
 from app.api.dependencies import require_superuser, get_current_user
 from app.models.user import User as UserModel
 from app.services.user_service import user_service
-from app.schemas.user import User, UserCreate, UserUpdate
+from app.schemas.user import User, UserCreate, UserUpdate, AssignableUser
 
 router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(require_superuser)])
+
+# A second, separate router (not the one above) specifically so this
+# one route isn't superuser-gated -- resolving/picking a ticket's
+# assignee is something every role genuinely needs, unlike the rest of
+# this file's full account-management endpoints. See AssignableUser's
+# own docstring for why this is a distinct, narrower schema rather than
+# just loosening the main router's gate.
+assignable_router = APIRouter(prefix="/users", tags=["users"])
+
+
+@assignable_router.get("/assignable", response_model=list[AssignableUser])
+def list_assignable_users(
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Every active user, for resolving a ticket's assigned_to and populating the assignment picker -- available to any authenticated user, not just superusers."""
+    return [u for u in user_service.get_multi(db) if u.is_active]
 
 @router.get("/", response_model=list[User])
 def list_users(db: Session = Depends(get_db)):

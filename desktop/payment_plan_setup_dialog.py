@@ -11,20 +11,21 @@ from PySide6.QtCore import QDate
 from PySide6.QtWidgets import (
     QComboBox,
     QDateEdit,
-    QDialog,
     QDoubleSpinBox,
     QLabel,
     QPushButton,
     QVBoxLayout,
+    QWidget,
 )
 
 from desktop import api_client, layout
 from desktop.api_client import ApiError
+from desktop.base_dialog import AppDialog
 
 FREQUENCIES = ["weekly", "biweekly", "monthly"]
 
 
-class PaymentPlanSetupDialog(QDialog):
+class PaymentPlanSetupDialog(AppDialog):
     """Modal dialog for setting up a new payment plan."""
 
     def __init__(self, invoice_id: int, remaining_balance: float, parent=None):
@@ -46,6 +47,7 @@ class PaymentPlanSetupDialog(QDialog):
 
     def _build_ui(self):
         """Builds the balance reminder, Installment Amount, Frequency, and Start Date fields."""
+        content = QWidget()
         outer_layout = QVBoxLayout()
         outer_layout.setContentsMargins(
             layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
@@ -102,7 +104,8 @@ class PaymentPlanSetupDialog(QDialog):
         outer_layout.addWidget(self.save_button)
         outer_layout.addWidget(cancel_button)
 
-        self.setLayout(outer_layout)
+        content.setLayout(outer_layout)
+        self.set_scrollable_content(content)
 
     def _attempt_save(self):
         """Validates and creates the plan synchronously -- a small, infrequent action."""
@@ -120,8 +123,7 @@ class PaymentPlanSetupDialog(QDialog):
         except ApiError as e:
             self.save_button.setEnabled(True)
             self.save_button.setText("Create Plan")
-            self.error_label.setText(str(e))
-            self.error_label.show()
+            self.handle_api_error(e, on_other_error=self._show_error)
             return
 
         self.accept()

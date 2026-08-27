@@ -9,7 +9,6 @@ History, and Parts.
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QDialog,
     QHeaderView,
     QLabel,
     QMessageBox,
@@ -17,10 +16,12 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
+    QWidget,
 )
 
 from desktop import api_client, layout
 from desktop.api_client import ApiError
+from desktop.base_dialog import AppDialog
 from desktop.invoice_detail_dialog import InvoiceDetailDialog
 from desktop.quote_detail_dialog import QuoteDetailDialog
 from desktop.window_geometry import restore_geometry, save_geometry
@@ -29,7 +30,7 @@ QUOTE_COLUMN_HEADERS = ["Quote #", "Total", "Status"]
 INVOICE_COLUMN_HEADERS = ["Invoice #", "Total", "Paid"]
 
 
-class BillingDialog(QDialog):
+class BillingDialog(AppDialog):
     """Lists every quote and invoice for a ticket."""
 
     def __init__(self, ticket_id: int, ticket_title: str, parent=None):
@@ -55,6 +56,7 @@ class BillingDialog(QDialog):
 
     def _build_ui(self):
         """Builds the Quotes section and Invoices section."""
+        content = QWidget()
         outer_layout = QVBoxLayout()
         outer_layout.setContentsMargins(
             layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
@@ -105,7 +107,8 @@ class BillingDialog(QDialog):
         close_button.clicked.connect(self.accept)
         outer_layout.addWidget(close_button)
 
-        self.setLayout(outer_layout)
+        content.setLayout(outer_layout)
+        self.set_scrollable_content(content)
 
     # -----------------------------------------------------------------
     # Loading
@@ -115,7 +118,7 @@ class BillingDialog(QDialog):
         try:
             quotes = api_client.list_quotes_for_ticket(self.ticket_id)
         except ApiError as e:
-            QMessageBox.critical(self, "Load Failed", f"Couldn't load quotes: {e}")
+            self.handle_api_error(e, on_other_error=lambda message: QMessageBox.critical(self, "Load Failed", f"Couldn't load quotes: {message}"))
             return
 
         quotes_sorted = sorted(quotes, key=lambda q: q["quote_number"], reverse=True)
@@ -133,7 +136,7 @@ class BillingDialog(QDialog):
         try:
             invoices = api_client.list_invoices_for_ticket(self.ticket_id)
         except ApiError as e:
-            QMessageBox.critical(self, "Load Failed", f"Couldn't load invoices: {e}")
+            self.handle_api_error(e, on_other_error=lambda message: QMessageBox.critical(self, "Load Failed", f"Couldn't load invoices: {message}"))
             return
 
         invoices_sorted = sorted(invoices, key=lambda i: i["invoice_number"], reverse=True)
@@ -153,7 +156,7 @@ class BillingDialog(QDialog):
         try:
             new_quote = api_client.create_quote(self.ticket_id)
         except ApiError as e:
-            QMessageBox.critical(self, "Create Failed", str(e))
+            self.handle_api_error(e, title="Create Failed")
             return
 
         self._load_quotes()
@@ -182,7 +185,7 @@ class BillingDialog(QDialog):
         try:
             new_invoice = api_client.create_invoice(self.ticket_id)
         except ApiError as e:
-            QMessageBox.critical(self, "Create Failed", str(e))
+            self.handle_api_error(e, title="Create Failed")
             return
 
         self._load_invoices()

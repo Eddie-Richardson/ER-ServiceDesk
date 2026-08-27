@@ -58,6 +58,7 @@ from PySide6.QtWidgets import (
 
 from desktop import api_client, session
 from desktop.api_client import ApiError
+from desktop.base_dialog import AppDialog
 from desktop.window_geometry import restore_geometry, save_geometry
 
 
@@ -70,7 +71,7 @@ def _format_timestamp(iso_string: str) -> str:
         return iso_string or ""
 
 
-class NotesDialog(QDialog):
+class NotesDialog(AppDialog):
     """Full note/conversation timeline + composer for a single ticket."""
 
     def __init__(self, ticket_id: int, ticket_title: str, customer_id: int | None, parent=None):
@@ -186,7 +187,7 @@ class NotesDialog(QDialog):
         try:
             entries = api_client.list_messages_for_ticket(self.ticket_id)
         except ApiError as e:
-            QMessageBox.critical(self, "Action Failed", str(e))
+            self.handle_api_error(e, title="Action Failed")
             return
         self._render_entries(entries)
 
@@ -282,7 +283,7 @@ class NotesDialog(QDialog):
         try:
             api_client.create_message(payload)
         except ApiError as e:
-            QMessageBox.critical(self, "Action Failed", str(e))
+            self.handle_api_error(e, title="Action Failed")
             return
         finally:
             self.add_note_button.setEnabled(True)
@@ -331,7 +332,7 @@ class NotesDialog(QDialog):
                 try:
                     api_client.update_message(entry["id"], {"content": new_content})
                 except ApiError as e:
-                    QMessageBox.critical(self, "Action Failed", str(e))
+                    self.handle_api_error(e, title="Action Failed")
                     return
                 self._refresh_entries()
 
@@ -350,12 +351,12 @@ class NotesDialog(QDialog):
         try:
             api_client.delete_message(entry["id"])
         except ApiError as e:
-            QMessageBox.critical(self, "Action Failed", str(e))
+            self.handle_api_error(e, title="Action Failed")
             return
         self._refresh_entries()
 
 
-class _EditNoteDialog(QDialog):
+class _EditNoteDialog(AppDialog):
     """Minimal dialog for editing a single entry's content."""
 
     def __init__(self, current_content: str, parent=None):

@@ -19,6 +19,14 @@ for free instead of every file reimplementing the same logic:
    window; any other ApiError is shown as a normal inline message, the
    same as before.
 
+3. Open/close logging -- every dialog/window automatically logs when
+   it's shown and when it closes, tagged with its real class name.
+   Part of the action timeline for tracking down an ongoing,
+   intermittent crash that leaves no exception or native-fault trace
+   -- an "opened: X" with no matching "closed: X" right before a crash
+   narrows down what was actually open at the time, without needing to
+   manually instrument every dialog in the app one at a time.
+
 AppDialog and AppWindow don't share a common Qt base class (QDialog
 and QWidget aren't related), so the shared logic lives in
 _SessionAwareMixin and each class inherits it alongside its own Qt
@@ -112,9 +120,34 @@ class _SessionAwareMixin:
         else:
             QMessageBox.critical(self, title, message)
 
+    def _show_error(self, message: str):
+        """
+        Shared inline error display for dialogs with an error_label
+        widget -- most dialogs across the app had their own identical
+        copy of this exact method before it lived here. Assumes
+        self.error_label exists (a QLabel, matching the established
+        convention every dialog already uses).
+        """
+        self.error_label.setText(message)
+        self.error_label.show()
+
 
 class AppDialog(QDialog, _SessionAwareMixin):
     """Base class for form/detail dialogs. See module docstring."""
+
+    def show(self):
+        debug_log(f"opened: {self.__class__.__name__}")
+        super().show()
+
+    def exec(self):
+        debug_log(f"opened: {self.__class__.__name__}")
+        result = super().exec()
+        debug_log(f"closed: {self.__class__.__name__}")
+        return result
+
+    def closeEvent(self, event):
+        debug_log(f"closed: {self.__class__.__name__}")
+        super().closeEvent(event)
 
     def set_scrollable_content(self, content: QWidget):
         """Wraps content in a QScrollArea and makes it this dialog's only child."""
@@ -134,6 +167,14 @@ class AppWindow(QWidget, _SessionAwareMixin):
     Base class for top-level windows (Dashboard, Tickets, etc.). See
     module docstring.
     """
+
+    def show(self):
+        debug_log(f"opened: {self.__class__.__name__}")
+        super().show()
+
+    def closeEvent(self, event):
+        debug_log(f"closed: {self.__class__.__name__}")
+        super().closeEvent(event)
 
     def set_scrollable_content(self, content: QWidget):
         """Wraps content in a QScrollArea and makes it this window's only child."""

@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 
 from desktop import api_client, layout
 from desktop.api_client import ApiError
+from desktop.base_dialog import AppWindow
 from desktop.invoice_detail_dialog import InvoiceDetailDialog
 from desktop.quote_detail_dialog import QuoteDetailDialog
 from desktop.window_geometry import restore_geometry, save_geometry
@@ -37,7 +38,7 @@ INVOICE_COLUMN_HEADERS = ["Invoice #", "Customer", "Ticket #", "Total", "Paid"]
 PAID_FILTER_OPTIONS = ["All", "Paid", "Unpaid"]
 
 
-class BillingWindow(QWidget):
+class BillingWindow(AppWindow):
     """Standalone window listing every quote and invoice across the business."""
 
     window_closed = Signal()
@@ -64,6 +65,7 @@ class BillingWindow(QWidget):
 
     def _build_ui(self):
         """Builds the title, filter row, Quotes section, and Invoices section."""
+        content = QWidget()
         outer_layout = QVBoxLayout()
         outer_layout.setContentsMargins(
             layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
@@ -122,7 +124,8 @@ class BillingWindow(QWidget):
         self.invoices_table.doubleClicked.connect(self._on_invoice_double_clicked)
         outer_layout.addWidget(self.invoices_table)
 
-        self.setLayout(outer_layout)
+        content.setLayout(outer_layout)
+        self.set_scrollable_content(content)
 
     # -----------------------------------------------------------------
     # Loading
@@ -136,7 +139,7 @@ class BillingWindow(QWidget):
             self.all_quotes = api_client.list_quotes()
             self.all_invoices = api_client.list_invoices()
         except ApiError as e:
-            self.status_label.setText(f"Couldn't load billing data: {e}")
+            self.handle_api_error(e, on_other_error=lambda message: self.status_label.setText(f"Couldn't load billing data: {message}"))
             return
 
         self.customers_by_id = {c["id"]: c for c in self.customers}

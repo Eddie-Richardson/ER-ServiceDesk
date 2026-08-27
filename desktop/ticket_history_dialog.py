@@ -26,7 +26,6 @@ shows the "History" button once a ticket has actually been saved once.
 from datetime import datetime
 
 from PySide6.QtWidgets import (
-    QDialog,
     QFrame,
     QLabel,
     QScrollArea,
@@ -36,6 +35,7 @@ from PySide6.QtWidgets import (
 
 from desktop import api_client
 from desktop.api_client import ApiError
+from desktop.base_dialog import AppDialog
 from desktop.window_geometry import restore_geometry, save_geometry
 
 # Human-readable header for each AuditLog action this dialog might
@@ -85,7 +85,7 @@ def _audit_log_to_timeline_entry(entry: dict) -> dict:
     }
 
 
-class TicketHistoryDialog(QDialog):
+class TicketHistoryDialog(AppDialog):
     """Read-only, chronological view of a ticket's status changes and general activity, merged into one timeline."""
 
     def __init__(self, ticket_id: int, ticket_title: str, parent=None):
@@ -127,13 +127,13 @@ class TicketHistoryDialog(QDialog):
         try:
             status_entries = api_client.list_status_history_for_ticket(self.ticket_id)
         except ApiError as e:
-            self._show_error(f"Could not load status history: {e}")
+            self.handle_api_error(e, on_other_error=lambda message: self._show_error(f"Could not load status history: {message}"))
             return
 
         try:
             audit_entries = api_client.list_audit_log_for_ticket(self.ticket_id)
         except ApiError as e:
-            self._show_error(f"Could not load activity history: {e}")
+            self.handle_api_error(e, on_other_error=lambda message: self._show_error(f"Could not load activity history: {message}"))
             return
 
         timeline = (

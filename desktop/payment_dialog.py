@@ -13,22 +13,23 @@ PaymentPlanSetupDialog.
 
 from PySide6.QtWidgets import (
     QComboBox,
-    QDialog,
     QDoubleSpinBox,
     QLabel,
     QMessageBox,
     QPushButton,
     QVBoxLayout,
+    QWidget,
 )
 
 from desktop import api_client, layout
 from desktop.api_client import ApiError
+from desktop.base_dialog import AppDialog
 from desktop.payment_plan_setup_dialog import PaymentPlanSetupDialog
 
 PAYMENT_METHODS = ["cash", "credit_card", "debit_card", "check", "other"]
 
 
-class PaymentDialog(QDialog):
+class PaymentDialog(AppDialog):
     """Modal dialog for recording a payment against an invoice."""
 
     def __init__(self, invoice_id: int, remaining_balance: float, next_unpaid_installment_id: int | None = None, parent=None):
@@ -59,6 +60,7 @@ class PaymentDialog(QDialog):
 
     def _build_ui(self):
         """Builds the Amount and Method fields."""
+        content = QWidget()
         outer_layout = QVBoxLayout()
         outer_layout.setContentsMargins(
             layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
@@ -105,7 +107,8 @@ class PaymentDialog(QDialog):
         outer_layout.addWidget(self.save_button)
         outer_layout.addWidget(cancel_button)
 
-        self.setLayout(outer_layout)
+        content.setLayout(outer_layout)
+        self.set_scrollable_content(content)
 
     def _attempt_save(self):
         """Validates and records the payment synchronously -- a small, infrequent action."""
@@ -156,8 +159,7 @@ class PaymentDialog(QDialog):
         except ApiError as e:
             self.save_button.setEnabled(True)
             self.save_button.setText("Record Payment")
-            self.error_label.setText(str(e))
-            self.error_label.show()
+            self.handle_api_error(e, on_other_error=self._show_error)
             return
 
         self.accept()

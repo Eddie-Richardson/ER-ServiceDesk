@@ -29,7 +29,7 @@ genuinely open.
 """
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QTabWidget, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QTabWidget, QVBoxLayout
 
 from desktop.api_client import (
     list_asset_categories,
@@ -40,6 +40,7 @@ from desktop.api_client import (
 )
 from desktop.audit_log_tab import AuditLogTab
 from desktop.background_jobs_tab import BackgroundJobsTab
+from desktop.base_dialog import AppWindow
 from desktop.database_backup_tab import DatabaseBackupTab
 from desktop.locations_tab import LocationsTab
 from desktop.lookup_tab import LookupTab
@@ -57,7 +58,7 @@ from desktop.ticket_types_stages_tab import TicketTypesStagesTab
 from desktop.window_geometry import restore_geometry, save_geometry
 
 
-class SettingsWindow(QWidget):
+class SettingsWindow(AppWindow):
     """Standalone window managing every lookup table, Roles, and (for Local installs) Migrate to Server and Database Backup."""
 
     window_closed = Signal()

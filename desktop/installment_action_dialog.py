@@ -15,19 +15,20 @@ from PySide6.QtCore import QDate
 from PySide6.QtWidgets import (
     QComboBox,
     QDateEdit,
-    QDialog,
     QDoubleSpinBox,
     QLabel,
     QPushButton,
     QVBoxLayout,
+    QWidget,
 )
 
 from desktop import api_client, layout
 from desktop.api_client import ApiError
+from desktop.base_dialog import AppDialog
 from desktop.payment_dialog import PAYMENT_METHODS
 
 
-class InstallmentActionDialog(QDialog):
+class InstallmentActionDialog(AppDialog):
     """Modal dialog for paying or extending a single installment."""
 
     def __init__(self, installment: dict, parent=None):
@@ -42,6 +43,7 @@ class InstallmentActionDialog(QDialog):
 
     def _build_ui(self):
         """Builds the payment section and the date-extension section."""
+        content = QWidget()
         outer_layout = QVBoxLayout()
         outer_layout.setContentsMargins(
             layout.WINDOW_MARGIN, layout.WINDOW_MARGIN,
@@ -107,7 +109,8 @@ class InstallmentActionDialog(QDialog):
         close_button.clicked.connect(self.accept)
         outer_layout.addWidget(close_button)
 
-        self.setLayout(outer_layout)
+        content.setLayout(outer_layout)
+        self.set_scrollable_content(content)
 
     def _attempt_pay(self):
         """
@@ -130,8 +133,7 @@ class InstallmentActionDialog(QDialog):
         except ApiError as e:
             self.pay_button.setEnabled(True)
             self.pay_button.setText("Record Payment")
-            self.error_label.setText(str(e))
-            self.error_label.show()
+            self.handle_api_error(e, on_other_error=self._show_error)
             return
 
         self.action_taken = True
@@ -150,8 +152,7 @@ class InstallmentActionDialog(QDialog):
         except ApiError as e:
             self.extend_button.setEnabled(True)
             self.extend_button.setText("Extend Date")
-            self.error_label.setText(str(e))
-            self.error_label.show()
+            self.handle_api_error(e, on_other_error=self._show_error)
             return
 
         self.action_taken = True

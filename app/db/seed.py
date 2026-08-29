@@ -108,7 +108,7 @@ def seed_data(db: Session):
     role_permission_grants = {
         "admin": ["tickets.manage", "customers.manage", "inventory.manage", "billing.manage"],
         "agent": ["tickets.manage", "customers.manage"],
-        "front_desk": ["tickets.manage", "customers.manage"],
+        "front_desk": ["tickets.manage", "customers.manage", "billing.manage"],
         "inventory_access": ["inventory.manage"],
         "billing_access": ["billing.manage"],
     }

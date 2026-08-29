@@ -11,6 +11,7 @@ that open Tickets pre-filtered.
 from PySide6.QtCore import QThread
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
+    QApplication,
     QHBoxLayout,
     QLabel,
     QMessageBox,
@@ -30,8 +31,8 @@ from desktop.users_roles_window import UsersRolesWindow
 from desktop.inventory_window import InventoryWindow
 from desktop.tickets_window import TicketsWindow
 from desktop.window_geometry import restore_geometry, save_geometry
-from desktop.settings_manager import get_saved_theme, get_business_name
-from desktop.theme import MONO_FONT_FAMILY, get_status_color
+from desktop.settings_manager import get_saved_theme, get_business_name, save_theme
+from desktop.theme import MONO_FONT_FAMILY, get_status_color, get_stylesheet
 
 NAV_ITEMS = ["Tickets", "Inventory", "Customers", "Billing", "Users & Roles", "Settings"]
 
@@ -117,6 +118,13 @@ class DashboardWindow(AppWindow):
             self._nav_buttons[label] = button
 
         sidebar_layout.addStretch()
+
+        self.theme_toggle_button = QPushButton()
+        self.theme_toggle_button.setObjectName("secondary")
+        self.theme_toggle_button.setFixedHeight(layout.BUTTON_HEIGHT)
+        self.theme_toggle_button.clicked.connect(self._toggle_theme)
+        self._refresh_theme_toggle_label()
+        sidebar_layout.addWidget(self.theme_toggle_button)
 
         logout_button = QPushButton("Log Out")
         logout_button.setObjectName("secondary")
@@ -300,6 +308,29 @@ class DashboardWindow(AppWindow):
         is needed here.
         """
         self._show_or_focus_window("_settings_window", SettingsWindow, "Settings")
+
+    def _refresh_theme_toggle_label(self):
+        """Updates the theme toggle button's text to reflect the theme it would switch to."""
+        current = get_saved_theme()
+        next_theme = "dark" if current == "light" else "light"
+        self.theme_toggle_button.setText(f"Switch to {next_theme} theme")
+
+    def _toggle_theme(self):
+        """
+        Flips the theme, persists the choice for this machine, and
+        re-applies the stylesheet immediately -- app.setStyleSheet()
+        is already global (see login_window.py's own _toggle_theme(),
+        the same underlying mechanism), so this works the same way
+        whether it's triggered from the login screen or from here.
+        """
+        next_theme = "dark" if get_saved_theme() == "light" else "light"
+        save_theme(next_theme)
+
+        app = QApplication.instance()
+        if app is not None:
+            app.setStyleSheet(get_stylesheet(next_theme))
+
+        self._refresh_theme_toggle_label()
 
     def _on_logout(self):
         """

@@ -20,8 +20,6 @@ Only reachable from the Settings window, which is already
 superuser-gated before it's ever opened (see settings_window.py).
 """
 
-from datetime import datetime
-
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
@@ -37,6 +35,8 @@ from PySide6.QtWidgets import (
 
 from desktop import api_client, layout
 from desktop.api_client import ApiError
+from desktop.audit_log_entry_dialog import AuditLogEntryDialog
+from desktop.formatting import format_timestamp
 
 COLUMN_HEADERS = ["Timestamp", "User", "Action", "Entity", "Details"]
 
@@ -46,15 +46,6 @@ COLUMN_HEADERS = ["Timestamp", "User", "Action", "Entity", "Details"]
 # and predictable rather than dynamically inferred from whatever
 # happens to already be in the log.
 ENTITY_TYPES = ["ticket", "user", "customer", "device"]
-
-
-def _format_timestamp(iso_string: str) -> str:
-    """Formats an ISO datetime string for display, e.g. 'Aug 8, 2026 3:45 PM'. Returns the raw string unchanged if it can't be parsed."""
-    try:
-        dt = datetime.fromisoformat(iso_string)
-        return dt.strftime("%b %-d, %Y %-I:%M %p")
-    except (ValueError, TypeError):
-        return iso_string or ""
 
 
 class AuditLogTab(QWidget):
@@ -111,6 +102,7 @@ class AuditLogTab(QWidget):
         self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table.doubleClicked.connect(self._on_row_double_clicked)
         outer_layout.addWidget(self.table)
 
         self.setLayout(outer_layout)
@@ -150,7 +142,7 @@ class AuditLogTab(QWidget):
         self.table.setRowCount(len(entries))
         for row, entry in enumerate(entries):
             values = [
-                _format_timestamp(entry.get("created_at", "")),
+                format_timestamp(entry.get("created_at", "")),
                 entry.get("user_name") or "System",
                 entry.get("action", ""),
                 f"{entry.get('entity_type', '')} #{entry.get('entity_id', '')}",
@@ -160,3 +152,12 @@ class AuditLogTab(QWidget):
                 item = QTableWidgetItem(value)
                 item.setData(Qt.ItemDataRole.UserRole, entry)
                 self.table.setItem(row, col, item)
+
+    def _on_row_double_clicked(self):
+        """Opens the double-clicked row's full entry in a read-only popup -- the table cell itself is too cramped for a genuinely long, multi-field details message."""
+        selected_items = self.table.selectedItems()
+        if not selected_items:
+            return
+        entry = selected_items[0].data(Qt.ItemDataRole.UserRole)
+        dialog = AuditLogEntryDialog(entry, parent=self)
+        dialog.exec()

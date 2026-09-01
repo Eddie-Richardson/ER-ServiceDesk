@@ -33,7 +33,31 @@ import sys
 from datetime import datetime
 
 
-def pick_file(title: str) -> str:
+def default_backup_folder() -> str:
+    """
+    Returns the same default location the main app's Database Backup
+    tab uses (see desktop/database_backup_tab.py's own
+    DEFAULT_BACKUP_FOLDER) -- so the restore tool's own file picker
+    opens where a backup is actually likely to be, instead of falling
+    back to Windows' own generic default (Documents) with no
+    initialdir ever specified. Computed independently here rather than
+    imported, since this standalone tool has no dependency on the
+    desktop/ package (which pulls in PySide6, unneeded for a minimal,
+    stdlib-only tool).
+
+    Uses sys.executable (this exe's own real location) rather than
+    os.getcwd(), unlike this file's own docker-compose calls
+    elsewhere, which implicitly assume they're already running from
+    the app's install folder -- reliable regardless of how this tool
+    actually gets launched (double-click, a shortcut with a different
+    "Start in" folder, or a command prompt cd'd somewhere else first).
+    """
+    app_dir = os.path.dirname(sys.executable)
+    program_files_dir = os.path.dirname(app_dir)
+    return os.path.join(program_files_dir, "ER-ServiceDesk-Backup", "Database-Backups")
+
+
+def pick_file(title: str, initial_dir: str = "") -> str:
     """
     Shows a real native Windows file-open dialog instead of asking the
     admin to type/remember an exact path from memory -- especially
@@ -44,6 +68,9 @@ def pick_file(title: str) -> str:
 
     Args:
         title: Shown in the dialog's own title bar.
+        initial_dir: Folder the dialog opens to. Without this, Tk
+            falls back to Windows' own generic default (Documents),
+            not necessarily where a backup actually is.
 
     Returns:
         The chosen path, or an empty string if cancelled.
@@ -57,6 +84,7 @@ def pick_file(title: str) -> str:
         root.attributes("-topmost", True)
         path = filedialog.askopenfilename(
             title=title,
+            initialdir=initial_dir,
             filetypes=[("Database backup files", "*.dump"), ("All files", "*.*")],
         )
         root.destroy()
@@ -132,7 +160,7 @@ def main() -> int:
     print()
 
     print("Opening a file picker -- choose the backup file to restore from...")
-    backup_file_path = pick_file("Select the backup file to restore from")
+    backup_file_path = pick_file("Select the backup file to restore from", default_backup_folder())
     if not backup_file_path:
         print("No file selected -- nothing was changed.")
         return 0

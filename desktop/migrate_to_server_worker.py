@@ -22,7 +22,7 @@ from datetime import datetime
 import requests
 from PySide6.QtCore import QObject, Signal
 
-from desktop.app_paths import get_compose_dir
+from desktop.app_paths import get_compose_dir, read_env_value
 
 
 class MigrateToServerWorker(QObject):
@@ -204,37 +204,6 @@ class MigrateToServerWorker(QObject):
         debug_log(f"Dump retrieved successfully via docker cp, {dump_size} bytes")
         return dump_path
 
-    def _read_env_value(self, key: str) -> str:
-        """
-        Reads a single KEY=value line's value directly out of the
-        local .env file -- these values travel to the server as-is
-        (SECRET_KEY and DEVICE_ACCOUNT_ENCRYPTION_KEY), matching the
-        original design: only the Postgres password needs special
-        reconciliation on the server side, since it's baked
-        into Postgres itself rather than being a
-        plain config value.
-
-        Business name, email credentials, and SMTP/IMAP settings are
-        NOT carried this way -- those are real database rows now (see
-        app/services/business_info_service.py), so the database dump
-        itself already carries them over correctly. No .env
-        involvement needed for those at all.
-
-        setup.iss's own WriteEnvFiles wraps every value in double
-        quotes (EscapeForEnvFile, escaping literal " and \\ inside
-        it) -- this reverses that exactly, so a value comes back
-        clean, not as the literal quoted text migration would
-        otherwise send as part of the actual data.
-        """
-        env_path = os.path.join(self.compose_dir, ".env")
-        with open(env_path, "r") as f:
-            for line in f:
-                if line.startswith(key + "="):
-                    raw_value = line.rstrip("\n").split("=", 1)[1]
-                    if raw_value.startswith('"') and raw_value.endswith('"') and len(raw_value) >= 2:
-                        raw_value = raw_value[1:-1].replace('\\"', '"').replace("\\\\", "\\")
-                    return raw_value
-        return ""
 
     def _send_migration(self, dump_path: str) -> bool:
         """
@@ -262,9 +231,17 @@ class MigrateToServerWorker(QObject):
         """
         headers = {
             "X-Migration-Token": self.migration_token,
-            "X-Secret-Key": self._read_env_value("SECRET_KEY"),
-            "X-Device-Account-Encryption-Key": self._read_env_value("DEVICE_ACCOUNT_ENCRYPTION_KEY"),
-            "X-Postgres-Password": self._read_env_value("POSTGRES_PASSWORD"),
+            # SECRET_KEY and DEVICE_ACCOUNT_ENCRYPTION_KEY travel to the
+            # server as-is -- only the Postgres password needs special
+            # reconciliation on the server side, since it's baked into
+            # Postgres itself rather than being a plain config value.
+            # Business name, email credentials, and SMTP/IMAP settings
+            # are NOT carried this way -- those are real database rows
+            # now (see app/services/business_info_service.py), so the
+            # database dump itself already carries them over correctly.
+            "X-Secret-Key": read_env_value(self.compose_dir, "SECRET_KEY"),
+            "X-Device-Account-Encryption-Key": read_env_value(self.compose_dir, "DEVICE_ACCOUNT_ENCRYPTION_KEY"),
+            "X-Postgres-Password": read_env_value(self.compose_dir, "POSTGRES_PASSWORD"),
         }
         url = f"http://{self.server_address}:8001/migrate/"
 

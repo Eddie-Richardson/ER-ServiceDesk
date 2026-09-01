@@ -920,6 +920,94 @@ begin
     Result := Result + Charset[Random(Length(Charset)) + 1];
 end;
 
+{ Writes a timestamped line to a persistent log file directly in
+  Program Files -- deliberately not inside the app install folder or
+  the WSL install folder, since neither exists yet when this is first
+  called from PrepareToInstall, and deliberately not the temp folder
+  either, since that may not even be the same folder after the
+  reboot-resume relaunch. Program Files itself always exists and this
+  installer already runs as admin, so writing directly into it works
+  reliably from the very first line of PrepareToInstall onward.
+
+  Built specifically because real testing hit a wall real diagnostics
+  couldn't get past: a step failed with no earlier error shown, and no
+  way to tell how far the install actually got before that happened.
+  Every command this installer runs now gets recorded here -- attempt
+  and result -- so the next failure shows exactly where it stopped,
+  without needing another round of guessing.
+
+  Defined here, ahead of WriteEnvFiles and RunDockerSetup, rather than
+  its own original spot right before PrepareToInstall -- moved earlier
+  after a real compile error caught this: WriteEnvFiles now calls
+  RunCommandQuiet (see below), which itself calls LogStep, so both
+  need to be defined before WriteEnvFiles is, not after -- Inno's
+  Pascal Script dialect doesn't tolerate forward references the way
+  standard Pascal allows with an explicit forward declaration. }
+procedure LogStep(const Message: String);
+var
+  LogPath: String;
+  Timestamp: String;
+begin
+  LogPath := ExpandConstant('{autopf}\ER-ServiceDesk-Install-Log.txt');
+  Timestamp := GetDateTimeString('yyyy-mm-dd hh:nn:ss', '-', ':');
+  SaveStringToFile(LogPath, Timestamp + ' - ' + Message + #13#10, True);
+end;
+
+{ One log, covering the entire install from true start to true finish --
+  Hyper-V/WSL setup, VM creation, Docker startup, all of it, in a
+  single file with one continuous clock, instead of scattered across
+  separate per-script logs. ForceDirectories guarantees the app folder
+  exists even though this gets called before Inno's own file-copy step
+  has run. Deliberately defined here, right after LogStep, rather than
+  its own original spot right before PrepareToInstall -- moved earlier
+  so it's defined before CreateServerVM, which now calls it too,
+  avoiding any risk around whether Inno's specific Pascal Script
+  dialect tolerates forward references the way standard Pascal
+  requires an explicit forward declaration for. }
+procedure LogTiming(const StepLabel: String);
+begin
+  ForceDirectories(ExpandConstant('{app}'));
+  SaveStringToFile(ExpandConstant('{app}\install_timing_log.txt'),
+    GetDateTimeString('yyyy-mm-dd hh:nn:ss', #0, #0) + ' - ' + StepLabel + #13#10, True);
+end;
+
+{ Same as RunCommand, but never shows an error dialog -- for the rare
+  step that's genuinely fine to fail silently (e.g. a folder that
+  might already exist from a prior attempt, or a best-effort
+  convenience wrapper that isn't load-bearing). Using RunCommand
+  itself for these would be wrong -- it always shows a "Setup step
+  failed" dialog on failure, which would be a confusing, scary message
+  for something that's actually an expected, harmless outcome.
+
+  WorkingDir is a real parameter now, not hardcoded to the app install
+  folder -- a real bug caught this: that folder (Program Files\
+  ER-ServiceDesk) doesn't exist yet when this is called from
+  PrepareToInstall, which runs before Inno copies any files at all.
+  Passing that nonexistent folder as the working directory made
+  Exec() itself fail outright, unrelated to whether the actual command
+  would have succeeded. Callers during PrepareToInstall should pass
+  the temp folder instead (always exists); RunDockerSetup's own calls,
+  which run later during ssPostInstall once the real app folder
+  genuinely exists and needs to be the working directory for
+  docker-compose to find docker-compose.yml, correctly still pass
+  that.
+
+  Also now called from WriteEnvFiles itself, during ssPostInstall,
+  to grant the Database-Backups subfolder real write access for the
+  current, ordinary user -- see WriteEnvFiles below for why. }
+procedure RunCommandQuiet(const Params, WorkingDir: String);
+var
+  ResultCode: Integer;
+  Launched: Boolean;
+begin
+  LogStep('RunCommandQuiet attempting: ' + Params);
+  Launched := Exec('cmd.exe', '/C ' + Params, WorkingDir, SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  if Launched then
+    LogStep('RunCommandQuiet finished, exit code ' + IntToStr(ResultCode) + ': ' + Params)
+  else
+    LogStep('RunCommandQuiet FAILED TO LAUNCH: ' + Params);
+end;
+
 { Writes .env to both the main install location and the separate
   backup folder -- identical content in both, so env_recovery.py can
   restore from the backup if the main copy ever goes missing. Skipped
@@ -972,6 +1060,22 @@ begin
   BackupDir := ExpandConstant('{autopf}\ER-ServiceDesk-Backup');
   ForceDirectories(BackupDir);
   SaveStringToFile(BackupDir + '\.env', EnvContent, False);
+
+  { The main desktop app's own Database Backup tab defaults to a
+    subfolder here -- created once, now, while this installer is
+    already genuinely elevated, and given real write access for the
+    current, ordinary user (Program Files itself is locked down by
+    default; a subfolder just created under it inherits that same
+    restriction unless explicitly overridden). Confirmed via a real
+    failure: without this, the main app -- which never runs elevated
+    itself -- gets Access Denied trying to write here at all. Local
+    mode only, since Server/Client have no desktop app writing to a
+    local folder like this at all. }
+  if IsLocalMode() then
+  begin
+    ForceDirectories(BackupDir + '\Database-Backups');
+    RunCommandQuiet('icacls "' + BackupDir + '\Database-Backups" /grant "' + GetEnv('USERNAME') + '":(OI)(CI)M', ExpandConstant('{tmp}'));
+  end;
 end;
 
 { Writes the Windows Registry values the desktop app's
@@ -999,82 +1103,6 @@ begin
       a complete URL into a field that only ever asked for an IP. }
     RegWriteStringValue(HKEY_LOCAL_MACHINE, RegPath, 'backend_url', 'http://' + ClientAddressPage.Values[0] + ':8000');
   end;
-end;
-
-{ Writes a timestamped line to a persistent log file directly in
-  Program Files -- deliberately not inside the app install folder or
-  the WSL install folder, since neither exists yet when this is first
-  called from PrepareToInstall, and deliberately not the temp folder
-  either, since that may not even be the same folder after the
-  reboot-resume relaunch. Program Files itself always exists and this
-  installer already runs as admin, so writing directly into it works
-  reliably from the very first line of PrepareToInstall onward.
-
-  Built specifically because real testing hit a wall real diagnostics
-  couldn't get past: a step failed with no earlier error shown, and no
-  way to tell how far the install actually got before that happened.
-  Every command this installer runs now gets recorded here -- attempt
-  and result -- so the next failure shows exactly where it stopped,
-  without needing another round of guessing. }
-procedure LogStep(const Message: String);
-var
-  LogPath: String;
-  Timestamp: String;
-begin
-  LogPath := ExpandConstant('{autopf}\ER-ServiceDesk-Install-Log.txt');
-  Timestamp := GetDateTimeString('yyyy-mm-dd hh:nn:ss', '-', ':');
-  SaveStringToFile(LogPath, Timestamp + ' - ' + Message + #13#10, True);
-end;
-
-{ One log, covering the entire install from true start to true finish --
-  Hyper-V/WSL setup, VM creation, Docker startup, all of it, in a
-  single file with one continuous clock, instead of scattered across
-  separate per-script logs. ForceDirectories guarantees the app folder
-  exists even though this gets called before Inno's own file-copy step
-  has run. Deliberately defined here, right after LogStep, rather than
-  its own original spot right before PrepareToInstall -- moved earlier
-  so it's defined before CreateServerVM, which now calls it too,
-  avoiding any risk around whether Inno's specific Pascal Script
-  dialect tolerates forward references the way standard Pascal
-  requires an explicit forward declaration for. }
-procedure LogTiming(const StepLabel: String);
-begin
-  ForceDirectories(ExpandConstant('{app}'));
-  SaveStringToFile(ExpandConstant('{app}\install_timing_log.txt'),
-    GetDateTimeString('yyyy-mm-dd hh:nn:ss', #0, #0) + ' - ' + StepLabel + #13#10, True);
-end;
-
-{ Same as RunCommand, but never shows an error dialog -- for the rare
-  step that's genuinely fine to fail silently (e.g. a folder that
-  might already exist from a prior attempt, or a best-effort
-  convenience wrapper that isn't load-bearing). Using RunCommand
-  itself for these would be wrong -- it always shows a "Setup step
-  failed" dialog on failure, which would be a confusing, scary message
-  for something that's actually an expected, harmless outcome.
-
-  WorkingDir is a real parameter now, not hardcoded to the app install
-  folder -- a real bug caught this: that folder (Program Files\
-  ER-ServiceDesk) doesn't exist yet when this is called from
-  PrepareToInstall, which runs before Inno copies any files at all.
-  Passing that nonexistent folder as the working directory made
-  Exec() itself fail outright, unrelated to whether the actual command
-  would have succeeded. Callers during PrepareToInstall should pass
-  the temp folder instead (always exists); RunDockerSetup's own calls,
-  which run later during ssPostInstall once the real app folder
-  genuinely exists and needs to be the working directory for
-  docker-compose to find docker-compose.yml, correctly still pass
-  that. }
-procedure RunCommandQuiet(const Params, WorkingDir: String);
-var
-  ResultCode: Integer;
-  Launched: Boolean;
-begin
-  LogStep('RunCommandQuiet attempting: ' + Params);
-  Launched := Exec('cmd.exe', '/C ' + Params, WorkingDir, SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  if Launched then
-    LogStep('RunCommandQuiet finished, exit code ' + IntToStr(ResultCode) + ': ' + Params)
-  else
-    LogStep('RunCommandQuiet FAILED TO LAUNCH: ' + Params);
 end;
 
 { Same as RunCommand, but never shows an error dialog AND returns the
@@ -1344,6 +1372,7 @@ var
   InstallDir, TarballPath: String;
   KeepAliveResultCode: Integer;
   KeepAliveLaunched: Boolean;
+  WSLKeepAliveWrapperPath, WSLKeepAliveWrapperContent: String;
 begin
   Result := False;
   InstallDir := ExpandConstant('{autopf}\ER-ServiceDesk-WSL');
@@ -1453,6 +1482,36 @@ begin
     LogStep('Launched wsl.exe -e sleep infinity to keep the distro alive for this session.')
   else
     LogStep('Failed to launch the wsl.exe keep-alive process.');
+
+  { Covers the same "distro shuts down ~15 seconds after nothing keeps
+    it in use" problem as the immediate keep-alive above, but for every
+    future login rather than just this install -- without this, Docker
+    would need to be started by hand after every reboot. Deliberately
+    omits /ru: without it, schtasks defaults to the account already
+    running this installer, which is exactly the right account for
+    Local mode (someone has to be logged in to open the desktop app at
+    all, so onlogon under that same real user is the correct trigger),
+    and specifying /ru explicitly without also giving a password would
+    make schtasks prompt for one -- something a silent, unattended
+    install can't answer. Server mode's own tasks use onstart/SYSTEM
+    instead, since a server has nobody logged in at all.
+
+    Runs through a small generated wrapper script, same proven pattern
+    already used for the other scheduled tasks in this file (see
+    StartVmResizeListener/StartServerBackupListener's own comments for
+    why: embedding a command with its own nested quoting directly in
+    schtasks' own /tr argument is fragile). The wrapper's own
+    Start-Process -WindowStyle Hidden is what actually matters here --
+    confirmed via a real test that without it, wsl.exe's console
+    window stays visible indefinitely (sleep infinity never exits or
+    prints anything), rather than running invisibly the way the
+    install-time keep-alive above already does via its own SW_HIDE. }
+  WSLKeepAliveWrapperPath := ExpandConstant('{app}\run_wsl_keepalive.ps1');
+  WSLKeepAliveWrapperContent := 'Start-Process wsl.exe -ArgumentList ''-d ' + WSLDistroName + ' -u root -e sleep infinity'' -WindowStyle Hidden';
+  SaveStringToFile(WSLKeepAliveWrapperPath, WSLKeepAliveWrapperContent, False);
+
+  RunCommand('Registering Docker to survive a reboot',
+    'schtasks /create /tn "ER-ServiceDesk-WSL-KeepAlive" /tr "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File \"' + WSLKeepAliveWrapperPath + '\"" /sc onlogon /f', ExpandConstant('{tmp}'));
 
   if not InstallDockerCLIOnWindows(InstallDir) then Exit;
 
@@ -1785,14 +1844,23 @@ end;
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
   LogStep('=== PrepareToInstall STARTED ===');
-  { Overwrite, not append -- each install run's timing log should
-    only ever contain THAT run, not accumulate across every install
-    attempt this machine has ever had. Only cleared here, at the
-    first possible LogTiming call site -- every LogTiming call after
-    this one, for the rest of this same run, still appends normally
-    via its own SaveStringToFile(..., True). }
+  { Overwrite, not append -- but only on a genuinely fresh start. Each
+    install run's timing log should only ever contain THAT run, not
+    accumulate across every separate install attempt this machine has
+    ever had -- but a run resumed after a reboot WE triggered midway
+    through this same install is still part of that same run, not a
+    separate one. Confirmed via a real install: without this check,
+    the resumed run's own arrival here wiped out everything the
+    pre-reboot phase had already logged, so the timing log only ever
+    showed the post-reboot portion's own duration, understating the
+    true, total install time whenever a reboot genuinely happens.
+    RestartedFromReboot is already set correctly in InitializeSetup,
+    the same official pattern this file already cites. }
   ForceDirectories(ExpandConstant('{app}'));
-  SaveStringToFile(ExpandConstant('{app}\install_timing_log.txt'), '', False);
+  if not RestartedFromReboot then
+    SaveStringToFile(ExpandConstant('{app}\install_timing_log.txt'), '', False)
+  else
+    LogTiming('=== resumed after reboot ===');
   LogTiming('PrepareToInstall started');
   NeedsRestart := False;
 

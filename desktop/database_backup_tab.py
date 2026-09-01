@@ -31,14 +31,20 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from desktop.app_paths import get_env_backup_dir
 from desktop.database_backup_worker import DatabaseBackupWorker
 from desktop.path_validation import check_path_writable
 from desktop.settings_manager import get_backup_location
 
 # A reasonable starting point before the admin has chosen anything --
 # not the recommended final choice (see the on-screen note about disk
-# failure), just somewhere findable by default.
-DEFAULT_BACKUP_FOLDER = os.path.join(os.path.expanduser("~"), "Documents", "ER-ServiceDesk-Backups")
+# failure), just somewhere findable by default. Lives inside
+# ER-ServiceDesk-Backup, the same Program Files sibling folder .env's
+# own backup already uses (see get_env_backup_dir's own docstring for
+# why: survives the main install folder itself being deleted). Admin
+# rights aren't a new barrier here -- this feature already requires
+# them, same as every setup this app supports.
+DEFAULT_BACKUP_FOLDER = os.path.join(get_env_backup_dir(), "Database-Backups")
 
 
 class DatabaseBackupTab(QWidget):

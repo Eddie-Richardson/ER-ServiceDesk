@@ -225,6 +225,37 @@ def main() -> int:
 
     print()
     print("Restore completed successfully.")
+
+    # -------------------------------------------------------------------
+    # Device user account password re-encryption -- best-effort, never
+    # undoes the already-successful restore above. Looks for a
+    # companion .key file next to the chosen .dump (written by
+    # database_backup_worker.py at backup time, holding whatever
+    # DEVICE_ACCOUNT_ENCRYPTION_KEY that machine had). Without it, any
+    # device user account passwords in the restored database stay
+    # encrypted with the OLD machine's key -- unreadable on this one --
+    # since this machine's own, freshly-generated key won't match.
+    # -------------------------------------------------------------------
+    key_file_path = os.path.splitext(backup_file_path)[0] + ".key"
+    if os.path.isfile(key_file_path):
+        print()
+        print("Found a matching encryption key file -- re-encrypting device user account passwords for this machine...")
+        with open(key_file_path, "r") as f:
+            old_key = f.read().strip()
+
+        reencrypt_rc = run(
+            ["docker-compose", "exec", "-T", "api", "python", "-m", "app.db.re_encrypt_device_passwords", old_key],
+            env, cmd_err_path,
+        )
+        if reencrypt_rc == 0:
+            print("Device user account passwords re-encrypted successfully.")
+        else:
+            print("Could not re-encrypt device user account passwords -- the rest of the restore is still successful, but any stored device account passwords may not be readable:")
+            print(read_stderr_file(cmd_err_path))
+    else:
+        print()
+        print("No matching .key file found alongside the backup -- if this backup came from a different machine and has any device user account passwords stored, they may not be readable here.")
+
     return 0
 
 

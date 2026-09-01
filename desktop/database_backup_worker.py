@@ -11,6 +11,13 @@ data transfer, but for a completely different purpose: producing a
 real, persistent file the shop owner keeps and manages themselves,
 rather than an internal, ephemeral transfer that gets deleted right
 after use.
+
+Also writes a companion .key file alongside the .dump (same base
+filename), containing this machine's current
+DEVICE_ACCOUNT_ENCRYPTION_KEY -- lets RestoreDatabaseLocal.exe decrypt
+and re-encrypt any device user account passwords for the machine
+being restored to, rather than leaving them permanently undecryptable
+after a migration to new hardware.
 """
 
 import os
@@ -19,7 +26,7 @@ from datetime import datetime
 
 from PySide6.QtCore import QObject, Signal
 
-from desktop.app_paths import get_compose_dir
+from desktop.app_paths import get_compose_dir, read_env_value
 
 
 class DatabaseBackupWorker(QObject):
@@ -110,5 +117,24 @@ class DatabaseBackupWorker(QObject):
         if cp_result.returncode != 0:
             self.finished.emit(False, f"Backup failed:\n\n{cp_result.stderr.decode(errors='replace')}")
             return
+
+        # Contains the raw encryption key in plaintext -- deliberately
+        # kept as a separate file rather than folded into the .dump
+        # itself (a real security trade-off already discussed and
+        # accepted: keeping it out of the database dump is worth more
+        # than the convenience of a single file), but it still needs
+        # the same careful handling as the .dump when moved to new
+        # hardware -- e.g. copied together to the same external drive,
+        # not left behind. Best-effort: a failure here doesn't affect
+        # the backup's own success, since the dump itself is what
+        # actually matters if this one extra step doesn't work.
+        try:
+            device_key = read_env_value(self.compose_dir, "DEVICE_ACCOUNT_ENCRYPTION_KEY")
+            if device_key:
+                key_path = os.path.splitext(destination_path)[0] + ".key"
+                with open(key_path, "w") as f:
+                    f.write(device_key)
+        except OSError:
+            pass
 
         self.finished.emit(True, f"Backup saved to:\n{destination_path}")

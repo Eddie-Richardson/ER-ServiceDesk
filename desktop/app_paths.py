@@ -70,6 +70,37 @@ def get_compose_dir() -> str:
     return str(Path(__file__).resolve().parent.parent)
 
 
+def read_env_value(compose_dir: str, key: str) -> str:
+    """
+    Reads a single KEY=value line's value directly out of this
+    machine's own .env file. Originally a private method on
+    MigrateToServerWorker (which still needs this for carrying
+    SECRET_KEY/DEVICE_ACCOUNT_ENCRYPTION_KEY to a migration target as-
+    is); moved here so a second caller doesn't need its own copy.
+
+    setup.iss's own WriteEnvFiles wraps every value in double quotes
+    (EscapeForEnvFile, escaping literal " and \\ inside it) -- this
+    reverses that exactly, so a value comes back clean, not as the
+    literal quoted text .env actually stores it as.
+
+    Args:
+        compose_dir: The directory containing .env (see get_compose_dir()).
+        key: The .env variable name to look up.
+
+    Returns:
+        The value, or "" if the key isn't present in .env at all.
+    """
+    env_path = os.path.join(compose_dir, ".env")
+    with open(env_path, "r") as f:
+        for line in f:
+            if line.startswith(key + "="):
+                raw_value = line.rstrip("\n").split("=", 1)[1]
+                if raw_value.startswith('"') and raw_value.endswith('"') and len(raw_value) >= 2:
+                    raw_value = raw_value[1:-1].replace('\\"', '"').replace("\\\\", "\\")
+                return raw_value
+    return ""
+
+
 def get_env_backup_dir() -> str:
     """
     Returns the directory holding a backup copy of .env -- the one file

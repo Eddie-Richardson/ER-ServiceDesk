@@ -63,10 +63,17 @@ class BackendStartupWorker(QObject):
                 where `docker compose up -d` will be run from. Unused if
                 skip_docker is True.
             health_url: The backend's health-check endpoint to poll.
-            startup_timeout_seconds: How long to keep polling before giving
-                up and reporting failure. Docker image builds on first run
-                can be slow, so this is intentionally generous.
-            poll_interval_seconds: Delay between health-check attempts.
+            startup_timeout_seconds: How long to keep retrying before
+                giving up and reporting failure -- applied twice,
+                independently: once while Docker's own daemon isn't
+                reachable yet (see _start_compose_stack), and again
+                while polling the backend's health endpoint (see
+                _wait_for_healthy). Combined worst case is therefore up
+                to roughly double this value, not this value alone.
+                Docker image builds on first run, and Docker itself
+                still starting up after a fresh login, can both be
+                slow, so this is intentionally generous.
+            poll_interval_seconds: Delay between retry/health-check attempts.
             skip_docker: True for a Client-mode install, which has no
                 local Docker at all -- there's nothing to start, so this
                 skips straight to health-checking whatever remote server
@@ -119,43 +126,70 @@ class BackendStartupWorker(QObject):
         """
         self.status_changed.emit("Starting Docker containers...")
 
-        try:
-            result = subprocess.run(
-                ["docker-compose", "up", "-d"],
-                cwd=self.compose_dir,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=180,  # image builds/pulls on first run can be slow
-            )
-        except FileNotFoundError:
-            self.finished.emit(
-                False,
-                "Docker was not found on this machine. Please make sure "
-                "Docker is installed and running, then try again.",
-            )
-            return False
-        except subprocess.TimeoutExpired:
-            self.finished.emit(
-                False,
-                "Docker took too long to start the containers (over 3 "
-                "minutes). Please make sure Docker is running and try "
-                "again.",
-            )
-            return False
+        deadline = time.monotonic() + self.startup_timeout_seconds
 
-        if result.returncode != 0:
+        while True:
+            try:
+                result = subprocess.run(
+                    ["docker-compose", "up", "-d"],
+                    cwd=self.compose_dir,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=180,  # image builds/pulls on first run can be slow
+                )
+            except FileNotFoundError:
+                self.finished.emit(
+                    False,
+                    "Docker was not found on this machine. Please make sure "
+                    "Docker is installed and running, then try again.",
+                )
+                return False
+            except subprocess.TimeoutExpired:
+                self.finished.emit(
+                    False,
+                    "Docker took too long to start the containers (over 3 "
+                    "minutes). Please make sure Docker is running and try "
+                    "again.",
+                )
+                return False
+
+            if result.returncode == 0:
+                return True
+
             # Docker's own stderr is the most useful detail we can surface --
             # e.g. "Cannot connect to the Docker daemon" or a port conflict.
             detail = result.stderr.strip() or "Unknown error from Docker Compose."
-            self.finished.emit(
-                False,
-                f"Failed to start the backend containers.\n\n{detail}",
-            )
-            return False
 
-        return True
+            # Docker's daemon itself not being reachable yet, or a
+            # dependency container (e.g. postgres) not having finished
+            # its own healthcheck yet, are both real, expected,
+            # retriable states -- e.g. Docker inside WSL2 was just
+            # started at logon and genuinely hasn't finished coming up
+            # yet, or postgres itself is still warming up when compose
+            # checks its healthcheck (confirmed via two separate real
+            # failures: both exact commands succeeded on a later
+            # attempt, once the underlying thing had actually finished
+            # starting). Any other error (a port conflict, a genuine
+            # compose-file problem) is a real, permanent failure that
+            # retrying won't fix, so only these specific, recognizable
+            # "still starting up" error signatures get retried.
+            still_starting = (
+                "dial tcp" in detail.lower()
+                or "cannot connect to the docker daemon" in detail.lower()
+                or "dependency failed to start" in detail.lower()
+                or "is unhealthy" in detail.lower()
+            )
+            if not still_starting or time.monotonic() >= deadline:
+                self.finished.emit(
+                    False,
+                    f"Failed to start the backend containers.\n\n{detail}",
+                )
+                return False
+
+            self.status_changed.emit("Waiting for Docker to finish starting...")
+            time.sleep(self.poll_interval_seconds)
 
     def _wait_for_healthy(self) -> bool:
         """

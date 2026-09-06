@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/user_role.py
-# Pydantic schemas for UserRole entities
 """
 Request/response schemas for the many-to-many link between users and
 roles.

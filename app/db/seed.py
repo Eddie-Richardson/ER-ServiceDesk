@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/db/seed.py
-# Seed initial system data
 """
 Populates a fresh database with baseline roles, permissions,
 role-permission mappings, and default users so the system is immediately

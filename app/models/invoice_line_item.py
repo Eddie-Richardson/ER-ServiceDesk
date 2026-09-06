@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/invoice_line_item.py
-# ORM model for a single line on an invoice -- either a service or a part
 """
 ORM model for a single line on an invoice -- either a service (labor)
 or a real inventory part. Same shape and reasoning as QuoteLineItem.

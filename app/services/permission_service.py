@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/permission_service.py
-# Service layer for Permission.
 """
 Business logic for a single grantable capability in the RBAC system.
 

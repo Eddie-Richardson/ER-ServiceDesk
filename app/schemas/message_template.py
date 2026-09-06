@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/message_template.py
-# Pydantic schemas for MessageTemplate entities
 """
 Request/response schemas for a reusable template for ticket notes.
 """

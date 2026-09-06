@@ -303,8 +303,10 @@ def create_user(payload: dict) -> dict:
     """
     Args:
         payload: Fields matching the backend's UserCreate schema
-            (email, first_name, last_name, password required;
-            is_active/is_superuser optional).
+            (email, first_name, last_name required; is_active/
+            is_superuser optional). No password field -- the server
+            generates a temp password and emails it to the address
+            given here.
     """
     return _authed_post("/users/", payload)
 
@@ -667,8 +669,8 @@ def change_password(email: str, current_password: str, new_password: str) -> str
 # ---------------------------------------------------------------------------
 # Generic lookup-table CRUD (Settings window)
 # ---------------------------------------------------------------------------
-# Locations, Asset Categories, Ticket Categories, Ticket Statuses, and
-# Ticket Types are all the same shape now (name + description) -- rather
+# Asset Categories, Ticket Categories, Ticket Statuses, Ticket Types, and
+# Ticket Stages are all the same shape (name + description) -- rather
 # than five near-identical named function sets, Settings' reusable
 # LookupTab passes its own endpoint path into these generic functions.
 # The existing named list_* functions elsewhere (list_locations() etc.,

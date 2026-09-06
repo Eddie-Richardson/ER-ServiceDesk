@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/quote.py
-# Pydantic schemas for Quote entities
 """
 Request/response schemas for a cost estimate given to a customer
 before work is approved.

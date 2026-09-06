@@ -3,7 +3,7 @@
 """
 Safety net for the one file this app cannot function without: .env.
 
-WiX writes .env to the main install location during setup, and copies
+The installer writes .env to the main install location during setup, and copies
 an identical backup to a separate sibling folder (see
 app_paths.get_env_backup_dir()) at the same time. If .env ever goes
 missing from the main location afterward -- accidental deletion, a bad

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/ticket_stages.py
-# API routes for TicketStage operations.
 """
 REST endpoints for TicketStage records.
 """

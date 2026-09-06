@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/tax_rates.py
-# API routes for TaxRate operations.
 """
 REST endpoints for a named tax rate.
 

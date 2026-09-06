@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/message_service.py
-# Service layer for Message.
 """
 Business logic for a ticket's full note/conversation history --
 internal notes and customer-facing email exchange, unified into one

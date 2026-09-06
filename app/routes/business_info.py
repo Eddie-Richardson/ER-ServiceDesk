@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/business_info.py
-# API route for fetching the shop's configured display name.
 """
 Authenticated endpoint for a Client machine to fetch and cache the
 shop's display name locally.

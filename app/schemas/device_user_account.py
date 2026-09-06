@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/device_user_account.py
-# Pydantic schemas for DeviceUserAccount entities
 """
 Request/response schemas for a login account known to exist on a
 device.

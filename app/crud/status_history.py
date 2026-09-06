@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/status_history.py
-# CRUD operations for the StatusHistory model -- get and create only.
 """
 Database access layer for a ticket's status change history.
 

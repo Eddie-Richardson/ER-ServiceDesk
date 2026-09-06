@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/record_lock.py
-# ORM model for a generic check-out style edit lock
 
 """
 ORM model for a check-out style lock on a record being edited.

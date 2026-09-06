@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/core/email.py
-# SMTP (outbound) / IMAP (inbound) email integration.
 """
 Email integration over standard SMTP/IMAP -- not tied to any one
 provider. Only the connection METHOD is hardcoded (STARTTLS for SMTP,

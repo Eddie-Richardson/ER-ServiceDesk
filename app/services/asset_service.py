@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/asset_service.py
-# Service layer for Asset.
 """
 Business logic for Asset operations. Route handlers call into this
 layer rather than the CRUD layer directly.

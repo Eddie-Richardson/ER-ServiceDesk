@@ -1,10 +1,8 @@
 # ER-ServiceDesk/app/models/ticket_stage.py
-# ORM model for the granular repair/build stage a ticket is at
 """
-ORM model for tracking the specific step of work a ticket is on, distinct
-from its high-level TicketStatus. Covers both repair tickets (e.g.
-"Diagnosing", "Awaiting Parts", "Testing") and custom build orders (e.g.
-"Assembling", "OS Install", "Burn-in Test", "QC").
+ORM model for a granular step of work a ticket can be assigned, more
+specific than its high-level TicketStatus. Which stages are valid for
+a given ticket depends on its type -- see TicketTypeStage.
 """
 
 from sqlalchemy import Column, Integer, String

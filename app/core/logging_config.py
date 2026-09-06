@@ -1,8 +1,7 @@
 # ER-ServiceDesk/app/core/logging_config.py
-# Structured logging configuration
 """
 Configures console + rotating JSON file logging for the whole app.
-Call setup_logging() once at startup, before any other module logs anything.
+Call setup_logging() once, early during startup.
 """
 
 import logging

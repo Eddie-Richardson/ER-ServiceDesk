@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/device_user_account.py
-# ORM model for a login account known to exist on a device
 """
 ORM model for a login account known to exist on a device -- the
 "Login Information" section of the drop-off form, made into a real

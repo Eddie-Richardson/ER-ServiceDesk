@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/audit_log_service.py
-# Service layer for AuditLog -- read/list, plus a reusable log() helper for other services.
 """
 Business logic for the security/compliance audit trail.
 

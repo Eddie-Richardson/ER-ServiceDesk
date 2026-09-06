@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/tax_rate.py
-# Pydantic schemas for TaxRate entities
 """
 Request/response schemas for a named tax rate.
 """

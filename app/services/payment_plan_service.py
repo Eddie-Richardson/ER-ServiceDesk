@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/payment_plan_service.py
-# Service layer for PaymentPlan.
 """
 Business logic for a structured installment payment schedule on an
 invoice.

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/quote_line_item.py
-# CRUD operations for the QuoteLineItem model.
 """
 Database access layer for a single service line on a quote.
 """

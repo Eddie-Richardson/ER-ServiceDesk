@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/ticket_type_stage.py
-# CRUD operations for the TicketTypeStage model.
 """
 Database access layer for the ticket-type-to-stage allow-list.
 """

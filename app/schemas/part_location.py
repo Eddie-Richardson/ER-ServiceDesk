@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/part_location.py
-# Pydantic schemas for PartLocation entities
 
 """
 Request/response schemas for a part's quantity at a specific location.

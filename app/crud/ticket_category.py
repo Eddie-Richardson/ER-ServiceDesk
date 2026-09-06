@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/ticket_category.py
-# CRUD operations for the TicketCategory model.
 """
 Database access layer for a high-level grouping used to organize tickets.
 

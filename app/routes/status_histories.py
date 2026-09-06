@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/status_histories.py
-# API routes for StatusHistory -- read-only.
 """
 Read-only REST endpoint for a ticket's status change history.
 

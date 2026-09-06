@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/service.py
-# Pydantic schemas for Service entities
 """
 Request/response schemas for a billable service the shop offers.
 """

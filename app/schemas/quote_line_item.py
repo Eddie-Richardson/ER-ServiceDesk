@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/quote_line_item.py
-# Pydantic schemas for QuoteLineItem entities
 """
 Request/response schemas for a single line on a quote -- either a
 service or a real inventory part.

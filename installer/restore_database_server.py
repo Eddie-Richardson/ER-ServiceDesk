@@ -1,20 +1,21 @@
 # ER-ServiceDesk/installer/restore_database_server.py
-#
-# Restores the SERVER database from a backup file. Same design as
-# restore_database_local.py -- standalone, no login, no listener,
-# machine access is the auth check (RDP access to this specific
-# Server machine is already a meaningfully narrow, privileged
-# credential, the same trust level Server Resources already leans
-# on). See that file's own header for the full reasoning.
-#
-# The one real difference from the Local version: this targets the
-# VM's remote Docker daemon via DOCKER_HOST, not a local one -- the
-# actual database lives inside the Hyper-V VM, not on this Windows
-# host directly.
-#
-# Compiled to a standalone .exe for the same reason as the Local
-# version -- avoids PowerShell's execution policy blocking an
-# unsigned script from running at all.
+"""
+Restores the SERVER database from a backup file. Same design as
+restore_database_local.py -- standalone, no login, no listener,
+machine access is the auth check (RDP access to this specific
+Server machine is already a meaningfully narrow, privileged
+credential, the same trust level Server Resources already leans
+on). See that file's own header for the full reasoning.
+
+The one real difference from the Local version: this targets the
+VM's remote Docker daemon via DOCKER_HOST, not a local one -- the
+actual database lives inside the Hyper-V VM, not on this Windows
+host directly.
+
+Compiled to a standalone .exe for the same reason as the Local
+version -- avoids PowerShell's execution policy blocking an
+unsigned script from running at all.
+"""
 
 import os
 import subprocess

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/part.py
-# ORM model for consumable parts stock
 
 """
 ORM model for consumable, quantity-tracked parts stock (e.g. "50x SSD

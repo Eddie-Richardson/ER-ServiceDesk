@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/message.py
-# ORM model for a ticket's full note/conversation history -- internal notes and customer-facing email exchange, unified.
 """
 ORM model for a ticket's full note/conversation history -- internal
 notes and customer-facing email exchange, unified into one system

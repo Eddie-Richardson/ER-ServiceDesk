@@ -1,7 +1,6 @@
 # ER-ServiceDesk/app/crud/message_template.py
-# CRUD operations for the MessageTemplate model.
 """
-Database access layer for a reusable template for outbound emails/notifications.
+Database access layer for a reusable template for a ticket's notes, whether internal or emailed to the customer.
 
 Talks directly to the database via SQLAlchemy. Contains no business logic --
 callers (the service layer) are responsible for that. Kept intentionally

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/permission.py
-# ORM model for a single grantable capability in the RBAC system
 """
 ORM model for a single grantable capability in the RBAC system.
 """
@@ -13,7 +12,7 @@ class Permission(Base):
     Represents one capability (e.g. 'ticket.create') that can be assigned to roles.
 
     Attributes:
-        name: Unique permission identifier (e.g. 'view_reports').
+        name: Unique permission identifier (e.g. 'billing.manage').
     """
     __tablename__ = "permissions"
     id = Column(Integer, primary_key=True, index=True)

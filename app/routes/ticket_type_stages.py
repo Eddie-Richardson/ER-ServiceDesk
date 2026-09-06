@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/ticket_type_stages.py
-# API routes for TicketTypeStage operations.
 """
 REST endpoints for managing which TicketStage values are valid for each
 TicketType.

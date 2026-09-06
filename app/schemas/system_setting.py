@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/system_setting.py
-# Pydantic schemas for SystemSetting entities
 """
 Request/response schemas for a dynamic, admin-editable key/value
 configuration entry.

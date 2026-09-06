@@ -1,5 +1,4 @@
 # ER-ServiceDesk/desktop/base_dialog.py
-# Shared base classes for dialogs and top-level windows
 """
 AppDialog and AppWindow are the base classes every ER-ServiceDesk
 dialog/window should inherit from instead of QDialog/QWidget

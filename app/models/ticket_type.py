@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/ticket_type.py
-# ORM model for a classification of the kind of work a ticket represents
 """
 ORM model for a classification of the kind of work a ticket represents.
 """
@@ -10,7 +9,7 @@ from app.db.base import Base
 
 class TicketType(Base):
     """
-    Represents a ticket classification (e.g. 'Bug Report', 'Feature Request') used for routing.
+    Represents a ticket classification (e.g. 'Repair', 'Custom Build') used for routing.
     """
     __tablename__ = "ticket_types"
     id = Column(Integer, primary_key=True, index=True)

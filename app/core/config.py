@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/core/config.py
-# Application settings loaded from environment variables.
 """
 Strongly-typed application configuration, loaded from environment
 variables (and .env locally) via Pydantic Settings.

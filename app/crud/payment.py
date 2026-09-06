@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/payment.py
-# CRUD operations for the Payment model.
 """
 Database access layer for a payment applied against an invoice.
 

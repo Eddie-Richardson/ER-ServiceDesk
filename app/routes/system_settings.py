@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/system_settings.py
-# API routes for SystemSetting operations.
 """
 REST endpoints for a dynamic, admin-editable key/value configuration entry.
 

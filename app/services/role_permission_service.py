@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/role_permission_service.py
-# Service layer for RolePermission.
 """
 Business logic for the many-to-many link between roles and permissions.
 

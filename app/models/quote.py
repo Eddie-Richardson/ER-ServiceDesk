@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/quote.py
-# ORM model for an estimated price for ticket-related work, pending customer approval
 """
 ORM model for an estimated price for ticket-related work, pending customer approval.
 """

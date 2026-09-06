@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/workers/worker.py
-# RQ worker setup for processing background jobs
 """
 Entrypoint for an RQ worker process. Listens on Redis-backed queues and
 executes background jobs (notifications, async tasks, maintenance

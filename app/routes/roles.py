@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/roles.py
-# API routes for Role operations.
 """
 REST endpoints for an authorization grouping assigned to users.
 

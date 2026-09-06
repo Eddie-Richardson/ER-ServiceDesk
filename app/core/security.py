@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/core/security.py
-# Password hashing, verification, and access token utilities
 """
 Cryptographic primitives for authentication: password hashing/verification
 and JWT access token creation/decoding. Used by the auth service and any

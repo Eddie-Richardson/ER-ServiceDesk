@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/business_info_service.py
-# Service layer for full business info management.
 """
 Business logic for managing the shop's business identity and email
 configuration as real, database-backed SystemSetting rows -- not

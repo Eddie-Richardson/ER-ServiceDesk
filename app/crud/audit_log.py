@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/audit_log.py
-# CRUD operations for the AuditLog model -- get and create only.
 """
 Database access layer for the security/compliance audit trail.
 

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/part.py
-# CRUD operations for the Part model.
 """
 Database access layer for consumable parts stock. Rejects duplicate SKUs,
 mirroring the duplicate-check pattern used for Asset serial numbers.

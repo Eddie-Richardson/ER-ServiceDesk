@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/db/session.py
-# Database engine and session factory
 """
 SQLAlchemy engine and session factory used throughout the application.
 """

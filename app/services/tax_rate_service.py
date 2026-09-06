@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/tax_rate_service.py
-# Service layer for TaxRate.
 """
 Business logic for a named tax rate.
 """

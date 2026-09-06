@@ -1,7 +1,6 @@
 # ER-ServiceDesk/app/services/message_template_service.py
-# Service layer for MessageTemplate.
 """
-Business logic for a reusable template for outbound emails/notifications.
+Business logic for a reusable template for a ticket's notes, whether internal or emailed to the customer.
 
 Coordinates CRUD operations and is where entity-specific rules should live
 as they're added. Route handlers call into this layer rather than the CRUD

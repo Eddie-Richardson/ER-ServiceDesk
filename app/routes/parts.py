@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/parts.py
-# API routes for Part operations.
 """
 REST endpoints for consumable parts stock.
 """

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/payments.py
-# API routes for Payment operations.
 """
 REST endpoints for a payment applied against an invoice.
 

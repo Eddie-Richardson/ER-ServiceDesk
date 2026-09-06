@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/business_info.py
-# Pydantic schemas for the full business info management endpoint.
 """
 Request/response schemas for managing the shop's business identity and
 email configuration -- business name, phone, the email account used

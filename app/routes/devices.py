@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/devices.py
-# API routes for Device operations.
 """
 REST endpoints for a customer-owned device brought in for service.
 

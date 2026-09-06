@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/db/base.py
-# SQLAlchemy Base class for ORM models
 """
 Shared SQLAlchemy declarative Base used by every ORM model.
 

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/payment_plan_installment.py
-# ORM model for a single scheduled installment within a payment plan
 """
 ORM model for a single scheduled installment within a payment plan.
 """

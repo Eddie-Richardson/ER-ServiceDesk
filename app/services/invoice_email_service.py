@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/invoice_email_service.py
-# Service for emailing an invoice to the customer.
 """
 Sends an invoice to a ticket's customer -- email-only, no print path.
 Same design as app/services/quote_email_service.py, with one real

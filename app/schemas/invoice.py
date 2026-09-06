@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/invoice.py
-# Pydantic schemas for Invoice entities
 """
 Request/response schemas for a bill generated for work performed on a
 ticket. Same shape and reasoning as Quote -- see schemas/quote.py.

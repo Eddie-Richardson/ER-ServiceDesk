@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/ticket_status_service.py
-# Service layer for TicketStatus.
 """
 Business logic for a workflow state a ticket can occupy.
 

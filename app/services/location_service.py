@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/location_service.py
-# Service layer for Location.
 """
 Business logic for Location operations. Route handlers call into this
 layer rather than the CRUD layer directly.

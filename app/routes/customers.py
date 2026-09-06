@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/customers.py
-# API routes for Customer operations.
 """
 REST endpoints for a client of the repair shop.
 

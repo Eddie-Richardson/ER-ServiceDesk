@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/ticket.py
-# CRUD operations for the Ticket model.
 """
 Database access layer for a support/repair job tracked from intake to completion.
 

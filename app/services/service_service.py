@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/service_service.py
-# Service layer for Service (the billable-service catalog).
 """
 Business logic for a billable service the shop offers.
 """

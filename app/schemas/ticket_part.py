@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/ticket_part.py
-# Pydantic schemas for TicketPart entities
 """
 Request/response schemas for a part requirement on a ticket, and its
 fulfillment status (needed/ordered/backordered/received/installed).

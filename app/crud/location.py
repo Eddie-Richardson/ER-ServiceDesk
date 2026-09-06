@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/location.py
-# CRUD operations for the Location model.
 """
 Database access layer for named physical locations.
 """

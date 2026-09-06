@@ -1,7 +1,6 @@
 # ER-ServiceDesk/app/routes/message_templates.py
-# API routes for MessageTemplate operations.
 """
-REST endpoints for a reusable template for outbound emails/notifications.
+REST endpoints for a reusable template for a ticket's notes, whether internal or emailed to the customer.
 
 Thin HTTP layer: validates the request via the schema layer and delegates
 all real work to the service layer.

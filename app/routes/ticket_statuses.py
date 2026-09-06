@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/ticket_statuses.py
-# API routes for TicketStatus operations.
 """
 REST endpoints for a workflow state a ticket can occupy.
 """

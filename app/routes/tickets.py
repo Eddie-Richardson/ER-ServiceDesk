@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/tickets.py
-# API routes for Ticket operations.
 """
 REST endpoints for a support/repair job tracked from intake to completion.
 

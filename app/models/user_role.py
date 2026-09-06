@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/user_role.py
-# ORM model for the many-to-many link between users and roles
 """
 ORM model for the many-to-many link between users and roles.
 """

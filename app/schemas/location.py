@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/location.py
-# Pydantic schemas for Location entities
 """
 Request/response schemas for named physical locations (benches, shelves,
 shipping areas) used to anchor asset, part, and ticket location tracking.

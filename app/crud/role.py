@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/role.py
-# CRUD operations for the Role model.
 """
 Database access layer for an authorization grouping assigned to users.
 

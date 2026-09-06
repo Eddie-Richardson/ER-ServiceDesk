@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/assets.py
-# API routes for Asset operations.
 """
 REST endpoints for tracked business assets.
 """

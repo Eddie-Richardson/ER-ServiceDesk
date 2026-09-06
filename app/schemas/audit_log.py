@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/audit_log.py
-# Pydantic schemas for AuditLog entities
 """
 Request/response schemas for a record of a user action or system event,
 for security review and compliance.

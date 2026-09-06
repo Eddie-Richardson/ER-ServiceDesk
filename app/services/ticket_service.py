@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/ticket_service.py
-# Service layer for Ticket.
 """
 Business logic for a support/repair job tracked from intake to completion.
 

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/system_setting.py
-# ORM model for a dynamic, admin-editable key/value configuration entry
 """
 ORM model for a dynamic, admin-editable key/value configuration entry.
 """
@@ -12,7 +11,7 @@ class SystemSetting(Base):
     Represents a single system-wide configuration value that can change without a redeploy.
 
     Attributes:
-        key: Unique setting name (e.g. 'site_name').
+        key: Unique setting name (e.g. 'business_name').
     """
     __tablename__ = "system_settings"
     id = Column(Integer, primary_key=True, index=True)

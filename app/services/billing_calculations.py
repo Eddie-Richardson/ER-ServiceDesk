@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/billing_calculations.py
-# Shared subtotal/discount/tax/total math for Quote and Invoice.
 """
 Shared billing math used identically by quote_service.py and
 invoice_service.py -- kept in one place rather than duplicated across

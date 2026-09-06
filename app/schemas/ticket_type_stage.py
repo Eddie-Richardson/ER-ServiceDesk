@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/ticket_type_stage.py
-# Pydantic schemas for TicketTypeStage entities
 """
 Request/response schemas for the (ticket type, stage) allow-list used to
 restrict which TicketStage values are valid for a given TicketType.

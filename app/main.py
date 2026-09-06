@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/main.py
-# FastAPI application entrypoint
 """
 Application entrypoint. Creates the FastAPI app, mounts every route
 module, and exposes a health check endpoint for deployment/monitoring.

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/device.py
-# Pydantic schemas for Device entities
 """
 Request/response schemas for a customer-owned device brought in for
 service.

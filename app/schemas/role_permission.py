@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/role_permission.py
-# Pydantic schemas for RolePermission entities
 """
 Request/response schemas for the many-to-many link between roles and
 permissions.

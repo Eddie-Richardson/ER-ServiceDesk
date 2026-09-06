@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/discount.py
-# ORM model for a named discount category
 """
 ORM model for a named discount category (e.g. "Teacher", "Military",
 "Family", "Employee"), with its percentage off.

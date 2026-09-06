@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/user.py
-# User model representing system accounts and authentication identities
 """
 ORM model for staff/system accounts and their authentication identity.
 """

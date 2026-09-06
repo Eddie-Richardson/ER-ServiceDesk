@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/device_user_accounts.py
-# API routes for DeviceUserAccount operations.
 """
 REST endpoints for a login account known to exist on a device.
 

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/asset.py
-# Pydantic schemas for Asset entities
 """
 Request/response schemas for tracked, serialized business assets.
 """

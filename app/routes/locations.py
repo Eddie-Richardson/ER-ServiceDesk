@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/locations.py
-# API routes for Location operations.
 """
 REST endpoints for Location records.
 """

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/role_service.py
-# Service layer for Role.
 """
 Business logic for an authorization grouping assigned to users.
 

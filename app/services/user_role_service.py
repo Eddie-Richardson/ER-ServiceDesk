@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/user_role_service.py
-# Service layer for UserRole.
 """
 Business logic for the many-to-many link between users and roles.
 

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/payment_plan.py
-# Pydantic schemas for PaymentPlan and PaymentPlanInstallment entities
 """
 Request/response schemas for a structured installment payment schedule.
 """

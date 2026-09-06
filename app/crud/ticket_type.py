@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/ticket_type.py
-# CRUD operations for the TicketType model.
 """
 Database access layer for a classification of the kind of work a ticket represents.
 

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/permission.py
-# CRUD operations for the Permission model.
 """
 Database access layer for a single grantable capability in the RBAC system.
 

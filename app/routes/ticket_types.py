@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/ticket_types.py
-# API routes for TicketType operations.
 """
 REST endpoints for a classification of the kind of work a ticket represents.
 

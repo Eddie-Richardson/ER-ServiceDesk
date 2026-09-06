@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/user_roles.py
-# API routes for UserRole operations.
 """
 REST endpoints for the many-to-many link between users and roles.
 

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/device_user_account_service.py
-# Service layer for DeviceUserAccount.
 """
 Business logic for a login account known to exist on a device.
 

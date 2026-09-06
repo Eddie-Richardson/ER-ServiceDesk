@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/user.py
-# Pydantic schemas for User entities.
 """
 Request/response schemas for User accounts.
 

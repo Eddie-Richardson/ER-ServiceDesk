@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/ticket_category_service.py
-# Service layer for TicketCategory.
 """
 Business logic for a high-level grouping used to organize tickets.
 

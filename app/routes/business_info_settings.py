@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/business_info_settings.py
-# API routes for full business info management.
 """
 REST endpoints for managing the shop's business identity and email
 configuration in full -- name, phone, the email account, and its

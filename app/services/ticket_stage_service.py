@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/ticket_stage_service.py
-# Service layer for TicketStage.
 """
 Business logic for TicketStage operations.
 """

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/ticket_part.py
-# CRUD operations for the TicketPart model.
 """
 Database access layer for part requirements attached to tickets.
 """

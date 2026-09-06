@@ -1,9 +1,8 @@
 # ER-ServiceDesk/app/models/location.py
-# ORM model for a named physical location
 """
-ORM model for a physical location, used to anchor asset, part, and ticket
-"where is it" tracking to a single consistent value instead of free-text
-strings that drift out of sync (e.g. "Bench 3" vs "bench3").
+ORM model for a physical location, used to anchor asset, part, device,
+and ticket "where is it" tracking to a single consistent value instead
+of free-text strings that drift out of sync (e.g. "Bench 3" vs "bench3").
 """
 
 from sqlalchemy import Boolean, Column, Integer, String

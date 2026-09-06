@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/record_locks.py
-# API routes for check-out style record locking.
 """
 REST endpoints for acquiring/releasing locks on a record being edited.
 

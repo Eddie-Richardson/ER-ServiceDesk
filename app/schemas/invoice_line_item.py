@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/invoice_line_item.py
-# Pydantic schemas for InvoiceLineItem entities
 """
 Request/response schemas for a single line on an invoice -- either a
 service or a real inventory part.

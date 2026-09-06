@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/background_job.py
-# Pydantic schemas for BackgroundJob entities
 """
 Request/response schemas for an asynchronous job tracked for the RQ
 worker system.

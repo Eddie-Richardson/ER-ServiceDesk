@@ -2,15 +2,15 @@
 
 """
 Generic tab for managing a simple name/description lookup table -- one
-widget class shared by every lookup-table tab in Settings (Locations,
-Asset Categories, Ticket Categories, Ticket Statuses, Ticket Types),
-parameterized by display name, the list_* function to load with, and
-the endpoint path to save/delete against.
+widget class shared by every lookup-table tab in Settings (Asset
+Categories, Ticket Categories, Ticket Statuses, Ticket Types, Ticket
+Stages), parameterized by display name, the list_* function to load
+with, and the endpoint path to save/delete against.
 
 Delete relies on the backend's own foreign-key constraints to reject
-removing an item still referenced elsewhere (e.g. a Location assigned
-to existing tickets) -- surfaced through the same error-message path
-as everything else, rather than the desktop app trying to pre-check
+removing an item still referenced elsewhere (e.g. a Ticket Category
+assigned to existing tickets) -- surfaced through the same error-message
+path as everything else, rather than the desktop app trying to pre-check
 every table that might reference a given lookup item.
 """
 

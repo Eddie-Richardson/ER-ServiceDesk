@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/tax_rate.py
-# CRUD operations for the TaxRate model.
 """
 Database access layer for a named tax rate.
 """

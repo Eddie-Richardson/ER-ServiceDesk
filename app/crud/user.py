@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/user.py
-# CRUD operations for the User model.
 """
 Database access layer for User accounts.
 

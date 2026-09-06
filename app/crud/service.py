@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/service.py
-# CRUD operations for the Service model.
 """
 Database access layer for a billable service the shop offers.
 """

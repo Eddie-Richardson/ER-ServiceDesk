@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/workers/tasks.py
-# Background tasks run by the RQ worker.
 """
 Background tasks executed asynchronously by the RQ worker process.
 """

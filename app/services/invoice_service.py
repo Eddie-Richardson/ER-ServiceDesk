@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/invoice_service.py
-# Service layer for Invoice.
 """
 Business logic for a bill generated for work performed on a ticket.
 

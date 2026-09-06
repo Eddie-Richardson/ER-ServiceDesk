@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/asset.py
-# ORM model for a tracked business asset
 """
 ORM model for a serialized, one-off business asset (e.g. a laptop, a bench
 tool) -- as opposed to Part, which tracks consumable stock by quantity.

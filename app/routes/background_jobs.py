@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/background_jobs.py
-# API routes for BackgroundJob -- read-only.
 """
 Read-only REST endpoint for background job run history.
 

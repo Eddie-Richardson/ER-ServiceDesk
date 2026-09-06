@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/customer.py
-# Pydantic schemas for Customer entities
 """
 Request/response schemas for a client of the repair shop.
 """

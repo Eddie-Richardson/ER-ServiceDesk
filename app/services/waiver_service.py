@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/waiver_service.py
-# Service for sending the liability waiver email.
 """
 Sends the liability waiver to a ticket's customer -- email-only, no
 print/signature path. The customer's "I AGREE" reply, if any, comes

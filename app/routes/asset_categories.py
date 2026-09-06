@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/asset_categories.py
-# API routes for AssetCategory operations.
 
 """
 REST endpoints for a high-level grouping used to organize business assets.

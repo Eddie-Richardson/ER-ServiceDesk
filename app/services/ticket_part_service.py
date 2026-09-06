@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/ticket_part_service.py
-# Service layer for TicketPart.
 """
 Business logic for TicketPart operations. Route handlers call into this
 layer rather than the CRUD layer directly.

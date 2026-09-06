@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/core/error_handlers.py
-# Centralized error handling
 """
 Registers exception handlers on the FastAPI app so every error response --
 whether a raised HTTPException, a Pydantic validation failure, or an

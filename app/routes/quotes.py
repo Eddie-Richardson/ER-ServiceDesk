@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/quotes.py
-# API routes for Quote operations.
 """
 REST endpoints for an estimated price for ticket-related work, pending
 customer approval.

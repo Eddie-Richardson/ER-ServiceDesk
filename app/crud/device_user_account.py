@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/device_user_account.py
-# CRUD operations for the DeviceUserAccount model.
 """
 Database access layer for a login account known to exist on a device.
 

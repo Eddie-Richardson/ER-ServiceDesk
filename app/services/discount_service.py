@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/discount_service.py
-# Service layer for Discount.
 """
 Business logic for a named discount category.
 """

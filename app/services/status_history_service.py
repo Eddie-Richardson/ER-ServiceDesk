@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/status_history_service.py
-# Service layer for StatusHistory -- read-only.
 """
 Read-only business logic for a ticket's status change history.
 

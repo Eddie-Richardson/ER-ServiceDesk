@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/quote_email_service.py
-# Service for emailing a quote to the customer.
 """
 Sends a quote to a ticket's customer -- email-only, no print path.
 Same design as app/services/waiver_service.py: the customer's

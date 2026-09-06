@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/payment_plan.py
-# ORM model for a structured installment payment schedule on an invoice
 """
 ORM model for a structured installment payment schedule on an invoice.
 

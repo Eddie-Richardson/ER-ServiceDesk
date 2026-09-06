@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/device.py
-# ORM model for a customer-owned device brought in for service
 """
 ORM model for a customer-owned device brought in for service.
 """
@@ -21,6 +20,8 @@ class Device(Base):
         edition: OS edition, e.g. "Home"/"Pro"/"Enterprise" -- kept as
             its own field (not folded into os as free text) so it
             can't get overlooked before a reinstall.
+        current_location_id: Where this device physically is, tracked
+            independently of any ticket's own current_location_id.
     """
     __tablename__ = "devices"
     id = Column(Integer, primary_key=True, index=True)

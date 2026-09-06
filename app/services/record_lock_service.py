@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/record_lock_service.py
-# Service layer for check-out style record locking.
 
 """
 Business logic for acquiring and releasing record locks.

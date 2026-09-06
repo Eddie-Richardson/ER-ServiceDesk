@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/workers/queue.py
-# Shared RQ queue connection for enqueueing background jobs from services.
 """
 Small helper so any part of the app (service layer, routes, etc.) can
 enqueue a background job without each caller reconnecting to Redis by hand.

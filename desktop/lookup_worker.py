@@ -5,9 +5,9 @@ Generic background worker that loads a simple lookup table's items.
 
 Parameterized by which list_* function to call (list_locations,
 list_asset_categories, etc.) rather than duplicated per lookup type --
-Locations, Asset Categories, Ticket Categories, Ticket Statuses, and
-Ticket Types are all the same shape, so one worker class covers all
-five instead of five near-identical ones.
+Locations, Asset Categories, Ticket Categories, Ticket Statuses,
+Ticket Types, and Ticket Stages are all the same shape, so one worker
+class covers all six instead of six near-identical ones.
 """
 
 from typing import Callable

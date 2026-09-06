@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/quote_line_item.py
-# ORM model for a single line on a quote -- either a service or a part
 """
 ORM model for a single line on a quote -- either a service (labor) or
 a real inventory part, how many, and its price at the moment it was

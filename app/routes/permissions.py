@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/permissions.py
-# API routes for Permission operations.
 """
 REST endpoints for a single grantable capability in the RBAC system.
 

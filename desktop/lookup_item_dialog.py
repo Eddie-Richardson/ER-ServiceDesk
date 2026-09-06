@@ -3,8 +3,8 @@
 """
 Generic dialog for creating or editing a simple name/description lookup
 item -- one dialog class shared by every lookup-table tab in Settings
-(Locations, Asset Categories, Ticket Categories, Ticket Statuses,
-Ticket Types), parameterized by display name and endpoint rather than
+(Asset Categories, Ticket Categories, Ticket Statuses, Ticket Types,
+Ticket Stages), parameterized by display name and endpoint rather than
 five near-identical dialog classes.
 """
 

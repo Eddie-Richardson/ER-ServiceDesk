@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/tax_rate.py
-# ORM model for a named tax rate
 """
 ORM model for a named tax rate (e.g. "Standard Sales Tax"), with its
 percentage.

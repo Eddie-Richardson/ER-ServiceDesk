@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/ticket_type_service.py
-# Service layer for TicketType.
 """
 Business logic for a classification of the kind of work a ticket represents.
 

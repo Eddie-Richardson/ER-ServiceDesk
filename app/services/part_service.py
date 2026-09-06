@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/part_service.py
-# Service layer for Part.
 
 """
 Business logic for Part operations. Route handlers call into this

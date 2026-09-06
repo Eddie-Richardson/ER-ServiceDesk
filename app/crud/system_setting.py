@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/system_setting.py
-# CRUD operations for the SystemSetting model.
 """
 Database access layer for a dynamic, admin-editable key/value configuration entry.
 

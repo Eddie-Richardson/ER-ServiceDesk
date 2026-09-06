@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/asset.py
-# CRUD operations for the Asset model.
 """
 Database access layer for tracked business assets.
 """

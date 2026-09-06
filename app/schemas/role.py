@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/role.py
-# Pydantic schemas for Role entities
 """
 Request/response schemas for an authorization grouping assigned to
 users.

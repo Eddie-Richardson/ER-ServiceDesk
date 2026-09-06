@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/message_template.py
-# ORM model for a reusable template for ticket notes
 """
 ORM model for a reusable template for ticket notes.
 """
@@ -12,7 +11,7 @@ class MessageTemplate(Base):
     Represents a predefined body used for standardized ticket notes.
 
     Attributes:
-        name: Unique template identifier (e.g. 'ticket_created').
+        name: A short, admin-chosen label for the tech's own reference when picking a template -- not matched against anything in code.
     """
     __tablename__ = "message_templates"
     id = Column(Integer, primary_key=True, index=True)

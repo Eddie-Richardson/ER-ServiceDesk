@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/payment.py
-# ORM model for a payment applied against an invoice
 """
 ORM model for a payment applied against an invoice.
 """

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/invoice.py
-# ORM model for a bill generated for work performed on a ticket
 """
 ORM model for a bill generated for work performed on a ticket.
 """

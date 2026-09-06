@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/messages.py
-# API routes for Message operations.
 """
 REST endpoints for a ticket's full note/conversation history --
 internal notes and customer-facing email exchange, unified.

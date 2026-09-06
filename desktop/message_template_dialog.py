@@ -67,7 +67,7 @@ class MessageTemplateDialog(AppDialog):
         outer_layout.setSpacing(layout.SPACE_SM)
 
         self.name_input = QLineEdit()
-        self.name_input.setPlaceholderText("Name, e.g. 'Ticket Created' (required)")
+        self.name_input.setPlaceholderText("Name, for your own reference (required)")
         self.name_input.setFixedHeight(layout.INPUT_HEIGHT)
 
         self.body_input = QTextEdit()

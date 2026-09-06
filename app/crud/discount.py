@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/discount.py
-# CRUD operations for the Discount model.
 """
 Database access layer for a named discount category.
 """

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/ticket_category.py
-# ORM model for a high-level grouping used to organize tickets
 """
 ORM model for a high-level grouping used to organize tickets.
 """

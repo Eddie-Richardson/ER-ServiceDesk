@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/ticket_status.py
-# Pydantic schemas for TicketStatus entities
 """
 Request/response schemas for a workflow state a ticket can occupy.
 """

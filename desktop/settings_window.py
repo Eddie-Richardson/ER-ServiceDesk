@@ -4,9 +4,11 @@
 Settings window: admin-only management of every lookup table used
 throughout the app, plus Roles and every other admin-only screen.
 
-Locations, Asset Categories, Ticket Categories, and Ticket Statuses
-share one reusable LookupTab widget (identically shaped: name +
-optional description). Discounts and Tax Rates share a different
+Asset Categories, Ticket Categories, and Ticket Statuses share one
+reusable LookupTab widget (identically shaped: name + optional
+description). Locations has its own dedicated tab, since it carries an
+extra field (show_in_ticket_picker) the shared widget can't accommodate.
+Discounts and Tax Rates share a different
 reusable widget, NamePercentageTab (name + percentage). Ticket Types &
 Stages and Roles each have a genuinely different shape (an allow-list
 matrix, and permission checkboxes respectively), so each gets its own

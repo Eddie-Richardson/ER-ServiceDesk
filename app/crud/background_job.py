@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/background_job.py
-# CRUD operations for the BackgroundJob model -- get, create, and update only.
 """
 Database access layer for an asynchronous job tracked for the RQ worker system.
 
@@ -10,10 +9,10 @@ callers (the service layer) are responsible for that. Kept intentionally
 Deliberately no delete() -- job history shouldn't be erasable, matching
 the same reasoning as StatusHistory and AuditLog. update() IS kept
 (unlike those two), since a job's own status genuinely needs to
-transition (queued -> running -> completed/failed) as it actually
-runs -- but it's only ever called internally by
-background_job_service's own start/complete/fail helpers, never
-exposed through a public route (see routes/background_jobs.py).
+transition (running -> completed/failed) as it actually runs -- but
+it's only ever called internally by background_job_service's own
+start/complete/fail helpers, never exposed through a public route
+(see routes/background_jobs.py).
 """
 
 from sqlalchemy.orm import Session

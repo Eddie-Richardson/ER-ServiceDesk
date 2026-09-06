@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/system_setting_service.py
-# Service layer for SystemSetting.
 """
 Business logic for a dynamic, admin-editable key/value configuration entry.
 

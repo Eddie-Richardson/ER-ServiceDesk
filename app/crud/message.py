@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/message.py
-# CRUD operations for the Message model.
 """
 Database access layer for a ticket's note/conversation history --
 internal notes and customer-facing email exchange alike.

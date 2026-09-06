@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/role_permissions.py
-# API routes for RolePermission operations.
 """
 REST endpoints for the many-to-many link between roles and permissions.
 

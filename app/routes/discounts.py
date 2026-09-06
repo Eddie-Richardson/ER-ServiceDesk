@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/discounts.py
-# API routes for Discount operations.
 """
 REST endpoints for a named discount category.
 

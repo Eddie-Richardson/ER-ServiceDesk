@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/service.py
-# ORM model for a billable service the shop offers
 """
 ORM model for a billable service the shop offers (e.g. "Screen
 Replacement", "Diagnostic Fee"), with its current price.

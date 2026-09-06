@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/workers/scheduler.py
-# Registers recurring background jobs (RQ has no built-in scheduling of its own).
 """
 Entrypoint for registering recurring jobs with rq-scheduler.
 

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/user_service.py
-# Service layer for User.
 """
 Business logic for User accounts, including password hashing.
 

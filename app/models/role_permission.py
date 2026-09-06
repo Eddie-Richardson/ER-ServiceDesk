@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/role_permission.py
-# ORM model for the many-to-many link between roles and permissions
 """
 ORM model for the many-to-many link between roles and permissions.
 """

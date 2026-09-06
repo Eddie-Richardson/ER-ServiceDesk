@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/message.py
-# Pydantic schemas for Message -- a ticket's full note/conversation history, unified.
 """
 Pydantic schemas for Message -- a ticket's full note/conversation
 history, covering internal notes and customer-facing email exchange

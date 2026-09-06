@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/invoice.py
-# CRUD operations for the Invoice model.
 """
 Database access layer for a bill generated for work performed on a ticket.
 

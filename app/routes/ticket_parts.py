@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/ticket_parts.py
-# API routes for TicketPart operations.
 """
 REST endpoints for TicketPart records.
 """

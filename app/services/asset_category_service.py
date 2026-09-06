@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/asset_category_service.py
-# Service layer for AssetCategory.
 
 """
 Business logic for a high-level grouping used to organize business assets.

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/payment_service.py
-# Service layer for Payment.
 """
 Business logic for a payment applied against an invoice.
 

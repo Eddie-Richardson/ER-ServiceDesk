@@ -687,6 +687,7 @@ class TicketFormDialog(AppDialog):
                 "brand": self.new_device_brand_input.text().strip() or None,
                 "model": self.new_device_model_input.text().strip() or None,
                 "serial_number": self.new_device_serial_input.text().strip() or None,
+                "current_location_id": self.location_combo.currentData(),
             }
             device_id = None  # filled in by TicketSaveWorker once the device is created
 

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/core/encryption.py
-# Reversible encryption for data that must be decryptable later (unlike login passwords, which are one-way hashed).
 """
 Reversible symmetric encryption for data that genuinely needs to come
 back out as plaintext later -- unlike login passwords (see security.py,

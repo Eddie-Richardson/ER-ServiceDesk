@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/ticket_status.py
-# ORM model for a workflow state a ticket can occupy
 """
 ORM model for a workflow state a ticket can occupy.
 """

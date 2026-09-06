@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/part.py
-# Pydantic schemas for Part entities
 
 """
 Request/response schemas for consumable, quantity-tracked parts stock.

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/device_service.py
-# Service layer for Device.
 """
 Business logic for a customer-owned device brought in for service.
 

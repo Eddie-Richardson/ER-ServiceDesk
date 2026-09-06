@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/asset_category.py
-# ORM model for a category used to organize business assets
 
 """
 ORM model for a high-level grouping used to organize tracked business

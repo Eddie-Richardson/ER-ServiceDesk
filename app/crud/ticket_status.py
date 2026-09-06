@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/ticket_status.py
-# CRUD operations for the TicketStatus model.
 """
 Database access layer for a workflow state a ticket can occupy.
 

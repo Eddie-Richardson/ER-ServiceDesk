@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/customer.py
-# CRUD operations for the Customer model.
 """
 Database access layer for a client of the repair shop.
 

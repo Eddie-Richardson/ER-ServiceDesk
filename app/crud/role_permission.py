@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/role_permission.py
-# CRUD operations for the RolePermission model.
 """
 Database access layer for the many-to-many link between roles and permissions.
 

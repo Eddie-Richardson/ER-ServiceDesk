@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/ticket_type_stage.py
-# Join model restricting which stages are valid for which ticket type
 """
 Many-to-many allow-list: declares which TicketStage values are valid for
 a given TicketType (e.g. "Burn-in Test" only makes sense for a custom

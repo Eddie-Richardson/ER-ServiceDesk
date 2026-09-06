@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/ticket.py
-# ORM model for a support/repair job tracked from intake to completion
 """
 ORM model for a support/repair job tracked from intake to completion.
 """
@@ -16,9 +15,10 @@ class Ticket(Base):
     Attributes:
         category_id: High-level grouping (e.g. Hardware, Software).
         type_id: Classification (e.g. Bug, Repair Request).
-        stage_id: Granular step of work (e.g. "Diagnosing" for a repair,
-            "Burn-in Test" for a custom build). Distinct from status_id,
-            which stays at the high-level Open/In Progress/Resolved axis.
+        stage_id: A more granular step of work than status_id, which
+            stays at the high-level Open/In Progress/Resolved axis. The
+            set of valid stages for a ticket depends on its type_id --
+            see TicketTypeStage.
         current_location_id: Where the device physically is right now
             (e.g. a bench, a shelf, shipped to customer).
         pickup_person: Who is authorized to pick up the device for this

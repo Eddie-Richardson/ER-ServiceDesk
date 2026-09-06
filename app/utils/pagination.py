@@ -1,9 +1,8 @@
 # ER-ServiceDesk/app/utils/pagination.py
-# Pagination + serialization helpers
 """
 Reusable pagination helper for SQLAlchemy ORM queries, plus a plain-dict
-serializer for model instances. Generalized for use across any router
-in the app, not just inventory.
+serializer for model instances. Written generically so any router could
+use it; currently only app/routes/assets.py does.
 """
 
 from math import ceil

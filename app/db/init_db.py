@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/db/init_db.py
-# Database initialization / seeding placeholder
 """
 Initialization hook for database seeding, called at startup/deployment.
 """

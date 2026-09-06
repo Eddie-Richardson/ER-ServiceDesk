@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/api/dependencies.py
-# Authentication and user dependencies
 """
 FastAPI dependencies for authenticating requests and enforcing access
 control. Import these into any route that should require a logged-in

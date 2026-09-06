@@ -1,8 +1,7 @@
 # ER-ServiceDesk/app/services/background_job_service.py
-# Service layer for BackgroundJob.
 """
 Business logic for tracking a background task's real lifecycle --
-queued, running, completed, or failed -- as it actually executes.
+running, completed, or failed -- as it actually executes.
 
 start()/complete()/fail() are the real entry points every task in
 app/workers/tasks.py calls around its own work, wrapped in a

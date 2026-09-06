@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/ticket.py
-# Pydantic schemas for Ticket entities
 """
 Request/response schemas for a support/repair job tracked from intake
 to completion.

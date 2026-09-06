@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/status_history.py
-# Pydantic schemas for StatusHistory entities
 """
 Request/response schemas for an audit trail entry for a ticket status
 transition.

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/invoice_line_item.py
-# CRUD operations for the InvoiceLineItem model.
 """
 Database access layer for a single service line on an invoice.
 """

@@ -1,31 +1,32 @@
 # ER-ServiceDesk/installer/restore_database_local.py
-#
-# Restores the LOCAL database from a backup file. Deliberately a
-# standalone tool, not a desktop app feature -- a broken/corrupted
-# database is often exactly why the app can't even reach its login
-# screen in the first place, so gating restore behind a login that
-# might itself be unreachable would defeat the whole point. Run
-# directly on this machine, by someone who's already logged into
-# Windows here -- that access IS the authentication check, the same
-# trust level this whole app's Local design already rests on (anyone
-# who can log into this PC is already fully trusted, matching Local's
-# own single-shop-owner-PC assumption).
-#
-# Compiled to a standalone .exe (see build_restore_exes.ps1) rather
-# than shipped as a raw .ps1 -- PowerShell's default execution policy
-# blocks an unsigned script from running at all, which is a genuinely
-# bad thing to put between a stressed admin and fixing a broken
-# database in an actual emergency. A double-clickable exe has no such
-# friction.
-#
-# Genuinely destructive -- this REPLACES the current database
-# entirely. A real confirmation step (typing the word "YES", not just
-# a Y/N prompt) is required before anything happens. An automatic
-# safety backup of whatever's currently there is attempted first, but
-# never blocks the actual restore if it fails -- a failed safety
-# backup just confirms there was nothing to protect in the first
-# place (e.g. the database being restored TO is itself the reason
-# this is happening: fully corrupted or gone).
+"""
+Restores the LOCAL database from a backup file. Deliberately a
+standalone tool, not a desktop app feature -- a broken/corrupted
+database is often exactly why the app can't even reach its login
+screen in the first place, so gating restore behind a login that
+might itself be unreachable would defeat the whole point. Run
+directly on this machine, by someone who's already logged into
+Windows here -- that access IS the authentication check, the same
+trust level this whole app's Local design already rests on (anyone
+who can log into this PC is already fully trusted, matching Local's
+own single-shop-owner-PC assumption).
+
+Compiled to a standalone .exe (see build_restore_exes.ps1) rather
+than shipped as a raw .ps1 -- PowerShell's default execution policy
+blocks an unsigned script from running at all, which is a genuinely
+bad thing to put between a stressed admin and fixing a broken
+database in an actual emergency. A double-clickable exe has no such
+friction.
+
+Genuinely destructive -- this REPLACES the current database
+entirely. A real confirmation step (typing the word "YES", not just
+a Y/N prompt) is required before anything happens. An automatic
+safety backup of whatever's currently there is attempted first, but
+never blocks the actual restore if it fails -- a failed safety
+backup just confirms there was nothing to protect in the first
+place (e.g. the database being restored TO is itself the reason
+this is happening: fully corrupted or gone).
+"""
 
 import os
 import subprocess

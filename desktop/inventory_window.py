@@ -301,9 +301,8 @@ class InventoryWindow(AppWindow):
         Renders parts into the Parts table, filtered to low-stock only
         if that toggle is active. "Low stock" is computed client-side
         (quantity_on_hand <= reorder_threshold) against the already-
-        fetched full parts list, rather than making a second network
-        call to the backend's dedicated low-stock endpoint -- the data
-        needed is already in memory from the initial load.
+        fetched full parts list, since that data is already in memory
+        from the initial load and no second network call is needed.
         """
         parts = self.all_parts
         if self.show_low_stock_only:

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/asset_category.py
-# Pydantic schemas for AssetCategory entities
 
 """
 Request/response schemas for a high-level grouping used to organize

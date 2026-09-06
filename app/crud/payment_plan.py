@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/payment_plan.py
-# CRUD operations for PaymentPlan and PaymentPlanInstallment.
 """
 Database access layer for a structured installment payment schedule.
 """

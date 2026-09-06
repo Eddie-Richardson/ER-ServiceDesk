@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/background_job.py
-# ORM model for an asynchronous job tracked for the RQ worker system
 """
 ORM model for an asynchronous job tracked for the RQ worker system.
 """
@@ -10,11 +9,11 @@ from app.db.base import Base
 
 class BackgroundJob(Base):
     """
-    Represents a queued or processed background task, along with its status and payload.
+    Represents a background task once it has actually started running, along with its status and payload.
 
     Attributes:
         job_type: The kind of job (e.g. 'send_email', 'generate_report').
-        status: Current job status (e.g. 'queued', 'running', 'completed', 'failed').
+        status: Current job status (e.g. 'running', 'completed', 'failed').
     """
     __tablename__ = "background_jobs"
     id = Column(Integer, primary_key=True, index=True)

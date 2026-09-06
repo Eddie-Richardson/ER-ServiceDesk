@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/device.py
-# CRUD operations for the Device model.
 """
 Database access layer for a customer-owned device brought in for service.
 

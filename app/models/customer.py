@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/customer.py
-# ORM model for a client of the repair shop
 """
 ORM model for a client of the repair shop.
 """

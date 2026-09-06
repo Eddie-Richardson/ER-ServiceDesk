@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/record_lock.py
-# Pydantic schemas for record locking
 
 """
 Request/response schemas for the check-out style record locking system.

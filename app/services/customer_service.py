@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/customer_service.py
-# Service layer for Customer.
 """
 Business logic for a client of the repair shop.
 

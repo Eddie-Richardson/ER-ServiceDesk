@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/ticket_categories.py
-# API routes for TicketCategory operations.
 """
 REST endpoints for a high-level grouping used to organize tickets.
 """

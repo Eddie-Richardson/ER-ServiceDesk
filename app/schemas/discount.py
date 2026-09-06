@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/discount.py
-# Pydantic schemas for Discount entities
 """
 Request/response schemas for a named discount category.
 """

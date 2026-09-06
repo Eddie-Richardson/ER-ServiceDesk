@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/ticket_type.py
-# Pydantic schemas for TicketType entities
 """
 Request/response schemas for a classification of the kind of work a
 ticket represents.

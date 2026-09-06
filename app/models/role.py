@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/role.py
-# ORM model for an authorization grouping assigned to users
 """
 ORM model for an authorization grouping assigned to users.
 """

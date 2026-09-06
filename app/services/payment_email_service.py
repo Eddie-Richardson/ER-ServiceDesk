@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/payment_email_service.py
-# Service for automatically emailing a payment receipt.
 """
 Sends a payment receipt automatically, the instant a payment is
 recorded -- unlike the waiver/quote/invoice emails, this has no button

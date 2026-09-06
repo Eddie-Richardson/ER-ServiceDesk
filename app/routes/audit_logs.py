@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/audit_logs.py
-# API routes for AuditLog -- read-only.
 """
 Read-only REST endpoint for the security/compliance audit trail.
 

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/user_role.py
-# CRUD operations for the UserRole model.
 """
 Database access layer for the many-to-many link between users and roles.
 

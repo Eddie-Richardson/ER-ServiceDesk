@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/invoices.py
-# API routes for Invoice operations.
 """
 REST endpoints for a bill generated for work performed on a ticket.
 

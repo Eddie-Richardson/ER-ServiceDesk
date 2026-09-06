@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/quote_service.py
-# Service layer for Quote.
 """
 Business logic for a cost estimate given to a customer before work is
 approved.

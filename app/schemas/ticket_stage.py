@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/ticket_stage.py
-# Pydantic schemas for TicketStage entities
 """
 Request/response schemas for the granular repair/build stage a ticket
 is at, distinct from its high-level TicketStatus.

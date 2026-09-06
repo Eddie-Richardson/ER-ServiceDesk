@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/ticket_type_stage_service.py
-# Service layer for TicketTypeStage.
 """
 Business logic for the ticket-type-to-stage allow-list.
 """

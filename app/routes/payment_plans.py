@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/payment_plans.py
-# API routes for PaymentPlan operations.
 """
 REST endpoints for a structured installment payment schedule on an
 invoice.

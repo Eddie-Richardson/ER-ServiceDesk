@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/asset_category.py
-# CRUD operations for the AssetCategory model.
 
 """
 Database access layer for a high-level grouping used to organize

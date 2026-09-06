@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/payment.py
-# Pydantic schemas for Payment entities
 """
 Request/response schemas for a payment applied against an invoice.
 """

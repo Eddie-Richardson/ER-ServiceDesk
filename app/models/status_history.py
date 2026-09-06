@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/status_history.py
-# ORM model for an audit trail entry for a ticket status transition
 """
 ORM model for an audit trail entry for a ticket status transition.
 """

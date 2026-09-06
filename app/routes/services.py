@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/services.py
-# API routes for Service (billable-service catalog) operations.
 """
 REST endpoints for a billable service the shop offers.
 

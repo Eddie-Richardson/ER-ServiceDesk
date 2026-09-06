@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/ticket_part.py
-# ORM model linking a ticket to the parts it needs
 """
 Join model tracking which parts a ticket needs, how many, and where that
 need stands (needed / ordered / backordered / received / installed). This
@@ -20,8 +19,8 @@ class TicketPart(Base):
 
     Attributes:
         status: Fulfillment status -- "needed", "ordered", "shipped",
-            "delayed", "delivered", "backordered", "received", or
-            "installed". Free-text rather than a DB-level enum, since new
+            "delayed", "backordered", "received", or "installed".
+            Free-text rather than a DB-level enum, since new
             statuses may need to be added without a migration; validate
             allowed values at the service/schema layer if that's ever
             needed.

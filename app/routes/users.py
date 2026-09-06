@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/users.py
-# API routes for User operations.
 """
 REST endpoints for staff/system account management.
 """

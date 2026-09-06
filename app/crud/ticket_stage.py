@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/ticket_stage.py
-# CRUD operations for the TicketStage model.
 """
 Database access layer for granular ticket work stages.
 """

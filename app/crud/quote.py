@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/crud/quote.py
-# CRUD operations for the Quote model.
 """
 Database access layer for an estimated price for ticket-related work, pending customer approval.
 

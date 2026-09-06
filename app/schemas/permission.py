@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/schemas/permission.py
-# Pydantic schemas for Permission entities
 """
 Request/response schemas for a single grantable capability in the RBAC
 system.

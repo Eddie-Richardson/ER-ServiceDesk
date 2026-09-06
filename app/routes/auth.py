@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/routes/auth.py
-# Authentication routes.
 """
 Public-facing authentication endpoint(s).
 """

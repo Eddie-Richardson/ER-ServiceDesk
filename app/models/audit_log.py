@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/audit_log.py
-# ORM model for a record of a user action or system event, for security review and compliance
 """
 ORM model for a record of a user action or system event, for security review and compliance.
 """
@@ -17,7 +16,7 @@ class AuditLog(Base):
         user_id: The user who performed the action, if any -- null
             for a genuinely system-initiated action with no specific
             user behind it.
-        action: Short label for the action (e.g. 'login', 'update_ticket').
+        action: Short label for the action (e.g. 'login_success', 'ticket_created').
         entity_type: The kind of entity affected (e.g. 'ticket', 'user').
     """
     __tablename__ = "audit_logs"

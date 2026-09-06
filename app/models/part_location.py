@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/models/part_location.py
-# ORM model for how much of a part is stored at a specific location
 
 """
 ORM model tracking how many units of a Part sit at a specific Location.

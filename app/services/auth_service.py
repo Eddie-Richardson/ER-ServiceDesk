@@ -1,5 +1,4 @@
 # ER-ServiceDesk/app/services/auth_service.py
-# Authentication service.
 """
 Business logic for authenticating users and issuing access tokens.
 Sits between the /auth/login route and the User model.

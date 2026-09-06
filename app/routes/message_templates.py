@@ -9,11 +9,11 @@ all real work to the service layer.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
-from app.api.dependencies import get_current_user
+from app.api.dependencies import require_superuser
 from app.services.message_template_service import message_template_service
 from app.schemas.message_template import MessageTemplate, MessageTemplateCreate, MessageTemplateUpdate
 
-router = APIRouter(prefix="/message_templates", tags=["message_templates"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/message_templates", tags=["message_templates"], dependencies=[Depends(require_superuser)])
 
 @router.get("/", response_model=list[MessageTemplate])
 def list_message_templates(db: Session = Depends(get_db)):

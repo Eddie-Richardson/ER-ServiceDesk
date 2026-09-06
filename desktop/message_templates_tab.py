@@ -65,7 +65,7 @@ class MessageTemplatesTab(QWidget):
         self.table = QTableWidget()
         self.table.setColumnCount(len(COLUMN_HEADERS))
         self.table.setHorizontalHeaderLabels(COLUMN_HEADERS)
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)

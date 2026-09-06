@@ -9,7 +9,7 @@ callers (the service layer) are responsible for that. Kept intentionally
 
 from sqlalchemy.orm import Session
 from app.models.payment import Payment
-from app.schemas.payment import PaymentCreate, PaymentUpdate
+from app.schemas.payment import PaymentCreate
 
 class PaymentCRUD:
     """Direct database access for Payment records."""
@@ -29,13 +29,6 @@ class PaymentCRUD:
         db.commit()
         db.refresh(obj)
         return obj
-
-    def update(self, db: Session, db_obj: Payment, obj_in: PaymentUpdate) -> Payment:
-        for field, value in obj_in.model_dump(exclude_unset=True).items():
-            setattr(db_obj, field, value)
-        db.commit()
-        db.refresh(db_obj)
-        return db_obj
 
     def delete(self, db: Session, id: int) -> None:
         obj = db.query(Payment).filter(Payment.id == id).first()

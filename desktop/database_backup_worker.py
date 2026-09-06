@@ -22,6 +22,7 @@ after a migration to new hardware.
 
 import os
 import subprocess
+import time
 from datetime import datetime
 
 from PySide6.QtCore import QObject, Signal
@@ -102,17 +103,32 @@ class DatabaseBackupWorker(QObject):
             self.finished.emit(False, f"Backup failed:\n\n{dump_result.stderr.decode(errors='replace')}")
             return
 
-        try:
-            cp_result = subprocess.run(
-                cp_cmd,
-                cwd=self.compose_dir,
-                capture_output=True,
-                shell=True,
-                timeout=60,
-            )
-        except subprocess.TimeoutExpired:
-            self.finished.emit(False, "Retrieving the backup took too long. Please try again.")
-            return
+        # pg_dump can genuinely succeed and the file genuinely exist
+        # inside the container, yet a docker cp run immediately
+        # afterward can fail to find it -- consistent with a brief
+        # WSL2 filesystem-sync lag between the write completing inside
+        # the container and it becoming visible to docker cp from
+        # outside a moment later. A retry with a short pause covers
+        # this without needing to guess at one single "safe" fixed
+        # delay -- same pattern already proven necessary for this
+        # exact issue in migrate_to_server_worker.py.
+        cp_result = None
+        for attempt in range(5):
+            try:
+                cp_result = subprocess.run(
+                    cp_cmd,
+                    cwd=self.compose_dir,
+                    capture_output=True,
+                    shell=True,
+                    timeout=60,
+                )
+            except subprocess.TimeoutExpired:
+                self.finished.emit(False, "Retrieving the backup took too long. Please try again.")
+                return
+
+            if cp_result.returncode == 0:
+                break
+            time.sleep(2)
 
         if cp_result.returncode != 0:
             self.finished.emit(False, f"Backup failed:\n\n{cp_result.stderr.decode(errors='replace')}")

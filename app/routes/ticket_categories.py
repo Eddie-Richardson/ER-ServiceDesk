@@ -6,11 +6,11 @@ REST endpoints for a high-level grouping used to organize tickets.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
-from app.api.dependencies import get_current_user
+from app.api.dependencies import require_superuser
 from app.services.ticket_category_service import ticket_category_service
 from app.schemas.ticket_category import TicketCategory, TicketCategoryCreate, TicketCategoryUpdate
 
-router = APIRouter(prefix="/ticket_categories", tags=["ticket_categories"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/ticket_categories", tags=["ticket_categories"], dependencies=[Depends(require_superuser)])
 
 @router.get("/", response_model=list[TicketCategory])
 def list_ticket_categories(db: Session = Depends(get_db)):

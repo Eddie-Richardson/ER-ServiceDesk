@@ -6,11 +6,11 @@ REST endpoints for TicketStage records.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
-from app.api.dependencies import get_current_user
+from app.api.dependencies import require_superuser
 from app.services.ticket_stage_service import ticket_stage_service
 from app.schemas.ticket_stage import TicketStage, TicketStageCreate, TicketStageUpdate
 
-router = APIRouter(prefix="/ticket_stages", tags=["ticket_stages"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/ticket_stages", tags=["ticket_stages"], dependencies=[Depends(require_superuser)])
 
 @router.get("/", response_model=list[TicketStage])
 def list_ticket_stages(db: Session = Depends(get_db)):

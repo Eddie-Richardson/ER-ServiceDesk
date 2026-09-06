@@ -45,7 +45,7 @@ COLUMN_HEADERS = ["Timestamp", "User", "Action", "Entity", "Details"]
 # convention), but a fixed list here keeps the filter dropdown simple
 # and predictable rather than dynamically inferred from whatever
 # happens to already be in the log.
-ENTITY_TYPES = ["ticket", "user", "customer", "device"]
+ENTITY_TYPES = ["ticket", "user", "customer", "device", "discount", "service", "tax_rate"]
 
 
 class AuditLogTab(QWidget):

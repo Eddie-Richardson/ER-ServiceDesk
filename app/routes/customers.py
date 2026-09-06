@@ -2,6 +2,9 @@
 """
 REST endpoints for a client of the repair shop.
 
+Reads require only a valid session; create/update/delete/archive/
+unarchive require customers.manage.
+
 Thin HTTP layer: validates the request via the schema layer and delegates
 all real work to the service layer.
 """
@@ -14,17 +17,17 @@ from app.models.user import User
 from app.services.customer_service import customer_service
 from app.schemas.customer import Customer, CustomerCreate, CustomerUpdate
 
-router = APIRouter(prefix="/customers", tags=["customers"], dependencies=[Depends(require_permission("customers.manage"))])
+router = APIRouter(prefix="/customers", tags=["customers"])
 
-@router.get("/", response_model=list[Customer])
+@router.get("/", response_model=list[Customer], dependencies=[Depends(get_current_user)])
 def list_customers(db: Session = Depends(get_db)):
     return customer_service.get_multi(db)
 
-@router.get("/{id}", response_model=Customer)
+@router.get("/{id}", response_model=Customer, dependencies=[Depends(get_current_user)])
 def get_customer(id: int, db: Session = Depends(get_db)):
     return customer_service.get(db, id)
 
-@router.post("/", response_model=Customer)
+@router.post("/", response_model=Customer, dependencies=[Depends(require_permission("customers.manage"))])
 def create_customer(
     obj_in: CustomerCreate,
     db: Session = Depends(get_db),
@@ -32,7 +35,7 @@ def create_customer(
 ):
     return customer_service.create(db, obj_in, current_user.id)
 
-@router.put("/{id}", response_model=Customer)
+@router.put("/{id}", response_model=Customer, dependencies=[Depends(require_permission("customers.manage"))])
 def update_customer(
     id: int,
     obj_in: CustomerUpdate,
@@ -41,7 +44,7 @@ def update_customer(
 ):
     return customer_service.update(db, id, obj_in, current_user.id)
 
-@router.delete("/{id}")
+@router.delete("/{id}", dependencies=[Depends(require_permission("customers.manage"))])
 def delete_customer(
     id: int,
     db: Session = Depends(get_db),
@@ -49,7 +52,7 @@ def delete_customer(
 ):
     return customer_service.delete(db, id, current_user.id)
 
-@router.post("/{id}/archive", response_model=Customer)
+@router.post("/{id}/archive", response_model=Customer, dependencies=[Depends(require_permission("customers.manage"))])
 def archive_customer(
     id: int,
     db: Session = Depends(get_db),
@@ -57,7 +60,7 @@ def archive_customer(
 ):
     return customer_service.archive(db, id, current_user.id)
 
-@router.post("/{id}/unarchive", response_model=Customer)
+@router.post("/{id}/unarchive", response_model=Customer, dependencies=[Depends(require_permission("customers.manage"))])
 def unarchive_customer(
     id: int,
     db: Session = Depends(get_db),

@@ -6,11 +6,11 @@ REST endpoints for a workflow state a ticket can occupy.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
-from app.api.dependencies import get_current_user
+from app.api.dependencies import require_superuser
 from app.services.ticket_status_service import ticket_status_service
 from app.schemas.ticket_status import TicketStatus, TicketStatusCreate, TicketStatusUpdate
 
-router = APIRouter(prefix="/ticket_statuses", tags=["ticket_statuses"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/ticket_statuses", tags=["ticket_statuses"], dependencies=[Depends(require_superuser)])
 
 @router.get("/", response_model=list[TicketStatus])
 def list_ticket_statuses(db: Session = Depends(get_db)):

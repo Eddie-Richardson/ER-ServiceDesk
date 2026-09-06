@@ -10,11 +10,11 @@ all real work to the service layer.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
-from app.api.dependencies import get_current_user
+from app.api.dependencies import require_superuser
 from app.services.asset_category_service import asset_category_service
 from app.schemas.asset_category import AssetCategory, AssetCategoryCreate, AssetCategoryUpdate
 
-router = APIRouter(prefix="/inventory/asset_categories", tags=["inventory-asset-categories"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/inventory/asset_categories", tags=["inventory-asset-categories"], dependencies=[Depends(require_superuser)])
 
 
 @router.get("/", response_model=list[AssetCategory])

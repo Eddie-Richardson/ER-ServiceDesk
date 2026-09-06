@@ -6,11 +6,11 @@ REST endpoints for Location records.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
-from app.api.dependencies import get_current_user
+from app.api.dependencies import require_superuser
 from app.services.location_service import location_service
 from app.schemas.location import Location, LocationCreate, LocationUpdate
 
-router = APIRouter(prefix="/inventory/locations", tags=["inventory-locations"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/inventory/locations", tags=["inventory-locations"], dependencies=[Depends(require_superuser)])
 
 @router.get("/", response_model=list[Location])
 def list_locations(db: Session = Depends(get_db)):

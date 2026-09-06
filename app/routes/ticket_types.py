@@ -9,11 +9,11 @@ all real work to the service layer.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
-from app.api.dependencies import get_current_user
+from app.api.dependencies import require_superuser
 from app.services.ticket_type_service import ticket_type_service
 from app.schemas.ticket_type import TicketType, TicketTypeCreate, TicketTypeUpdate
 
-router = APIRouter(prefix="/ticket_types", tags=["ticket_types"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/ticket_types", tags=["ticket_types"], dependencies=[Depends(require_superuser)])
 
 @router.get("/", response_model=list[TicketType])
 def list_ticket_types(db: Session = Depends(get_db)):

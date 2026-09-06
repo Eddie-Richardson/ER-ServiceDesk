@@ -48,7 +48,10 @@ def reset_admin_password():
         db.close()
         return
 
-    new_password = getpass.getpass("New password (won't be shown as you type): ")
+    new_password = getpass.getpass(
+        "New password (min 8 chars, upper/lower/number/special character; "
+        "won't be shown as you type): "
+    )
     confirm_password = getpass.getpass("Confirm new password: ")
 
     if new_password != confirm_password:
@@ -61,7 +64,14 @@ def reset_admin_password():
         db.close()
         return
 
-    user.hashed_password = hash_password(new_password)
+    try:
+        hashed = hash_password(new_password)
+    except ValueError as e:
+        print(f"{e} Nothing was changed.")
+        db.close()
+        return
+
+    user.hashed_password = hashed
     db.commit()
     db.close()
 

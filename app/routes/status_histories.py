@@ -20,15 +20,19 @@ from app.schemas.status_history import StatusHistory
 router = APIRouter(prefix="/status_histories", tags=["status_histories"], dependencies=[Depends(get_current_user)])
 
 @router.get("/", response_model=list[StatusHistory])
-def list_status_histories(db: Session = Depends(get_db)):
+def list_status_histories(ticket_id: int | None = None, db: Session = Depends(get_db)):
     """
-    Every status change ever recorded, across every ticket. Visible to
-    anyone with an active session -- the desktop client filters this
-    down to one ticket's own history client-side (see
-    api_client.list_status_history_for_ticket()), matching the same
-    pattern already used for a ticket's Notes/Message timeline.
+    Every status change ever recorded, optionally filtered to one
+    ticket via ticket_id. The desktop client always passes ticket_id
+    (see api_client.list_status_history_for_ticket()) -- filtering
+    server-side, rather than fetching everything and filtering
+    client-side, since the unfiltered list's own limit is a system-wide
+    cap, not a per-ticket one, and could otherwise silently truncate an
+    older ticket's real history once enough other status changes
+    accumulate elsewhere in the system. Same pattern already used
+    correctly by ticket_parts.py's own get_by_ticket().
     """
-    return status_history_service.get_multi(db)
+    return status_history_service.get_multi(db, ticket_id=ticket_id)
 
 @router.get("/{id}", response_model=StatusHistory)
 def get_status_history(id: int, db: Session = Depends(get_db)):

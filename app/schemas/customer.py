@@ -22,7 +22,15 @@ class CustomerCreate(CustomerBase):
     pass
 
 class CustomerUpdate(BaseModel):
-    """Schema for partially updating an existing Customer record. All fields optional."""
+    """
+    Schema for partially updating an existing Customer record. All
+    fields optional.
+
+    No is_archived field -- archiving/unarchiving goes through the
+    dedicated archive()/unarchive() endpoints, which log a specific
+    audit entry ("customer_archived"/"customer_unarchived") rather
+    than a generic update.
+    """
     first_name: str | None = None
     last_name: str | None = None
     email: str | None = None
@@ -31,7 +39,6 @@ class CustomerUpdate(BaseModel):
     city: str | None = None
     state: str | None = None
     zip_code: str | None = None
-    is_archived: bool | None = None
     updated_at: datetime | None = None
 
 class Customer(CustomerBase):

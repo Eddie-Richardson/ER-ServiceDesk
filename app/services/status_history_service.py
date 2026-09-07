@@ -20,7 +20,7 @@ class StatusHistoryService:
     def get(self, db: Session, id: int):
         return crud_status_history.get(db, id)
 
-    def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
-        return crud_status_history.get_multi(db, skip, limit)
+    def get_multi(self, db: Session, skip: int = 0, limit: int = 500, ticket_id: int | None = None):
+        return crud_status_history.get_multi(db, skip, limit, ticket_id)
 
 status_history_service = StatusHistoryService()

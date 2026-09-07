@@ -14,8 +14,11 @@ class MessageCRUD:
     def get(self, db: Session, id: int) -> Message | None:
         return db.query(Message).filter(Message.id == id).first()
 
-    def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
-        return db.query(Message).offset(skip).limit(limit).all()
+    def get_multi(self, db: Session, skip: int = 0, limit: int = 500, ticket_id: int | None = None):
+        query = db.query(Message)
+        if ticket_id is not None:
+            query = query.filter(Message.ticket_id == ticket_id)
+        return query.order_by(Message.created_at).offset(skip).limit(limit).all()
 
     def create(self, db: Session, obj_in: MessageCreate) -> Message:
         obj = Message(**obj_in.model_dump())

@@ -14,18 +14,22 @@ class InvoiceBase(BaseModel):
     ticket_id: int
     discount_id: int | None = None
     tax_rate_id: int | None = None
-    details: str | None = None
 
 class InvoiceCreate(InvoiceBase):
     """Schema for creating a new Invoice record directly (client -> server). Starts with zero line items. Not used for quote-to-invoice conversion -- see quote_service.convert_to_invoice() for that path."""
     pass
 
 class InvoiceUpdate(BaseModel):
-    """Schema for partially updating an existing Invoice record. All fields optional. Changing discount_id/tax_rate_id triggers a totals recalculation."""
+    """
+    Schema for partially updating an existing Invoice record. All fields
+    optional. Changing discount_id/tax_rate_id triggers a totals
+    recalculation.
+
+    No is_paid field -- that's only ever set by payment_service.py,
+    based on real, recorded Payment rows summing to the invoice total.
+    """
     discount_id: int | None = None
     tax_rate_id: int | None = None
-    details: str | None = None
-    is_paid: bool | None = None
 
 class Invoice(InvoiceBase):
     """Schema returned to the client for an Invoice record (server -> client)."""

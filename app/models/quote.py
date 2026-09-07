@@ -3,7 +3,7 @@
 ORM model for an estimated price for ticket-related work, pending customer approval.
 """
 
-from sqlalchemy import Column, Integer, Numeric, String, ForeignKey, DateTime, Text
+from sqlalchemy import Column, Integer, Numeric, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from datetime import datetime, UTC
 from app.db.base import Base
@@ -68,7 +68,6 @@ class Quote(Base):
     tax_amount = Column(Numeric, nullable=False, default=0)
     total = Column(Numeric, nullable=False, default=0)
 
-    details = Column(Text, nullable=True)
     quote_sent_at = Column(DateTime(timezone=True), nullable=True)
     # Quote <-> Invoice is a genuine mutual reference (this points at
     # invoices.id, and Invoice.source_quote_id points back at

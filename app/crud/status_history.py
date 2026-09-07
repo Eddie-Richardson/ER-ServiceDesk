@@ -19,8 +19,11 @@ class StatusHistoryCRUD:
     def get(self, db: Session, id: int) -> StatusHistory | None:
         return db.query(StatusHistory).filter(StatusHistory.id == id).first()
 
-    def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
-        return db.query(StatusHistory).offset(skip).limit(limit).all()
+    def get_multi(self, db: Session, skip: int = 0, limit: int = 500, ticket_id: int | None = None):
+        query = db.query(StatusHistory)
+        if ticket_id is not None:
+            query = query.filter(StatusHistory.ticket_id == ticket_id)
+        return query.order_by(StatusHistory.changed_at).offset(skip).limit(limit).all()
 
     def create(self, db: Session, obj_in: StatusHistoryCreate) -> StatusHistory:
         """Only ever called internally by ticket_service.py when a ticket's status_id genuinely changes -- never directly from a route."""

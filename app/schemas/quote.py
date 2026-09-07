@@ -4,7 +4,7 @@ Request/response schemas for a cost estimate given to a customer
 before work is approved.
 
 Creation is deliberately simple (just ticket_id + optional discount/tax
-+ details) -- line items get added afterward, one at a time, via their
+selection) -- line items get added afterward, one at a time, via their
 own dedicated endpoint (see schemas/quote_line_item.py), the same
 expandable-list pattern as TicketPart. subtotal/discount_amount/
 tax_amount/total are never client-supplied; they're computed
@@ -22,7 +22,6 @@ class QuoteBase(BaseModel):
     ticket_id: int
     discount_id: int | None = None
     tax_rate_id: int | None = None
-    details: str | None = None
 
 class QuoteCreate(QuoteBase):
     """Schema for creating a new Quote record (client -> server). Starts with zero line items."""
@@ -32,7 +31,6 @@ class QuoteUpdate(BaseModel):
     """Schema for partially updating an existing Quote record. All fields optional. Changing discount_id/tax_rate_id triggers a totals recalculation."""
     discount_id: int | None = None
     tax_rate_id: int | None = None
-    details: str | None = None
 
 class Quote(QuoteBase):
     """Schema returned to the client for a Quote record (server -> client)."""

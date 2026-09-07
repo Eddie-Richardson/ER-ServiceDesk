@@ -25,6 +25,7 @@ from tests.factories import (
     make_plain_user,
     make_full_ticket,
     make_invoice,
+    make_discount,
 )
 
 
@@ -201,49 +202,49 @@ def test_assignable_users_correctly_flags_front_desk(client, agent_headers, db):
 # Standalone lookup-table resources (any authenticated user)
 # ---------------------------------------------------------------------------
 
-def test_ticket_categories_crud(client, agent_headers):
+def test_ticket_categories_crud(client, superuser_headers):
     _assert_crud_lifecycle(
-        client, agent_headers, "/ticket_categories",
+        client, superuser_headers, "/ticket_categories",
         {"name": "Networking", "description": "Network issues"},
         {"description": "Network/connectivity issues"},
         update_check_field="description",
     )
 
 
-def test_ticket_statuses_crud(client, agent_headers):
+def test_ticket_statuses_crud(client, superuser_headers):
     _assert_crud_lifecycle(
-        client, agent_headers, "/ticket_statuses",
+        client, superuser_headers, "/ticket_statuses",
         {"name": "In Progress", "description": "Actively being worked"},
         {"description": "Currently on the bench"},
         update_check_field="description",
     )
 
 
-def test_ticket_types_crud(client, agent_headers):
+def test_ticket_types_crud(client, superuser_headers):
     _assert_crud_lifecycle(
-        client, agent_headers, "/ticket_types",
+        client, superuser_headers, "/ticket_types",
         {"name": "Feature Request"},
         {"description": "A requested new capability"},
         update_check_field="description",
     )
 
 
-def test_ticket_stages_crud(client, agent_headers):
+def test_ticket_stages_crud(client, superuser_headers):
     _assert_crud_lifecycle(
-        client, agent_headers, "/ticket_stages",
+        client, superuser_headers, "/ticket_stages",
         {"name": "Awaiting Parts"},
         {"description": "Waiting on an ordered part"},
         update_check_field="description",
     )
 
 
-def test_ticket_type_stages_crud(client, agent_headers, db):
+def test_ticket_type_stages_crud(client, superuser_headers, db):
     from tests.factories import make_ticket_type, make_ticket_stage
     ttype = make_ticket_type(db)
     stage = make_ticket_stage(db)
     ttype2 = make_ticket_type(db, name="Bug")
     _assert_crud_lifecycle(
-        client, agent_headers, "/ticket_type_stages",
+        client, superuser_headers, "/ticket_type_stages",
         {"type_id": ttype.id, "stage_id": stage.id},
         {"type_id": ttype2.id},
         update_check_field="type_id",
@@ -258,18 +259,18 @@ def test_background_jobs_is_read_only(client, agent_headers):
     assert create_resp.status_code == 405
 
 
-def test_message_templates_crud(client, agent_headers):
+def test_message_templates_crud(client, superuser_headers):
     _assert_crud_lifecycle(
-        client, agent_headers, "/message_templates",
+        client, superuser_headers, "/message_templates",
         {"name": "ticket_created", "body": "We got your ticket."},
         {"body": "We received your repair request."},
         update_check_field="body",
     )
 
 
-def test_locations_crud(client, agent_headers):
+def test_locations_crud(client, superuser_headers):
     _assert_crud_lifecycle(
-        client, agent_headers, "/inventory/locations",
+        client, superuser_headers, "/inventory/locations",
         {"name": "Front Counter", "description": "Customer-facing intake area", "show_in_ticket_picker": True},
         {"description": "Main intake and pickup area", "show_in_ticket_picker": False},
         update_check_field="show_in_ticket_picker",
@@ -336,8 +337,9 @@ def test_messages_crud(client, superuser_headers, db):
 def test_quotes_crud(client, agent_headers, db):
     """Quote creation starts empty (ticket_id only) -- line items get added separately, one at a time, via their own endpoint. Quotes are otherwise not deletable (financial record), except for the one narrow case exercised here: an empty, never-sent, never-converted quote that's also still the most recently created one."""
     ticket = make_full_ticket(db)
+    discount = make_discount(db)
 
-    create_resp = client.post("/quotes/", json={"ticket_id": ticket.id, "details": "Screen + labor"}, headers=agent_headers)
+    create_resp = client.post("/quotes/", json={"ticket_id": ticket.id}, headers=agent_headers)
     assert create_resp.status_code == 200, create_resp.text
     quote_id = create_resp.json()["id"]
 
@@ -348,9 +350,9 @@ def test_quotes_crud(client, agent_headers, db):
     get_resp = client.get(f"/quotes/{quote_id}", headers=agent_headers)
     assert get_resp.status_code == 200
 
-    update_resp = client.put(f"/quotes/{quote_id}", json={"details": "Screen replacement + labor"}, headers=agent_headers)
+    update_resp = client.put(f"/quotes/{quote_id}", json={"discount_id": discount.id}, headers=agent_headers)
     assert update_resp.status_code == 200, update_resp.text
-    assert update_resp.json()["details"] == "Screen replacement + labor"
+    assert update_resp.json()["discount_id"] == discount.id
 
     delete_resp = client.delete(f"/quotes/{quote_id}", headers=agent_headers)
     assert delete_resp.status_code == 200, delete_resp.text
@@ -478,10 +480,10 @@ def test_services_write_requires_superuser(client, agent_headers):
     assert resp.status_code == 403
 
 
-def test_asset_categories_crud(client, agent_headers):
-    """Only requires a logged-in user -- no special permission gating, unlike the billing catalogs above."""
+def test_asset_categories_crud(client, superuser_headers):
+    """Superuser-only, matching every other Settings-level lookup table (Ticket Categories/Statuses/Types/Stages, Locations, Message Templates)."""
     _assert_crud_lifecycle(
-        client, agent_headers, "/inventory/asset_categories",
+        client, superuser_headers, "/inventory/asset_categories",
         {"name": "Laptop", "description": "Portable computers"},
         {"description": "Portable computers and tablets"},
         update_check_field="description",
@@ -1068,9 +1070,14 @@ def test_invoices_crud(client, agent_headers, db):
     get_resp = client.get(f"/invoices/{invoice_id}", headers=agent_headers)
     assert get_resp.status_code == 200
 
-    update_resp = client.put(f"/invoices/{invoice_id}", json={"is_paid": True}, headers=agent_headers)
-    assert update_resp.status_code == 200, update_resp.text
-    assert update_resp.json()["is_paid"] is True
+    # is_paid can no longer be set directly (see InvoiceUpdate) -- an
+    # empty invoice's total defaults to 0, so recording any real
+    # payment against it genuinely, correctly marks it paid.
+    payment_resp = client.post("/payments/", json={"invoice_id": invoice_id, "amount": 0.01, "method": "cash"}, headers=agent_headers)
+    assert payment_resp.status_code == 200, payment_resp.text
+
+    get_after_payment_resp = client.get(f"/invoices/{invoice_id}", headers=agent_headers)
+    assert get_after_payment_resp.json()["is_paid"] is True
 
     delete_resp = client.delete(f"/invoices/{invoice_id}", headers=agent_headers)
     assert delete_resp.status_code == 400

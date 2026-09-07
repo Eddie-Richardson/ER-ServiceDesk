@@ -224,7 +224,6 @@ class QuoteService:
             ticket_id=quote.ticket_id,
             discount_id=quote.discount_id,
             tax_rate_id=quote.tax_rate_id,
-            details=quote.details,
             invoice_number=next_invoice_number,
         )
         db.add(new_invoice)

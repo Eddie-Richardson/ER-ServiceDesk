@@ -24,9 +24,19 @@ from app.schemas.message import Message, MessageCreate, MessageUpdate
 router = APIRouter(prefix="/messages", tags=["messages"], dependencies=[Depends(require_permission("tickets.manage"))])
 
 @router.get("/", response_model=list[Message])
-def list_messages(db: Session = Depends(get_db)):
-    """Visible to anyone with ticket access -- shared history, not private to its author."""
-    return message_service.get_multi(db)
+def list_messages(ticket_id: int | None = None, db: Session = Depends(get_db)):
+    """
+    Visible to anyone with ticket access -- shared history, not
+    private to its author. Optionally filtered to one ticket via
+    ticket_id -- the desktop client always passes it (see
+    api_client.list_messages_for_ticket()), filtering server-side
+    rather than fetching everything and filtering client-side, since
+    the unfiltered list's own limit is a system-wide cap, not a
+    per-ticket one, and could otherwise silently truncate an older
+    ticket's real conversation history once enough other messages
+    accumulate elsewhere in the system.
+    """
+    return message_service.get_multi(db, ticket_id=ticket_id)
 
 @router.get("/{id}", response_model=Message)
 def get_message(id: int, db: Session = Depends(get_db)):

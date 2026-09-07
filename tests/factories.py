@@ -20,6 +20,7 @@ from app.models.ticket_type_stage import TicketTypeStage
 from app.models.role import Role
 from app.models.permission import Permission
 from app.models.invoice import Invoice
+from app.models.discount import Discount
 from app.models.user import User
 from app.core.security import hash_password
 
@@ -89,6 +90,15 @@ def make_invoice(db, ticket_id: int) -> Invoice:
 def make_location(db, name="Bench 1") -> Location:
     """Create and persist a minimal Location record."""
     obj = Location(name=name)
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def make_discount(db, name="Test Discount", percentage=10) -> Discount:
+    """Create and persist a minimal Discount record."""
+    obj = Discount(name=name, percentage=percentage)
     db.add(obj)
     db.commit()
     db.refresh(obj)

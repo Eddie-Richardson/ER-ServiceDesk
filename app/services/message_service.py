@@ -29,8 +29,8 @@ class MessageService:
     def get(self, db: Session, id: int):
         return crud_message.get(db, id)
 
-    def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
-        return crud_message.get_multi(db, skip, limit)
+    def get_multi(self, db: Session, skip: int = 0, limit: int = 500, ticket_id: int | None = None):
+        return crud_message.get_multi(db, skip, limit, ticket_id)
 
     def create(self, db: Session, obj_in: MessageCreate):
         """

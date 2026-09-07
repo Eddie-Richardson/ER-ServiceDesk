@@ -948,13 +948,14 @@ def list_messages_for_ticket(ticket_id: int) -> list[dict]:
     internal notes and customer email exchange together -- in
     whatever order the backend returns them (creation order). Visible
     to anyone with ticket access -- shared history, not private to
-    its author.
+    its author. Filtered server-side via ticket_id -- the overall
+    messages table can grow large across every ticket over time, even
+    though any one ticket only ever has a handful.
 
     Args:
         ticket_id: The ticket to fetch entries for.
     """
-    all_messages = _authed_get("/messages/")
-    return [m for m in all_messages if m.get("ticket_id") == ticket_id]
+    return _authed_get(f"/messages/?ticket_id={ticket_id}")
 
 
 def create_message(payload: dict) -> dict:
@@ -1010,13 +1011,15 @@ def list_status_history_for_ticket(ticket_id: int) -> list[dict]:
     the backend returns them (creation order -- oldest first).
     Read-only; there's no create/update/delete for this at all, since
     entries are only ever written internally by the backend when a
-    status genuinely changes.
+    status genuinely changes. Filtered server-side via ticket_id --
+    the overall status_histories table can grow large across every
+    ticket over time, even though any one ticket only ever has a
+    handful.
 
     Args:
         ticket_id: The ticket to fetch history for.
     """
-    all_entries = _authed_get("/status_histories/")
-    return [e for e in all_entries if e.get("ticket_id") == ticket_id]
+    return _authed_get(f"/status_histories/?ticket_id={ticket_id}")
 
 
 def list_ticket_parts_for_ticket(ticket_id: int) -> list[dict]:
@@ -1102,7 +1105,7 @@ def get_quote(quote_id: int) -> dict:
 
 def update_quote(quote_id: int, payload: dict) -> dict:
     """
-    Updates a quote's discount/tax selection or details. Changing
+    Updates a quote's discount/tax selection. Changing
     discount_id/tax_rate_id recalculates totals server-side.
     """
     return _authed_put(f"/quotes/{quote_id}", payload)
@@ -1163,7 +1166,7 @@ def get_invoice(invoice_id: int) -> dict:
 
 
 def update_invoice(invoice_id: int, payload: dict) -> dict:
-    """Updates an invoice's discount/tax selection, details, or is_paid."""
+    """Updates an invoice's discount/tax selection."""
     return _authed_put(f"/invoices/{invoice_id}", payload)
 
 

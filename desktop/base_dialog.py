@@ -54,11 +54,11 @@ def show_login():
     succeeded on the backend, but nothing was listening for it.
     """
     # Imported here (not at module level) to avoid a circular import:
-    # login_window.py imports change_password_dialog.py, which (once
-    # migrated to AppDialog) would import this same module -- keeping
-    # this lazy keeps base_dialog.py safe to import from anywhere
-    # without risk of that cycle. dashboard_window.py is imported
-    # lazily for the same underlying reason.
+    # login_window.py imports change_password_dialog.py, which
+    # imports AppDialog from this same module -- keeping this lazy
+    # keeps base_dialog.py safe to import from anywhere without risk
+    # of that cycle. dashboard_window.py is imported lazily for the
+    # same underlying reason.
     from desktop.login_window import LoginWindow
     from desktop.dashboard_window import DashboardWindow
 

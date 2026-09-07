@@ -10,7 +10,7 @@ from app.core.email import fetch_unread_emails
 from app.crud.ticket import crud_ticket
 from app.crud.customer import crud_customer
 from app.crud.ticket_part import crud_ticket_part
-from app.schemas.message import MessageCreate
+from app.schemas.note import NoteCreate
 from app.services.audit_log_service import audit_log_service
 from app.services.background_job_service import background_job_service
 
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 # Any status not in this map (including unrecognized/future values) is
 # treated the same way: no notification, rather than guessing at wording.
 
-_PART_STATUS_MESSAGES = {
+_PART_STATUS_NOTE_WORDING = {
     "ordered": "We've ordered the {part_name} needed for your repair.",
     "shipped": "The {part_name} for your repair has shipped.",
     "delayed": "There's a delay with the {part_name} for your repair.",
@@ -42,52 +42,52 @@ _PART_STATUS_MESSAGES = {
 _SHOW_TRACKING_FOR_STATUSES = {"shipped", "delayed", "backordered"}
 
 
-def build_part_status_message(ticket_part) -> str | None:
+def build_part_status_note_content(ticket_part) -> str | None:
     """
     Args:
         ticket_part: A TicketPart instance (with its `part` relationship
             loaded/loadable) whose CURRENT status should be described.
 
     Returns:
-        The message body to send, or None if this status shouldn't
+        The note content to send, or None if this status shouldn't
         trigger a customer notification at all.
     """
-    template = _PART_STATUS_MESSAGES.get(ticket_part.status)
+    template = _PART_STATUS_NOTE_WORDING.get(ticket_part.status)
     if template is None:
         return None
 
     part_name = ticket_part.part.name if ticket_part.part else "part"
-    message = template.format(part_name=part_name)
+    note_content = template.format(part_name=part_name)
 
     if (
         ticket_part.status in _SHOW_TRACKING_FOR_STATUSES
         and ticket_part.carrier
         and ticket_part.tracking_number
     ):
-        message += f" Carrier: {ticket_part.carrier}, Tracking #: {ticket_part.tracking_number}."
+        note_content += f" Carrier: {ticket_part.carrier}, Tracking #: {ticket_part.tracking_number}."
 
-    return message
+    return note_content
 
 
 def notify_customer_of_part_status_change(ticket_part_id: int) -> None:
     """
     RQ job: when a TicketPart's status changes to something worth telling
-    the customer about, create an outbound Message describing it.
+    the customer about, create an outbound Note describing it.
 
     Enqueued by TicketPartService.update() whenever status actually
     changes -- not called directly from a request handler, since sending
     email shouldn't block the API response.
 
-    Routes through message_service.create() (not crud_message directly)
+    Routes through note_service.create() (not crud_note directly)
     so this reuses the exact same send + email_status-tracking
-    logic that manually-created outbound messages already get -- a
+    logic that manually-created outbound notes already get -- a
     failure here is just as visible to a tech as any other failed send.
     """
     # Imported here (not at module level) to avoid a circular import:
     # there isn't one today, but keeping the app.services import lazy
     # here keeps this task file safe to import from app.services
     # without risk of ever introducing one later.
-    from app.services.message_service import message_service
+    from app.services.note_service import note_service
 
     db = SessionLocal()
     job = background_job_service.start(db, "notify_customer_of_part_status_change", payload=f"ticket_part_id={ticket_part_id}")
@@ -102,7 +102,7 @@ def notify_customer_of_part_status_change(ticket_part_id: int) -> None:
             background_job_service.complete(db, job.id)
             return
 
-        content = build_part_status_message(ticket_part)
+        content = build_part_status_note_content(ticket_part)
         if content is None:
             background_job_service.complete(db, job.id)
             return
@@ -117,7 +117,7 @@ def notify_customer_of_part_status_change(ticket_part_id: int) -> None:
             background_job_service.complete(db, job.id)
             return
 
-        message_service.create(db, MessageCreate(
+        note_service.create(db, NoteCreate(
             ticket_id=ticket.id,
             customer_id=ticket.customer_id,
             direction="outbound",
@@ -134,7 +134,7 @@ def notify_customer_of_part_status_change(ticket_part_id: int) -> None:
 def poll_inbound_email() -> dict:
     """
     Check the inbox for unread customer replies and thread each one
-    onto its ticket as a new inbound Message.
+    onto its ticket as a new inbound Note.
 
     Meant to be enqueued on a recurring schedule (e.g. every minute) via
     rq-scheduler -- see app/workers/scheduler.py -- not called directly
@@ -142,11 +142,11 @@ def poll_inbound_email() -> dict:
 
     Matching an email to a ticket requires BOTH of:
       - A "[Ticket #N]" marker in the subject line (present because our
-        own outbound messages include it, and most mail clients preserve
+        own outbound notes include it, and most mail clients preserve
         it through Reply)
       - A Customer record whose email matches the sender address
 
-    Either one failing means the message can't be safely attributed, so
+    Either one failing means the note can't be safely attributed, so
     it's left as unread in the inbox (not marked seen, not silently
     dropped) and logged for manual triage -- a tech can search the inbox
     directly and re-associate it by hand.
@@ -156,7 +156,7 @@ def poll_inbound_email() -> dict:
         useful for tests and for eyeballing the RQ job result in the
         dashboard/logs.
     """
-    from app.crud.message import crud_message
+    from app.crud.note import crud_note
 
     processed = 0
     unmatched = 0
@@ -196,7 +196,7 @@ def poll_inbound_email() -> dict:
                 unmatched += 1
                 continue
 
-            crud_message.create(db, MessageCreate(
+            crud_note.create(db, NoteCreate(
                 ticket_id=ticket.id,
                 customer_id=customer.id,
                 direction="inbound",

@@ -30,7 +30,7 @@ class Asset(Base):
     category_id = Column(Integer, ForeignKey("asset_categories.id"), nullable=True)
     manufacturer = Column(String, nullable=True)
     model = Column(String, nullable=True)
-    serial_number = Column(String, unique=True, nullable=True)
+    serial_number = Column(String, unique=True, nullable=False)
 
     status = Column(String, nullable=True)
     location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)

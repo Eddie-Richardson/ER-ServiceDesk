@@ -14,7 +14,6 @@ like a normal successful login.
 
 from PySide6.QtCore import QThread
 from PySide6.QtWidgets import (
-    QDialog,
     QLabel,
     QLineEdit,
     QPushButton,
@@ -22,11 +21,12 @@ from PySide6.QtWidgets import (
 )
 
 from desktop import layout
+from desktop.base_dialog import AppDialog
 from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.change_password_worker import ChangePasswordWorker
 
 
-class ChangePasswordDialog(QDialog):
+class ChangePasswordDialog(AppDialog):
     """
     Modal dialog for setting a new password.
 

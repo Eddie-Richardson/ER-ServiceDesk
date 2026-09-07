@@ -2,20 +2,25 @@
 """
 REST endpoints for a login account known to exist on a device.
 
-Gated the same as routes/devices.py -- any authenticated user, no
-specific permission beyond being logged in, matching the parent
-resource's own access level.
+Gated on customers.manage -- looked up while working a ticket for a
+device, the same reasoning as messages.py's own gate, but stricter
+than plain login given this returns real, decrypted plaintext
+credentials rather than just metadata. front_desk incidentally also
+gets access this way (no permission exists narrow enough to
+distinguish agent from front_desk), which is accepted rather than
+building a dedicated permission for a distinction that doesn't
+matter in practice yet.
 """
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
-from app.api.dependencies import get_current_user
+from app.api.dependencies import get_current_user, require_permission
 from app.models.user import User
 from app.services.device_user_account_service import device_user_account_service
 from app.schemas.device_user_account import DeviceUserAccount, DeviceUserAccountCreate, DeviceUserAccountUpdate
 
-router = APIRouter(prefix="/device_user_accounts", tags=["device_user_accounts"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/device_user_accounts", tags=["device_user_accounts"], dependencies=[Depends(require_permission("customers.manage"))])
 
 
 @router.get("/", response_model=list[DeviceUserAccount])

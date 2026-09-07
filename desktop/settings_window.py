@@ -46,7 +46,7 @@ from desktop.base_dialog import AppWindow
 from desktop.database_backup_tab import DatabaseBackupTab
 from desktop.locations_tab import LocationsTab
 from desktop.lookup_tab import LookupTab
-from desktop.message_templates_tab import MessageTemplatesTab
+from desktop.note_templates_tab import NoteTemplatesTab
 from desktop.migrate_to_server_tab import MigrateToServerTab
 from desktop.name_percentage_tab import NamePercentageTab
 from desktop.roles_tab import RolesTab
@@ -104,7 +104,7 @@ class SettingsWindow(AppWindow):
         tabs.addTab(SystemSettingsTab(), "System Settings")
         tabs.addTab(AuditLogTab(), "Audit Log")
         tabs.addTab(BackgroundJobsTab(), "Background Jobs")
-        tabs.addTab(MessageTemplatesTab(), "Notes Templates")
+        tabs.addTab(NoteTemplatesTab(), "Notes Templates")
         tabs.addTab(ServicesTab(), "Services")
         tabs.addTab(NamePercentageTab("Discount", list_discounts, "/discounts/", "discount"), "Discounts")
         tabs.addTab(NamePercentageTab("Tax Rate", list_tax_rates, "/tax_rates/", "tax_rate"), "Tax Rates")

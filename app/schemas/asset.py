@@ -14,7 +14,7 @@ class AssetBase(BaseModel):
     category_id: int | None = None
     manufacturer: str | None = None
     model: str | None = None
-    serial_number: str | None = None
+    serial_number: str
     status: str | None = None
     location_id: int | None = None
     price: float | None = None

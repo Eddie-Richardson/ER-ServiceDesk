@@ -2,15 +2,15 @@
 
 """
 Shows a ticket's full note/conversation history in one place -- staff
-internal notes, messages actually sent to the customer, and the
+internal notes, notes actually sent to the customer, and the
 customer's own replies, together in one chronological timeline. Lets
 a tech add a new entry, either internal-only or emailed to the
 customer.
 
-Backed by the merged Message system (see app/models/message.py) --
-internal notes and customer email exchange live in one unified
-backend system, so this dialog shows everything on the ticket, one
-real history instead of split across separate views.
+Backed by the Note system (see app/models/note.py) -- internal notes
+and customer email exchange live in one unified backend system, so
+this dialog shows everything on the ticket, one real history instead
+of split across separate views.
 
 Deliberately fully synchronous -- every action (list/create/update/
 delete) runs directly on the main thread, no QThread and no
@@ -31,7 +31,7 @@ only appear if the current session is allowed to touch that SPECIFIC
 entry -- its own author, a superuser, or (for a customer's own inbound
 reply, which has no staff author at all) a superuser only. This is a
 UI convenience mirroring the same rule enforced server-side (see
-message_service.py); the backend enforces it independently regardless
+note_service.py); the backend enforces it independently regardless
 of what buttons this dialog happens to show.
 
 Only ever opened for an EXISTING ticket (needs a real ticket_id to
@@ -139,12 +139,12 @@ class NotesDialog(AppDialog):
         save_geometry(self, "notes_dialog")
         super().closeEvent(event)
 
-    # -- Message templates (composer quick-insert) --
+    # -- Note templates (composer quick-insert) --
 
     def _load_templates(self):
         """Fills the template dropdown with every available template. Silently leaves just the placeholder if this fails -- not critical to the dialog's main purpose."""
         try:
-            templates = api_client.list_message_templates()
+            templates = api_client.list_note_templates()
         except ApiError:
             return
         for template in templates:
@@ -185,7 +185,7 @@ class NotesDialog(AppDialog):
     def _refresh_entries(self):
         """Reloads the full timeline for this ticket from the backend."""
         try:
-            entries = api_client.list_messages_for_ticket(self.ticket_id)
+            entries = api_client.list_notes_for_ticket(self.ticket_id)
         except ApiError as e:
             self.handle_api_error(e, title="Action Failed")
             return
@@ -234,7 +234,7 @@ class NotesDialog(AppDialog):
 
         # Author-or-superuser for staff-authored entries (internal/
         # outbound); superuser-only for inbound, which has no staff
-        # author to defer to. Mirrors message_service.py's own rule --
+        # author to defer to. Mirrors note_service.py's own rule --
         # this is a UI convenience, not the real enforcement.
         user_id = entry.get("user_id")
         can_edit = (
@@ -281,7 +281,7 @@ class NotesDialog(AppDialog):
 
         self.add_note_button.setEnabled(False)
         try:
-            api_client.create_message(payload)
+            api_client.create_note(payload)
         except ApiError as e:
             self.handle_api_error(e, title="Action Failed")
             return
@@ -319,7 +319,7 @@ class NotesDialog(AppDialog):
             "content": content,
         }
         try:
-            api_client.create_message(payload)
+            api_client.create_note(payload)
         except ApiError:
             pass
 
@@ -330,7 +330,7 @@ class NotesDialog(AppDialog):
             new_content = dialog.new_content()
             if new_content:
                 try:
-                    api_client.update_message(entry["id"], {"content": new_content})
+                    api_client.update_note(entry["id"], {"content": new_content})
                 except ApiError as e:
                     self.handle_api_error(e, title="Action Failed")
                     return
@@ -349,7 +349,7 @@ class NotesDialog(AppDialog):
             return
 
         try:
-            api_client.delete_message(entry["id"])
+            api_client.delete_note(entry["id"])
         except ApiError as e:
             self.handle_api_error(e, title="Action Failed")
             return

@@ -122,6 +122,7 @@ class AssetFormDialog(AppDialog):
 
         self.serial_number_input = QLineEdit()
         self.serial_number_input.setFixedHeight(layout.INPUT_HEIGHT)
+        self.serial_number_input.setPlaceholderText("Serial number (required)")
 
         self.status_combo = self._make_optional_combo()
         for status_name in STATUS_OPTIONS:
@@ -286,6 +287,10 @@ class AssetFormDialog(AppDialog):
         if not name:
             return {}, "Enter a name."
 
+        serial_number = self.serial_number_input.text().strip()
+        if not serial_number:
+            return {}, "Enter a serial number."
+
         price_text = self.price_input.text().strip()
         price = None
         if price_text:
@@ -303,7 +308,7 @@ class AssetFormDialog(AppDialog):
             "category_id": self.category_combo.currentData(),
             "manufacturer": self.manufacturer_input.text().strip() or None,
             "model": self.model_input.text().strip() or None,
-            "serial_number": self.serial_number_input.text().strip() or None,
+            "serial_number": serial_number,
             "status": self.status_combo.currentData(),
             "location_id": self.location_combo.currentData(),
             "price": price,

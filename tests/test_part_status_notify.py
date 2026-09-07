@@ -2,24 +2,24 @@
 # Tests for auto-notifying the customer on TicketPart status change.
 """
 Two layers covered here:
-  1. build_part_status_message: pure function, no DB/RQ needed -- given a
+  1. build_part_status_note_content: pure function, no DB/RQ needed -- given a
      TicketPart, does it produce the right customer-facing text (and the
      right *absence* of text for "needed")?
   2. TicketPartService.update: does changing status actually enqueue the
      notify job (and does a NON-change correctly NOT enqueue anything)?
 
 The actual RQ job (notify_customer_of_part_status_change) is exercised
-directly in test_notify_job_creates_outbound_message, calling it the same
+directly in test_notify_job_creates_outbound_note, calling it the same
 way the real worker would -- but with send_email mocked, same pattern as
-test_message_email.py, so no real email goes out.
+test_note_email.py, so no real email goes out.
 """
 
-from app.workers.tasks import build_part_status_message, notify_customer_of_part_status_change
+from app.workers.tasks import build_part_status_note_content, notify_customer_of_part_status_change
 from app.services.ticket_part_service import ticket_part_service
 from app.schemas.ticket_part import TicketPartCreate, TicketPartUpdate
 from app.models.ticket import Ticket
 from app.models.part import Part
-from app.crud.message import crud_message
+from app.crud.note import crud_note
 from tests.factories import make_ticket_dependencies
 
 
@@ -48,10 +48,10 @@ def _make_part(db, name="Replacement Screen", sku="SKU-SCREEN-001"):
 
 
 # ---------------------------------------------------------------------------
-# build_part_status_message
+# build_part_status_note_content
 # ---------------------------------------------------------------------------
 
-def test_needed_status_produces_no_message(db):
+def test_needed_status_produces_no_note(db):
     """'needed' is the default status with nothing to report yet -- no notification."""
     deps = make_ticket_dependencies(db)
     ticket = _make_ticket(db, deps)
@@ -61,11 +61,11 @@ def test_needed_status_produces_no_message(db):
         ticket_id=ticket.id, part_id=part.id, status="needed",
     ))
 
-    assert build_part_status_message(tp) is None
+    assert build_part_status_note_content(tp) is None
 
 
 def test_shipped_status_includes_carrier_and_tracking_when_present(db):
-    """'shipped' with carrier/tracking info includes both in the message."""
+    """'shipped' with carrier/tracking info includes both in the note_content."""
     deps = make_ticket_dependencies(db)
     ticket = _make_ticket(db, deps)
     part = _make_part(db)
@@ -75,15 +75,15 @@ def test_shipped_status_includes_carrier_and_tracking_when_present(db):
         carrier="UPS", tracking_number="1Z999AA10123456784",
     ))
 
-    message = build_part_status_message(tp)
-    assert "Replacement Screen" in message
-    assert "shipped" in message
-    assert "UPS" in message
-    assert "1Z999AA10123456784" in message
+    note_content = build_part_status_note_content(tp)
+    assert "Replacement Screen" in note_content
+    assert "shipped" in note_content
+    assert "UPS" in note_content
+    assert "1Z999AA10123456784" in note_content
 
 
 def test_shipped_status_without_tracking_info_omits_it_gracefully(db):
-    """'shipped' with no carrier/tracking entered yet still produces a message, just without those details."""
+    """'shipped' with no carrier/tracking entered yet still produces a note_content, just without those details."""
     deps = make_ticket_dependencies(db)
     ticket = _make_ticket(db, deps)
     part = _make_part(db)
@@ -92,9 +92,9 @@ def test_shipped_status_without_tracking_info_omits_it_gracefully(db):
         ticket_id=ticket.id, part_id=part.id, status="shipped",
     ))
 
-    message = build_part_status_message(tp)
-    assert message is not None
-    assert "Carrier" not in message
+    note_content = build_part_status_note_content(tp)
+    assert note_content is not None
+    assert "Carrier" not in note_content
 
 
 def test_received_status_does_not_include_tracking_info(db):
@@ -108,10 +108,10 @@ def test_received_status_does_not_include_tracking_info(db):
         carrier="UPS", tracking_number="1Z999AA10123456784",
     ))
 
-    message = build_part_status_message(tp)
-    assert "arrived" in message
-    assert "UPS" not in message
-    assert "1Z999AA10123456784" not in message
+    note_content = build_part_status_note_content(tp)
+    assert "arrived" in note_content
+    assert "UPS" not in note_content
+    assert "1Z999AA10123456784" not in note_content
 
 
 # ---------------------------------------------------------------------------
@@ -226,8 +226,8 @@ def test_enqueue_failure_does_not_break_the_status_update(db, monkeypatch):
 # The actual RQ job, called directly (as the worker would call it)
 # ---------------------------------------------------------------------------
 
-def test_notify_job_creates_outbound_message(db, monkeypatch):
-    """Running the job for real (send_email mocked) creates the expected outbound Message."""
+def test_notify_job_creates_outbound_note(db, monkeypatch):
+    """Running the job for real (send_email mocked) creates the expected outbound Note."""
     deps = make_ticket_dependencies(db)
     ticket = _make_ticket(db, deps)
     part = _make_part(db)
@@ -243,7 +243,7 @@ def test_notify_job_creates_outbound_message(db, monkeypatch):
         sent["to_address"] = to_address
         sent["body"] = body
 
-    monkeypatch.setattr("app.services.message_service.send_email", fake_send_email)
+    monkeypatch.setattr("app.services.note_service.send_email", fake_send_email)
 
     # tasks.py opens its own SessionLocal internally; point it at the same
     # test database the `db` fixture uses.
@@ -253,10 +253,10 @@ def test_notify_job_creates_outbound_message(db, monkeypatch):
 
     notify_customer_of_part_status_change(tp.id)
 
-    messages = crud_message.get_multi(db)
-    assert len(messages) == 1
-    assert messages[0].direction == "outbound"
-    assert messages[0].ticket_id == ticket.id
-    assert messages[0].customer_id == deps["customer"].id
-    assert "USPS" in messages[0].content
+    notes = crud_note.get_multi(db)
+    assert len(notes) == 1
+    assert notes[0].direction == "outbound"
+    assert notes[0].ticket_id == ticket.id
+    assert notes[0].customer_id == deps["customer"].id
+    assert "USPS" in notes[0].content
     assert sent["to_address"] == deps["customer"].email

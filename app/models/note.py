@@ -1,4 +1,4 @@
-# ER-ServiceDesk/app/models/message.py
+# ER-ServiceDesk/app/models/note.py
 """
 ORM model for a ticket's full note/conversation history -- internal
 notes and customer-facing email exchange, unified into one system
@@ -10,7 +10,7 @@ from sqlalchemy.orm import relationship
 from datetime import datetime, UTC
 from app.db.base import Base
 
-class Message(Base):
+class Note(Base):
     """
     A single entry in a ticket's note/conversation history.
 
@@ -28,10 +28,10 @@ class Message(Base):
             Null for internal/inbound, where it doesn't apply. A tech
             seeing 'failed' here knows the customer was NOT notified
             and should retry or call them directly.
-        updated_at: Timestamp of the last edit -- see message_service.py
+        updated_at: Timestamp of the last edit -- see note_service.py
             for who's allowed to make one.
     """
-    __tablename__ = "messages"
+    __tablename__ = "notes"
     id = Column(Integer, primary_key=True, index=True)
     ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=False)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
@@ -51,7 +51,7 @@ class Message(Base):
         Display name for whoever authored this entry -- the staff
         member for internal/outbound, the customer themselves for
         inbound. Denormalized into API responses (see schemas/
-        message.py) so any session can see this without a separate
+        note.py) so any session can see this without a separate
         /users/ or /customers/ lookup.
         """
         if self.user:

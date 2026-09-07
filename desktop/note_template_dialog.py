@@ -1,4 +1,4 @@
-# ER-ServiceDesk/desktop/message_template_dialog.py
+# ER-ServiceDesk/desktop/note_template_dialog.py
 
 """
 Dialog for creating a new notes template or editing an existing one.
@@ -24,12 +24,12 @@ from desktop.base_dialog import AppDialog
 from desktop.window_geometry import restore_geometry, save_geometry
 from desktop.lookup_save_worker import LookupSaveWorker
 
-ENDPOINT = "/message_templates/"
+ENDPOINT = "/note_templates/"
 
 
-class MessageTemplateDialog(AppDialog):
+class NoteTemplateDialog(AppDialog):
     """
-    Modal dialog for creating or editing a message template.
+    Modal dialog for creating or editing a note template.
 
     Pass `template=None` to create a new one, or an existing template
     dict to edit it. On a successful save, the dialog closes itself
@@ -47,14 +47,14 @@ class MessageTemplateDialog(AppDialog):
 
         self.setWindowTitle("Edit Notes Template" if template else "New Notes Template")
         self.setMinimumWidth(layout.DIALOG_WIDTH)
-        restore_geometry(self, "MessageTemplateDialog")
+        restore_geometry(self, "NoteTemplateDialog")
 
         self._build_ui()
         if template:
             self._prefill_from_template(template)
 
     def closeEvent(self, event):
-        save_geometry(self, "MessageTemplateDialog")
+        save_geometry(self, "NoteTemplateDialog")
         super().closeEvent(event)
 
     def _build_ui(self):

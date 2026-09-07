@@ -23,8 +23,8 @@ from app.routes import (
     discounts,
     invoices,
     locations,
-    message_templates,
-    messages,
+    note_templates,
+    notes,
     parts,
     payment_plans,
     payments,
@@ -82,8 +82,8 @@ app.include_router(ticket_type_stages.router)
 app.include_router(status_histories.router)
 
 # Ticket-linked records
-app.include_router(messages.router)
-app.include_router(message_templates.router)
+app.include_router(notes.router)
+app.include_router(note_templates.router)
 app.include_router(quotes.router)
 app.include_router(record_locks.router)
 app.include_router(invoices.router)

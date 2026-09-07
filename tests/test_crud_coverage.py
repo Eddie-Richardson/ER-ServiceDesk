@@ -1,7 +1,7 @@
 # ER-ServiceDesk/tests/test_crud_coverage.py
 # Full CRUD coverage for every route module without dedicated business-logic tests.
 """
-The other test files (test_auth.py, test_message_email.py, test_inventory.py,
+The other test files (test_auth.py, test_note_email.py, test_inventory.py,
 test_part_status_notify.py, test_ticket_part_shipping_info.py,
 test_ticket_stage_restriction.py, test_user_security.py) each cover a
 specific piece of business logic. This file covers everything else: plain
@@ -259,9 +259,9 @@ def test_background_jobs_is_read_only(client, agent_headers):
     assert create_resp.status_code == 405
 
 
-def test_message_templates_crud(client, superuser_headers):
+def test_note_templates_crud(client, superuser_headers):
     _assert_crud_lifecycle(
-        client, superuser_headers, "/message_templates",
+        client, superuser_headers, "/note_templates",
         {"name": "ticket_created", "body": "We got your ticket."},
         {"body": "We received your repair request."},
         update_check_field="body",
@@ -322,12 +322,12 @@ def test_device_create_and_update_appear_in_audit_log(client, superuser_headers,
 # Resources needing a full Ticket
 # ---------------------------------------------------------------------------
 
-def test_messages_crud(client, superuser_headers, db):
+def test_notes_crud(client, superuser_headers, db):
     """Covers the internal-note case specifically -- not outbound/inbound sending or the author-or-superuser authorization rule."""
     ticket = make_full_ticket(db)
     user = make_plain_user(db)
     _assert_crud_lifecycle(
-        client, superuser_headers, "/messages",
+        client, superuser_headers, "/notes",
         {"ticket_id": ticket.id, "user_id": user.id, "direction": "internal", "content": "Internal note"},
         {"content": "Updated internal note"},
         update_check_field="content",
@@ -481,7 +481,7 @@ def test_services_write_requires_superuser(client, agent_headers):
 
 
 def test_asset_categories_crud(client, superuser_headers):
-    """Superuser-only, matching every other Settings-level lookup table (Ticket Categories/Statuses/Types/Stages, Locations, Message Templates)."""
+    """Superuser-only, matching every other Settings-level lookup table (Ticket Categories/Statuses/Types/Stages, Locations, Notes Templates)."""
     _assert_crud_lifecycle(
         client, superuser_headers, "/inventory/asset_categories",
         {"name": "Laptop", "description": "Portable computers"},

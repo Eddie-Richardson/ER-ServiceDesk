@@ -942,67 +942,67 @@ def release_lock(entity_type: str, entity_id: int):
         raise SessionExpiredError("Session expired. Please log in again.")
 
 
-def list_messages_for_ticket(ticket_id: int) -> list[dict]:
+def list_notes_for_ticket(ticket_id: int) -> list[dict]:
     """
     Returns every entry in a ticket's note/conversation history --
     internal notes and customer email exchange together -- in
     whatever order the backend returns them (creation order). Visible
     to anyone with ticket access -- shared history, not private to
     its author. Filtered server-side via ticket_id -- the overall
-    messages table can grow large across every ticket over time, even
+    notes table can grow large across every ticket over time, even
     though any one ticket only ever has a handful.
 
     Args:
         ticket_id: The ticket to fetch entries for.
     """
-    return _authed_get(f"/messages/?ticket_id={ticket_id}")
+    return _authed_get(f"/notes/?ticket_id={ticket_id}")
 
 
-def create_message(payload: dict) -> dict:
+def create_note(payload: dict) -> dict:
     """
     Creates a new entry. If payload's direction is "outbound", the
     backend also emails the content to the customer -- see
-    message_service.create() server-side.
+    note_service.create() server-side.
 
     Args:
-        payload: Fields matching the backend's MessageCreate schema
+        payload: Fields matching the backend's NoteCreate schema
             (ticket_id, user_id, customer_id, direction, content).
 
     Returns:
         The created record.
     """
-    return _authed_post("/messages/", payload)
+    return _authed_post("/notes/", payload)
 
 
-def update_message(message_id: int, payload: dict) -> dict:
+def update_note(note_id: int, payload: dict) -> dict:
     """
     Edits an existing entry's content.
 
     Args:
         payload: {"content": "..."} -- the only field an edit can
-            change (see MessageUpdate server-side).
+            change (see NoteUpdate server-side).
 
     Returns:
         The updated record.
 
     Raises:
         ApiError: 403 if the current user isn't allowed to edit this
-            specific entry (see message_service.update() server-side
+            specific entry (see note_service.update() server-side
             for the exact rule).
     """
-    return _authed_put(f"/messages/{message_id}", payload)
+    return _authed_put(f"/notes/{note_id}", payload)
 
 
-def delete_message(message_id: int):
+def delete_note(note_id: int):
     """
     Deletes an entry by id.
 
     Raises:
         ApiError: 403 if the current user isn't allowed to delete this
-            specific entry (see message_service.delete() server-side
+            specific entry (see note_service.delete() server-side
             for the exact rule).
     """
-    delete_lookup_item("/messages/", message_id)
+    delete_lookup_item("/notes/", note_id)
 
 
 def list_status_history_for_ticket(ticket_id: int) -> list[dict]:
@@ -1292,14 +1292,14 @@ def list_tax_rates() -> list[dict]:
     return _authed_get("/tax_rates/")
 
 
-def list_message_templates() -> list[dict]:
+def list_note_templates() -> list[dict]:
     """
     Returns every reusable notes template.
 
     Returns:
         A list of {"id", "name", "body"} dicts.
     """
-    return _authed_get("/message_templates/")
+    return _authed_get("/note_templates/")
 
 
 def list_background_jobs(job_type: str | None = None, status: str | None = None) -> list[dict]:

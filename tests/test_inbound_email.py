@@ -3,7 +3,7 @@
 """
 Covers poll_inbound_email's matching logic: a well-formed reply (has a
 [Ticket #N] marker AND comes from a known customer's address) becomes an
-inbound Message; anything missing either signal is left unmatched rather
+inbound Note; anything missing either signal is left unmatched rather
 than guessed at or silently dropped.
 
 fetch_unread_emails is monkeypatched throughout so these tests never touch
@@ -12,7 +12,7 @@ a real IMAP server.
 
 from app.workers.tasks import poll_inbound_email
 from app.core.email import InboundEmail
-from app.crud.message import crud_message
+from app.crud.note import crud_note
 from app.models.ticket import Ticket
 from tests.factories import make_ticket_dependencies
 
@@ -33,7 +33,7 @@ def _make_ticket(db, deps, title="Laptop won't power on"):
     return ticket
 
 
-def test_matched_reply_becomes_inbound_message(db, monkeypatch):
+def test_matched_reply_becomes_inbound_note(db, monkeypatch):
     """A reply with a valid ticket marker and a known customer address is threaded onto the ticket."""
     deps = make_ticket_dependencies(db)
     ticket = _make_ticket(db, deps)
@@ -57,12 +57,12 @@ def test_matched_reply_becomes_inbound_message(db, monkeypatch):
 
     assert result == {"processed": 1, "unmatched": 0}
 
-    messages = crud_message.get_multi(db)
-    assert len(messages) == 1
-    assert messages[0].direction == "inbound"
-    assert messages[0].ticket_id == ticket.id
-    assert messages[0].customer_id == deps["customer"].id
-    assert messages[0].content == "Sounds good, thanks!"
+    notes = crud_note.get_multi(db)
+    assert len(notes) == 1
+    assert notes[0].direction == "inbound"
+    assert notes[0].ticket_id == ticket.id
+    assert notes[0].customer_id == deps["customer"].id
+    assert notes[0].content == "Sounds good, thanks!"
 
 
 def test_reply_with_no_ticket_marker_is_unmatched(db, monkeypatch):
@@ -83,7 +83,7 @@ def test_reply_with_no_ticket_marker_is_unmatched(db, monkeypatch):
     result = poll_inbound_email()
 
     assert result == {"processed": 0, "unmatched": 1}
-    assert len(crud_message.get_multi(db)) == 0
+    assert len(crud_note.get_multi(db)) == 0
 
 
 def test_reply_from_unknown_address_is_unmatched(db, monkeypatch):
@@ -107,7 +107,7 @@ def test_reply_from_unknown_address_is_unmatched(db, monkeypatch):
     result = poll_inbound_email()
 
     assert result == {"processed": 0, "unmatched": 1}
-    assert len(crud_message.get_multi(db)) == 0
+    assert len(crud_note.get_multi(db)) == 0
 
 
 def test_reply_referencing_nonexistent_ticket_is_unmatched(db, monkeypatch):
@@ -128,4 +128,4 @@ def test_reply_referencing_nonexistent_ticket_is_unmatched(db, monkeypatch):
     result = poll_inbound_email()
 
     assert result == {"processed": 0, "unmatched": 1}
-    assert len(crud_message.get_multi(db)) == 0
+    assert len(crud_note.get_multi(db)) == 0

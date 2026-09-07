@@ -209,7 +209,7 @@ class TicketFormDialog(AppDialog):
                 self.location_combo.addItem(location["name"], userData=location["id"])
 
         self.title_input = QLineEdit()
-        self.title_input.setPlaceholderText("Short summary of the issue")
+        self.title_input.setPlaceholderText("Short summary of the issue (required)")
         self.title_input.setFixedHeight(layout.INPUT_HEIGHT)
 
         self.description_input = QTextEdit()

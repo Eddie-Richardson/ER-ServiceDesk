@@ -20,7 +20,7 @@ class UserRoleService:
     def get(self, db: Session, id: int):
         return crud_user_role.get(db, id)
 
-    def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
+    def get_multi(self, db: Session, skip: int = 0, limit: int = 500):
         return crud_user_role.get_multi(db, skip, limit)
 
     def create(self, db: Session, obj_in: UserRoleCreate, current_user_id: int):

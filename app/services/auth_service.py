@@ -41,11 +41,16 @@ class AuthService:
         Note:
             The token carries is_superuser, the user's effective
             permissions (computed from their assigned roles), and
-            email/full_name for display purposes, so clients can
-            determine access and identity without a separate API call.
-            This means a role or permission change won't take effect
-            for an already-issued token until the user logs in again --
-            acceptable for this system's scale, but worth knowing.
+            email/full_name for display purposes -- but these are
+            read-only, UI-convenience claims, never trusted for real
+            enforcement. require_permission() (see
+            app.api.dependencies) always re-checks live against the
+            database on every request, so a role or permission change
+            takes effect on the very next request, not after
+            re-login. Only the desktop app's own cached copy of these
+            claims, used for local UI decisions like showing/hiding a
+            button, can go stale until the user logs in again -- that's
+            a UI staleness issue, not a security one.
         """
         audit_log_service.log(db, "login_success", "user", user.id, user_id=user.id)
         permissions = sorted(permission_service.get_user_permission_names(user))

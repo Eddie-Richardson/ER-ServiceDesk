@@ -1,4 +1,4 @@
-# ER-ServiceDesk/desktop/message_templates_tab.py
+# ER-ServiceDesk/desktop/note_templates_tab.py
 
 """
 Settings tab for managing reusable notes templates -- create, edit,
@@ -20,12 +20,12 @@ from PySide6.QtWidgets import (
 
 from desktop import api_client, layout
 from desktop.api_client import ApiError
-from desktop.message_template_dialog import MessageTemplateDialog
+from desktop.note_template_dialog import NoteTemplateDialog
 
 COLUMN_HEADERS = ["Name"]
 
 
-class MessageTemplatesTab(QWidget):
+class NoteTemplatesTab(QWidget):
     """List, create, edit, and delete notes templates."""
 
     def __init__(self):
@@ -78,7 +78,7 @@ class MessageTemplatesTab(QWidget):
         """Fetches every template and renders the table."""
         self.status_label.setText("Loading templates...")
         try:
-            self.all_templates = api_client.list_message_templates()
+            self.all_templates = api_client.list_note_templates()
         except ApiError as e:
             self.status_label.setText(f"Couldn't load templates: {e}")
             return
@@ -97,7 +97,7 @@ class MessageTemplatesTab(QWidget):
 
     def _open_new_template_dialog(self):
         """Opens the template form in create mode; refreshes the list if a template was saved."""
-        dialog = MessageTemplateDialog(None, parent=self)
+        dialog = NoteTemplateDialog(None, parent=self)
         if dialog.exec():
             self._load_data()
 
@@ -108,6 +108,6 @@ class MessageTemplatesTab(QWidget):
             return
 
         template = selected_items[0].data(Qt.ItemDataRole.UserRole)
-        dialog = MessageTemplateDialog(template, parent=self)
+        dialog = NoteTemplateDialog(template, parent=self)
         if dialog.exec():
             self._load_data()

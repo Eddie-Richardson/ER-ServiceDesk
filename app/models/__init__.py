@@ -23,8 +23,8 @@ from .asset_category import AssetCategory
 from .part import Part
 from .part_location import PartLocation
 from .ticket_part import TicketPart
-from .message import Message
-from .message_template import MessageTemplate
+from .note import Note
+from .note_template import NoteTemplate
 from .payment import Payment
 from .payment_plan import PaymentPlan
 from .payment_plan_installment import PaymentPlanInstallment

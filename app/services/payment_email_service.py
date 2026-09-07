@@ -9,7 +9,7 @@ Deliberately never blocks payment recording. The payment is a real
 financial event that already occurred; a receipt-email failure (bad
 address, email not configured yet, etc.) must never prevent the
 payment itself from being recorded. Failures are logged and swallowed,
-the same pattern message_service.py already uses for outbound
+the same pattern note_service.py already uses for outbound
 ticket-reply emails -- not raised, unlike waiver/quote/invoice sending
 where the email IS the entire point of the action.
 

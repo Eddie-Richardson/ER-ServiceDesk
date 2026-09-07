@@ -17,7 +17,7 @@ class UserRoleCRUD:
     def get(self, db: Session, id: int) -> UserRole | None:
         return db.query(UserRole).filter(UserRole.id == id).first()
 
-    def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
+    def get_multi(self, db: Session, skip: int = 0, limit: int = 500):
         return db.query(UserRole).offset(skip).limit(limit).all()
 
     def create(self, db: Session, obj_in: UserRoleCreate) -> UserRole:

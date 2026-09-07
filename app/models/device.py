@@ -3,9 +3,8 @@
 ORM model for a customer-owned device brought in for service.
 """
 
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
-from datetime import datetime, UTC
 from app.db.base import Base
 
 class Device(Base):
@@ -33,8 +32,6 @@ class Device(Base):
     os = Column(String, nullable=True)
     edition = Column(String, nullable=True)
     current_location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)
     customer = relationship("Customer", back_populates="devices")
     tickets = relationship("Ticket", back_populates="device")
     current_location = relationship("Location", back_populates="devices")

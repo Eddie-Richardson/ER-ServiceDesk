@@ -35,6 +35,5 @@ class Customer(Base):
     zip_code = Column(String, nullable=True)
     is_archived = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)
     devices = relationship("Device", back_populates="customer")
     tickets = relationship("Ticket", back_populates="customer")

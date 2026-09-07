@@ -45,6 +45,4 @@ class Invoice(InvoiceBase):
     source_quote_id: int | None = None
     invoice_sent_at: datetime | None = None
     line_items: list[InvoiceLineItemSchema] = []
-    created_at: datetime
-    updated_at: datetime
     model_config = ConfigDict(from_attributes=True)

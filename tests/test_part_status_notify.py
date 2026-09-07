@@ -20,7 +20,7 @@ from app.schemas.ticket_part import TicketPartCreate, TicketPartUpdate
 from app.models.ticket import Ticket
 from app.models.part import Part
 from app.crud.note import crud_note
-from tests.factories import make_ticket_dependencies
+from tests.factories import make_ticket_dependencies, make_plain_user
 
 
 def _make_ticket(db, deps, title="Screen replacement"):
@@ -56,10 +56,11 @@ def test_needed_status_produces_no_note(db):
     deps = make_ticket_dependencies(db)
     ticket = _make_ticket(db, deps)
     part = _make_part(db)
+    user = make_plain_user(db)
 
     tp = ticket_part_service.create(db, TicketPartCreate(
         ticket_id=ticket.id, part_id=part.id, status="needed",
-    ))
+    ), user.id)
 
     assert build_part_status_note_content(tp) is None
 
@@ -69,11 +70,12 @@ def test_shipped_status_includes_carrier_and_tracking_when_present(db):
     deps = make_ticket_dependencies(db)
     ticket = _make_ticket(db, deps)
     part = _make_part(db)
+    user = make_plain_user(db)
 
     tp = ticket_part_service.create(db, TicketPartCreate(
         ticket_id=ticket.id, part_id=part.id, status="shipped",
         carrier="UPS", tracking_number="1Z999AA10123456784",
-    ))
+    ), user.id)
 
     note_content = build_part_status_note_content(tp)
     assert "Replacement Screen" in note_content
@@ -87,10 +89,11 @@ def test_shipped_status_without_tracking_info_omits_it_gracefully(db):
     deps = make_ticket_dependencies(db)
     ticket = _make_ticket(db, deps)
     part = _make_part(db)
+    user = make_plain_user(db)
 
     tp = ticket_part_service.create(db, TicketPartCreate(
         ticket_id=ticket.id, part_id=part.id, status="shipped",
-    ))
+    ), user.id)
 
     note_content = build_part_status_note_content(tp)
     assert note_content is not None
@@ -102,11 +105,12 @@ def test_received_status_does_not_include_tracking_info(db):
     deps = make_ticket_dependencies(db)
     ticket = _make_ticket(db, deps)
     part = _make_part(db)
+    user = make_plain_user(db)
 
     tp = ticket_part_service.create(db, TicketPartCreate(
         ticket_id=ticket.id, part_id=part.id, status="received",
         carrier="UPS", tracking_number="1Z999AA10123456784",
-    ))
+    ), user.id)
 
     note_content = build_part_status_note_content(tp)
     assert "arrived" in note_content
@@ -123,10 +127,11 @@ def test_status_change_enqueues_notify_job(db, monkeypatch):
     deps = make_ticket_dependencies(db)
     ticket = _make_ticket(db, deps)
     part = _make_part(db)
+    user = make_plain_user(db)
 
     tp = ticket_part_service.create(db, TicketPartCreate(
         ticket_id=ticket.id, part_id=part.id, status="needed",
-    ))
+    ), user.id)
 
     enqueued = []
 
@@ -138,7 +143,7 @@ def test_status_change_enqueues_notify_job(db, monkeypatch):
         "app.services.ticket_part_service.get_queue", lambda: FakeQueue()
     )
 
-    ticket_part_service.update(db, tp.id, TicketPartUpdate(status="ordered"))
+    ticket_part_service.update(db, tp.id, TicketPartUpdate(status="ordered"), user.id)
 
     assert len(enqueued) == 1
     func, args = enqueued[0]
@@ -151,10 +156,11 @@ def test_non_status_field_update_does_not_enqueue(db, monkeypatch):
     deps = make_ticket_dependencies(db)
     ticket = _make_ticket(db, deps)
     part = _make_part(db)
+    user = make_plain_user(db)
 
     tp = ticket_part_service.create(db, TicketPartCreate(
         ticket_id=ticket.id, part_id=part.id, status="shipped",
-    ))
+    ), user.id)
 
     enqueued = []
 
@@ -169,7 +175,7 @@ def test_non_status_field_update_does_not_enqueue(db, monkeypatch):
     # Same status, just filling in tracking info after the fact.
     ticket_part_service.update(db, tp.id, TicketPartUpdate(
         carrier="FedEx", tracking_number="789123456",
-    ))
+    ), user.id)
 
     assert len(enqueued) == 0
 
@@ -179,10 +185,11 @@ def test_setting_same_status_again_does_not_enqueue(db, monkeypatch):
     deps = make_ticket_dependencies(db)
     ticket = _make_ticket(db, deps)
     part = _make_part(db)
+    user = make_plain_user(db)
 
     tp = ticket_part_service.create(db, TicketPartCreate(
         ticket_id=ticket.id, part_id=part.id, status="ordered",
-    ))
+    ), user.id)
 
     enqueued = []
 
@@ -194,7 +201,7 @@ def test_setting_same_status_again_does_not_enqueue(db, monkeypatch):
         "app.services.ticket_part_service.get_queue", lambda: FakeQueue()
     )
 
-    ticket_part_service.update(db, tp.id, TicketPartUpdate(status="ordered"))
+    ticket_part_service.update(db, tp.id, TicketPartUpdate(status="ordered"), user.id)
 
     assert len(enqueued) == 0
 
@@ -204,10 +211,11 @@ def test_enqueue_failure_does_not_break_the_status_update(db, monkeypatch):
     deps = make_ticket_dependencies(db)
     ticket = _make_ticket(db, deps)
     part = _make_part(db)
+    user = make_plain_user(db)
 
     tp = ticket_part_service.create(db, TicketPartCreate(
         ticket_id=ticket.id, part_id=part.id, status="needed",
-    ))
+    ), user.id)
 
     def broken_get_queue():
         raise ConnectionError("Redis is down")
@@ -217,7 +225,7 @@ def test_enqueue_failure_does_not_break_the_status_update(db, monkeypatch):
     )
 
     # Should not raise, despite get_queue() raising internally.
-    updated = ticket_part_service.update(db, tp.id, TicketPartUpdate(status="ordered"))
+    updated = ticket_part_service.update(db, tp.id, TicketPartUpdate(status="ordered"), user.id)
 
     assert updated.status == "ordered"
 
@@ -231,11 +239,12 @@ def test_notify_job_creates_outbound_note(db, monkeypatch):
     deps = make_ticket_dependencies(db)
     ticket = _make_ticket(db, deps)
     part = _make_part(db)
+    user = make_plain_user(db)
 
     tp = ticket_part_service.create(db, TicketPartCreate(
         ticket_id=ticket.id, part_id=part.id, status="shipped",
         carrier="USPS", tracking_number="9400111202555842761234",
-    ))
+    ), user.id)
 
     sent = {}
 

@@ -7,7 +7,6 @@ client. Clients send a plaintext `password` on create/update; the service
 layer hashes it before it ever touches the database or a response.
 """
 
-from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 class UserLogin(BaseModel):
@@ -51,7 +50,6 @@ class UserUpdate(BaseModel):
     last_name: str | None = None
     is_active: bool | None = None
     is_superuser: bool | None = None
-    updated_at: datetime | None = None
 
 class ChangePasswordRequest(BaseModel):
     """
@@ -70,8 +68,6 @@ class User(UserBase):
     """Schema returned to the client for a User record. Excludes hashed_password."""
     id: int
     must_change_password: bool
-    created_at: datetime
-    updated_at: datetime
     full_name: str
 
     model_config = ConfigDict(from_attributes=True)

@@ -5,7 +5,6 @@ ORM model for an estimated price for ticket-related work, pending customer appro
 
 from sqlalchemy import Column, Integer, Numeric, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
-from datetime import datetime, UTC
 from app.db.base import Base
 
 class Quote(Base):
@@ -80,9 +79,6 @@ class Quote(Base):
         ForeignKey("invoices.id", name="quotes_converted_invoice_id_fkey", use_alter=True),
         nullable=True,
     )
-
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)
 
     ticket = relationship("Ticket")
     discount = relationship("Discount")

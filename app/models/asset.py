@@ -4,8 +4,7 @@ ORM model for a serialized, one-off business asset (e.g. a laptop, a bench
 tool) -- as opposed to Part, which tracks consumable stock by quantity.
 """
 
-import datetime
-from sqlalchemy import Integer, Column, String, Numeric, Date, DateTime, ForeignKey
+from sqlalchemy import Integer, Column, String, Numeric, Date, ForeignKey
 from sqlalchemy.orm import relationship
 from app.db.base import Base
 
@@ -42,18 +41,6 @@ class Asset(Base):
     assigned_to = Column(String, nullable=True)
     condition = Column(String, nullable=True)
     notes = Column(String, nullable=True)
-
-    created_at = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.datetime.now(datetime.UTC),
-        nullable=False,
-    )
-    updated_at = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.datetime.now(datetime.UTC),
-        onupdate=lambda: datetime.datetime.now(datetime.UTC),
-        nullable=False,
-    )
 
     location = relationship("Location", back_populates="assets")
     category = relationship("AssetCategory", back_populates="assets")

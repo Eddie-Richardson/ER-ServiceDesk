@@ -3,7 +3,6 @@
 Request/response schemas for a named discount category.
 """
 
-from datetime import datetime
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict
 
@@ -26,6 +25,4 @@ class DiscountUpdate(BaseModel):
 class Discount(DiscountBase):
     """Schema returned to the client for a Discount record (server -> client)."""
     id: int
-    created_at: datetime
-    updated_at: datetime
     model_config = ConfigDict(from_attributes=True)

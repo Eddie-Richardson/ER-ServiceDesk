@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.api.dependencies import get_current_user, require_permission
 from app.services.part_service import part_service
+from app.models.user import User
 from app.schemas.part import Part, PartCreate, PartUpdate
 
 router = APIRouter(prefix="/inventory/parts", tags=["inventory-parts"], dependencies=[Depends(get_current_user)])
@@ -21,13 +22,22 @@ def get_part(id: int, db: Session = Depends(get_db)):
     return part_service.get(db, id)
 
 @router.post("/", response_model=Part, dependencies=[Depends(require_permission("inventory.manage"))])
-def create_part(obj_in: PartCreate, db: Session = Depends(get_db)):
+def create_part(
+    obj_in: PartCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Rejects duplicate SKUs."""
-    return part_service.create(db, obj_in)
+    return part_service.create(db, obj_in, current_user.id)
 
 @router.put("/{id}", response_model=Part, dependencies=[Depends(require_permission("inventory.manage"))])
-def update_part(id: int, obj_in: PartUpdate, db: Session = Depends(get_db)):
-    return part_service.update(db, id, obj_in)
+def update_part(
+    id: int,
+    obj_in: PartUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return part_service.update(db, id, obj_in, current_user.id)
 
 @router.delete("/{id}", dependencies=[Depends(require_permission("inventory.manage"))])
 def delete_part(id: int, db: Session = Depends(get_db)):

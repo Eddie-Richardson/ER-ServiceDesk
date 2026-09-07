@@ -23,5 +23,4 @@ class Payment(Base):
     method = Column(String, nullable=False)
     transaction_id = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)
     invoice = relationship("Invoice", back_populates="payments")

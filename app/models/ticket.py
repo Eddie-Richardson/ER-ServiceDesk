@@ -55,7 +55,6 @@ class Ticket(Base):
     accessories_included = Column(String, nullable=True)
     waiver_sent_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)
     customer = relationship("Customer", back_populates="tickets")
     device = relationship("Device", back_populates="tickets")
     category = relationship("TicketCategory", back_populates="tickets")

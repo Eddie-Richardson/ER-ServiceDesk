@@ -3,7 +3,7 @@
 Request/response schemas for a structured installment payment schedule.
 """
 
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict
 
@@ -41,8 +41,6 @@ class PaymentPlan(BaseModel):
     installment_amount: Decimal
     frequency: str
     status: str
-    created_at: datetime
-    updated_at: datetime
     installments: list[PaymentPlanInstallment] = []
     model_config = ConfigDict(from_attributes=True)
 

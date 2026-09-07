@@ -23,6 +23,5 @@ class AuditLog(AuditLogBase):
     """Schema returned to the client for a AuditLog record (server -> client)."""
     id: int
     created_at: datetime
-    updated_at: datetime
     user_name: str | None = None
     model_config = ConfigDict(from_attributes=True)

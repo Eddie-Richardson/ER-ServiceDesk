@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.api.dependencies import get_current_user, require_permission
 from app.services.asset_service import asset_service
 from app.models.asset import Asset as AssetModel
+from app.models.user import User
 from app.utils.pagination import paginate_query
 from app.schemas.asset import Asset, AssetCreate, AssetUpdate, AssetCreateResponse, PaginationResponse
 
@@ -40,14 +41,23 @@ def get_asset(id: int, db: Session = Depends(get_db)):
     return asset_service.get(db, id)
 
 @router.post("/", response_model=AssetCreateResponse, dependencies=[Depends(require_permission("inventory.manage"))])
-def create_asset(obj_in: AssetCreate, db: Session = Depends(get_db)):
+def create_asset(
+    obj_in: AssetCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Rejects duplicate serial numbers."""
-    asset = asset_service.create(db, obj_in)
+    asset = asset_service.create(db, obj_in, current_user.id)
     return {"message": "Asset created successfully", "asset": asset}
 
 @router.put("/{id}", response_model=Asset, dependencies=[Depends(require_permission("inventory.manage"))])
-def update_asset(id: int, obj_in: AssetUpdate, db: Session = Depends(get_db)):
-    return asset_service.update(db, id, obj_in)
+def update_asset(
+    id: int,
+    obj_in: AssetUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return asset_service.update(db, id, obj_in, current_user.id)
 
 @router.delete("/{id}", dependencies=[Depends(require_permission("inventory.manage"))])
 def delete_asset(id: int, db: Session = Depends(get_db)):

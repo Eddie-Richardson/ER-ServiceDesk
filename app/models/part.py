@@ -15,8 +15,7 @@ against that total: "we need 5 of these somewhere in the shop," not
 "we need 5 at this specific spot."
 """
 
-import datetime
-from sqlalchemy import Integer, Column, String, Numeric, DateTime
+from sqlalchemy import Integer, Column, String, Numeric
 from sqlalchemy.orm import relationship
 from app.db.base import Base
 
@@ -52,18 +51,6 @@ class Part(Base):
     selling_price = Column(Numeric, nullable=True)
     supplier = Column(String, nullable=True)
     notes = Column(String, nullable=True)
-
-    created_at = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.datetime.now(datetime.UTC),
-        nullable=False,
-    )
-    updated_at = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.datetime.now(datetime.UTC),
-        onupdate=lambda: datetime.datetime.now(datetime.UTC),
-        nullable=False,
-    )
 
     # cascade="all, delete-orphan": deleting a Part permanently
     # deletes its location/quantity rows with it, not just unlinks them.

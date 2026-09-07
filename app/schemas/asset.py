@@ -48,8 +48,6 @@ class AssetUpdate(BaseModel):
 class Asset(AssetBase):
     """Schema returned to the client for an Asset record (server -> client)."""
     id: int
-    created_at: datetime.datetime
-    updated_at: datetime.datetime
 
     model_config = ConfigDict(from_attributes=True)
 

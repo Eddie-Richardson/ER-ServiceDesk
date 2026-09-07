@@ -17,6 +17,7 @@ from app.models.part_location import PartLocation
 from app.schemas.part import PartCreate, PartUpdate
 from app.schemas.part_location import PartLocationInput
 from app.services.system_setting_service import system_setting_service
+from app.services.audit_log_service import audit_log_service
 
 
 class PartService:
@@ -28,20 +29,45 @@ class PartService:
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
         return crud_part.get_multi(db, skip, limit)
 
-    def create(self, db: Session, obj_in: PartCreate):
+    def create(self, db: Session, obj_in: PartCreate, current_user_id: int):
         """Applies the initial stock breakdown (obj_in.locations) after creating the Part row itself."""
         obj = crud_part.create(db, obj_in)
         self._replace_locations(db, obj.id, obj_in.locations)
         db.refresh(obj)
+        audit_log_service.log(
+            db, "part_created", "part", obj.id, user_id=current_user_id,
+            details=f"Created part: {obj.name}",
+        )
         return obj
 
-    def update(self, db: Session, id: int, obj_in: PartUpdate):
+    def update(self, db: Session, id: int, obj_in: PartUpdate, current_user_id: int):
         """If a new `locations` list is given, it replaces the part's entire stock breakdown; if omitted, the existing breakdown is left as-is."""
         db_obj = crud_part.get(db, id)
+        update_data = obj_in.model_dump(exclude_unset=True)
+
+        # locations is excluded from this generic diff: it's a computed
+        # property returning real PartLocation ORM rows, not a plain
+        # column, so comparing it directly against the raw input list
+        # would always register as "changed" (different types) even
+        # when the stock breakdown is identical. Noted separately below
+        # instead of trying to diff it meaningfully field-by-field.
+        changed_fields = [
+            field for field in update_data
+            if field != "locations" and getattr(db_obj, field) != update_data[field]
+        ]
+
         db_obj = crud_part.update(db, db_obj, obj_in)
         if obj_in.locations is not None:
             self._replace_locations(db, id, obj_in.locations)
             db.refresh(db_obj)
+            changed_fields.append("stock breakdown")
+
+        if changed_fields:
+            audit_log_service.log(
+                db, "part_updated", "part", id, user_id=current_user_id,
+                details=f"Changed fields: {', '.join(changed_fields)}",
+            )
+
         return db_obj
 
     def delete(self, db: Session, id: int):

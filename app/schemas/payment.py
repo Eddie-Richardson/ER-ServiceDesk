@@ -22,5 +22,4 @@ class Payment(PaymentBase):
     """Schema returned to the client for a Payment record (server -> client)."""
     id: int
     created_at: datetime
-    updated_at: datetime
     model_config = ConfigDict(from_attributes=True)

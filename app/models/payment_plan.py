@@ -9,9 +9,8 @@ payment_plan_service.py for the full setup, payment-recording (with
 automatic rebalancing), and date-extension logic.
 """
 
-from sqlalchemy import Column, Integer, String, Numeric, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Numeric, ForeignKey
 from sqlalchemy.orm import relationship
-from datetime import datetime, UTC
 from app.db.base import Base
 
 
@@ -36,8 +35,6 @@ class PaymentPlan(Base):
     installment_amount = Column(Numeric, nullable=False)
     frequency = Column(String, nullable=False)
     status = Column(String, nullable=False, default="active")
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)
 
     invoice = relationship("Invoice")
     # cascade="all, delete-orphan": deleting a PaymentPlan permanently

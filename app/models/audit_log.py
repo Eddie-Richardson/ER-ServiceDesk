@@ -27,7 +27,6 @@ class AuditLog(Base):
     entity_type = Column(String, nullable=False, index=True)
     entity_id = Column(Integer, nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)
     user = relationship("User")
 
     @property

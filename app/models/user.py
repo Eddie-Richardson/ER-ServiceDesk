@@ -3,9 +3,8 @@
 ORM model for staff/system accounts and their authentication identity.
 """
 
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Boolean
 from sqlalchemy.orm import relationship
-from datetime import datetime, UTC
 from app.db.base import Base
 
 class User(Base):
@@ -33,8 +32,6 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
     must_change_password = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)
     roles = relationship("UserRole", back_populates="user")
     tickets_assigned = relationship("Ticket", back_populates="assigned_to_user")
 

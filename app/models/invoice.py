@@ -5,7 +5,6 @@ ORM model for a bill generated for work performed on a ticket.
 
 from sqlalchemy import Column, Integer, Numeric, String, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import relationship
-from datetime import datetime, UTC
 from app.db.base import Base
 
 class Invoice(Base):
@@ -58,9 +57,6 @@ class Invoice(Base):
     is_paid = Column(Boolean, default=False)
     source_quote_id = Column(Integer, ForeignKey("quotes.id"), nullable=True)
     invoice_sent_at = Column(DateTime(timezone=True), nullable=True)
-
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)
 
     ticket = relationship("Ticket")
     discount = relationship("Discount")

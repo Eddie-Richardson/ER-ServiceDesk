@@ -22,11 +22,9 @@ class BackgroundJobUpdate(BaseModel):
     job_type: str | None = None
     status: str | None = None
     payload: str | None = None
-    updated_at: datetime | None = None
 
 class BackgroundJob(BackgroundJobBase):
     """Schema returned to the client for a BackgroundJob record (server -> client)."""
     id: int
     created_at: datetime
-    updated_at: datetime
     model_config = ConfigDict(from_attributes=True)

@@ -4,7 +4,6 @@ Request/response schemas for a customer-owned device brought in for
 service.
 """
 
-from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 class DeviceBase(BaseModel):
@@ -32,11 +31,8 @@ class DeviceUpdate(BaseModel):
     os: str | None = None
     edition: str | None = None
     current_location_id: int | None = None
-    updated_at: datetime | None = None
 
 class Device(DeviceBase):
     """Schema returned to the client for a Device record (server -> client)."""
     id: int
-    created_at: datetime
-    updated_at: datetime
     model_config = ConfigDict(from_attributes=True)

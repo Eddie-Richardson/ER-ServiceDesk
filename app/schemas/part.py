@@ -12,7 +12,6 @@ is given (see PartService._replace_locations), rather than trying to
 diff individual entries.
 """
 
-from datetime import datetime
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict
 from app.schemas.part_location import PartLocationInput, PartLocationOut
@@ -65,7 +64,5 @@ class Part(PartBase):
     id: int
     quantity_on_hand: int
     locations: list[PartLocationOut]
-    created_at: datetime
-    updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

@@ -6,7 +6,6 @@ is the record a background job watches to auto-notify the customer when
 a part's status changes.
 """
 
-import datetime
 from sqlalchemy import Integer, Column, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from app.db.base import Base
@@ -53,18 +52,6 @@ class TicketPart(Base):
     ordered_at = Column(DateTime(timezone=True), nullable=True)
     received_at = Column(DateTime(timezone=True), nullable=True)
     notes = Column(String, nullable=True)
-
-    created_at = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.datetime.now(datetime.UTC),
-        nullable=False,
-    )
-    updated_at = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.datetime.now(datetime.UTC),
-        onupdate=lambda: datetime.datetime.now(datetime.UTC),
-        nullable=False,
-    )
 
     ticket = relationship("Ticket", back_populates="parts_needed")
     part = relationship("Part", back_populates="ticket_parts")

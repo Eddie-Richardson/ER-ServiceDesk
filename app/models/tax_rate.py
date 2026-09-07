@@ -9,8 +9,7 @@ Invoice.tax_rate_id), calculated on the amount AFTER any discount is
 applied.
 """
 
-from sqlalchemy import Column, Integer, String, Numeric, Boolean, DateTime
-from datetime import datetime, UTC
+from sqlalchemy import Column, Integer, String, Numeric, Boolean
 from app.db.base import Base
 
 
@@ -34,5 +33,3 @@ class TaxRate(Base):
     name = Column(String, nullable=False)
     percentage = Column(Numeric, nullable=False)
     is_active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)

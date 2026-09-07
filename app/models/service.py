@@ -10,8 +10,7 @@ service's price at the moment it's added, so a later price change here
 never silently alters an existing quote or invoice.
 """
 
-from sqlalchemy import Column, Integer, String, Numeric, Text, Boolean, DateTime
-from datetime import datetime, UTC
+from sqlalchemy import Column, Integer, String, Numeric, Text, Boolean
 from app.db.base import Base
 
 
@@ -37,5 +36,3 @@ class Service(Base):
     description = Column(Text, nullable=True)
     price = Column(Numeric, nullable=False)
     is_active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)

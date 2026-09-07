@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.api.dependencies import get_current_user
 from app.services.ticket_part_service import ticket_part_service
+from app.models.user import User
 from app.schemas.ticket_part import TicketPart, TicketPartCreate, TicketPartUpdate
 
 router = APIRouter(prefix="/ticket_parts", tags=["ticket_parts"], dependencies=[Depends(get_current_user)])
@@ -27,12 +28,21 @@ def get_ticket_part(id: int, db: Session = Depends(get_db)):
     return ticket_part_service.get(db, id)
 
 @router.post("/", response_model=TicketPart)
-def create_ticket_part(obj_in: TicketPartCreate, db: Session = Depends(get_db)):
-    return ticket_part_service.create(db, obj_in)
+def create_ticket_part(
+    obj_in: TicketPartCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return ticket_part_service.create(db, obj_in, current_user.id)
 
 @router.put("/{id}", response_model=TicketPart)
-def update_ticket_part(id: int, obj_in: TicketPartUpdate, db: Session = Depends(get_db)):
-    return ticket_part_service.update(db, id, obj_in)
+def update_ticket_part(
+    id: int,
+    obj_in: TicketPartUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return ticket_part_service.update(db, id, obj_in, current_user.id)
 
 @router.delete("/{id}")
 def delete_ticket_part(id: int, db: Session = Depends(get_db)):

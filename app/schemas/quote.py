@@ -46,6 +46,4 @@ class Quote(QuoteBase):
     converted_invoice_number: int | None = None
     quote_sent_at: datetime | None = None
     line_items: list[QuoteLineItemSchema] = []
-    created_at: datetime
-    updated_at: datetime
     model_config = ConfigDict(from_attributes=True)

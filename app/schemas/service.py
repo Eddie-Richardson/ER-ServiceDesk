@@ -3,7 +3,6 @@
 Request/response schemas for a billable service the shop offers.
 """
 
-from datetime import datetime
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict
 
@@ -28,6 +27,4 @@ class ServiceUpdate(BaseModel):
 class Service(ServiceBase):
     """Schema returned to the client for a Service record (server -> client)."""
     id: int
-    created_at: datetime
-    updated_at: datetime
     model_config = ConfigDict(from_attributes=True)

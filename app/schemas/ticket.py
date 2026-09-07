@@ -42,12 +42,10 @@ class TicketUpdate(BaseModel):
     priority: str | None = None
     pickup_person: str | None = None
     accessories_included: str | None = None
-    updated_at: datetime | None = None
 
 class Ticket(TicketBase):
     """Schema returned to the client for a Ticket record (server -> client)."""
     id: int
     waiver_sent_at: datetime | None = None
     created_at: datetime
-    updated_at: datetime
     model_config = ConfigDict(from_attributes=True)

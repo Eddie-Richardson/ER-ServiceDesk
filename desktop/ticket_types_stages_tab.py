@@ -18,6 +18,7 @@ rather than needing a separate Save step.
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QBoxLayout,
     QCheckBox,
     QComboBox,
     QHBoxLayout,
@@ -42,6 +43,11 @@ class TicketTypesStagesTab(QWidget):
     # window shrinks past what fits.
     _LOOKUP_TAB_MIN_HEIGHT = 240
 
+    # Below this width, Types and Stages stack vertically instead of
+    # sitting side by side -- two lists sharing a narrow window (e.g.
+    # half a screen) get genuinely too cramped to use otherwise.
+    _STACK_BELOW_WIDTH = 500
+
     def __init__(self):
         """Builds the Types/Stages lists and the pairing section, then loads the pairing data."""
         super().__init__()
@@ -62,17 +68,21 @@ class TicketTypesStagesTab(QWidget):
         )
         content_layout.setSpacing(layout.SPACE_MD)
 
-        lists_row = QHBoxLayout()
+        # QBoxLayout, not QHBoxLayout -- lets resizeEvent() below
+        # dynamically switch this between side-by-side and stacked
+        # via setDirection(), rather than needing to tear down and
+        # rebuild the layout by hand at each breakpoint.
+        self.lists_row = QBoxLayout(QBoxLayout.Direction.LeftToRight)
 
         self.types_tab = LookupTab("Ticket Type", api_client.list_ticket_types, "/ticket_types/", "ticket_type")
         self.types_tab.setMinimumHeight(self._LOOKUP_TAB_MIN_HEIGHT)
-        lists_row.addWidget(self.types_tab)
+        self.lists_row.addWidget(self.types_tab)
 
         self.stages_tab = LookupTab("Ticket Stage", api_client.list_ticket_stages, "/ticket_stages/", "ticket_stage")
         self.stages_tab.setMinimumHeight(self._LOOKUP_TAB_MIN_HEIGHT)
-        lists_row.addWidget(self.stages_tab)
+        self.lists_row.addWidget(self.stages_tab)
 
-        content_layout.addLayout(lists_row)
+        content_layout.addLayout(self.lists_row)
 
         # Types/Stages are managed above via their own New/Edit/Delete
         # flows -- the pairing dropdown and checklist need to reflect
@@ -113,6 +123,22 @@ class TicketTypesStagesTab(QWidget):
         outer_layout.setContentsMargins(0, 0, 0, 0)
         outer_layout.addWidget(scroll_area)
         self.setLayout(outer_layout)
+
+    def resizeEvent(self, event):
+        """
+        Switches lists_row between side-by-side and stacked based on
+        the tab's current width, so Types and Stages stay usable
+        rather than cramped once the Settings window shrinks past
+        _STACK_BELOW_WIDTH.
+        """
+        super().resizeEvent(event)
+        direction = (
+            QBoxLayout.Direction.TopToBottom
+            if self.width() < self._STACK_BELOW_WIDTH
+            else QBoxLayout.Direction.LeftToRight
+        )
+        if self.lists_row.direction() != direction:
+            self.lists_row.setDirection(direction)
 
     # -----------------------------------------------------------------
     # Pairing section

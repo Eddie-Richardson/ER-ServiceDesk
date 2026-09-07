@@ -1,5 +1,4 @@
 # ER-ServiceDesk/tests/test_inbound_email.py
-# Tests for the inbound-email polling task.
 """
 Covers poll_inbound_email's matching logic: a well-formed reply (has a
 [Ticket #N] marker AND comes from a known customer's address) becomes an

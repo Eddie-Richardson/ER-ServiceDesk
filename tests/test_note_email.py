@@ -1,5 +1,4 @@
 # ER-ServiceDesk/tests/test_note_email.py
-# Tests for NoteService's outbound-email wiring.
 """
 Covers NoteService.create's behavior when a Note is outbound:
 it should call app.core.email.send_email with the right recipient,

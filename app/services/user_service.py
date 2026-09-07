@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.crud.user import crud_user
 from app.models.user import User
-from app.schemas.user import UserCreate, UserUpdate
+from app.schemas.user import UserCreate, UserUpdate, FirstRunAdminCreate
 from app.core.security import generate_temp_password, hash_password
 from app.core.email import send_email
 from app.services.audit_log_service import audit_log_service
@@ -25,6 +25,9 @@ class UserService:
 
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
         return crud_user.get_multi(db, skip, limit)
+
+    def any_exist(self, db: Session) -> bool:
+        return crud_user.any_exist(db)
 
     def create(self, db: Session, obj_in: UserCreate, current_user_id: int):
         """
@@ -85,6 +88,54 @@ class UserService:
         audit_log_service.log(
             db, "user_created", "user", db_obj.id, user_id=current_user_id,
             details=f"Created account: {db_obj.email}",
+        )
+
+        return db_obj
+
+    def create_first_run_admin(self, db: Session, obj_in: FirstRunAdminCreate):
+        """
+        Creates the very first account on a fresh install -- a real
+        superuser, with the password the person filling out the
+        first-run screen genuinely typed themselves, not a generated
+        temp one.
+
+        Raises:
+            HTTPException: 400 if any account already exists at all.
+                Genuinely re-checked here, not just trusted from the
+                desktop app's own earlier GET /users/first-run-status
+                check -- the only way to safely rule out a race
+                between two people reaching this screen at once. 400
+                if the password doesn't meet hash_password()'s
+                strength requirements, using its own message directly
+                (already a clean, user-facing string).
+        """
+        if crud_user.any_exist(db):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="An account already exists -- this setup screen is only available on a fresh install with no users yet.",
+            )
+
+        try:
+            hashed = hash_password(obj_in.password)
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+        db_obj = User(
+            email=obj_in.email,
+            first_name=obj_in.first_name,
+            last_name=obj_in.last_name,
+            hashed_password=hashed,
+            is_active=True,
+            is_superuser=True,
+            must_change_password=False,
+        )
+        db.add(db_obj)
+        db.commit()
+        db.refresh(db_obj)
+
+        audit_log_service.log(
+            db, "first_run_admin_created", "user", db_obj.id, user_id=db_obj.id,
+            details=f"Created the first admin account on setup: {db_obj.email}",
         )
 
         return db_obj

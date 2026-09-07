@@ -29,6 +29,15 @@ class UserCRUD:
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100):
         return db.query(User).offset(skip).limit(limit).all()
 
+    def any_exist(self, db: Session) -> bool:
+        """
+        Used by the first-run admin creation flow to decide whether
+        any account exists at all yet -- if not, the desktop app shows
+        a "Create your admin account" screen instead of the normal
+        Login window (see users.py's first_run_router).
+        """
+        return db.query(User.id).first() is not None
+
     def delete(self, db: Session, id: int) -> None:
         obj = db.query(User).filter(User.id == id).first()
         if obj:

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/tests/test_ticket_part_shipping_info.py
-# Tests for TicketPart's carrier/tracking_number fields.
 """
 Covers the manually-entered shipping-lookup fields on TicketPart: a tech
 enters carrier + tracking_number by hand (from the retailer's shipping

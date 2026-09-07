@@ -257,6 +257,67 @@ def list_customers() -> list[dict]:
     return _authed_get("/customers/")
 
 
+def get_first_run_status() -> bool:
+    """
+    Calls GET /users/first-run-status -- genuinely unauthenticated,
+    since the whole point is checking this before any account (and
+    therefore any valid login) exists yet. Called by show_login()
+    before deciding whether to show the normal Login window or the
+    "Create your admin account" screen.
+
+    Returns:
+        True if any account already exists.
+
+    Raises:
+        ApiError: If the backend can't be reached or the response
+            isn't a success.
+    """
+    try:
+        response = requests.get(f"{BASE_URL}/users/first-run-status", timeout=10)
+    except requests.exceptions.RequestException:
+        raise ApiError("Couldn't reach the backend. Make sure it's still running.")
+
+    if response.status_code != 200:
+        raise ApiError(f"Request failed (server returned {response.status_code}).")
+
+    return response.json()["any_exist"]
+
+
+def create_first_run_admin(payload: dict) -> dict:
+    """
+    Calls POST /users/first-run-admin -- genuinely unauthenticated,
+    same reasoning as get_first_run_status() above.
+
+    Args:
+        payload: Fields matching the backend's FirstRunAdminCreate
+            schema (email, first_name, last_name, password).
+
+    Returns:
+        The created account.
+
+    Raises:
+        ApiError: If an account already exists (checked server-side,
+            not just trusted from an earlier get_first_run_status()
+            call), the password doesn't meet strength requirements, or
+            the backend can't be reached.
+    """
+    try:
+        response = requests.post(f"{BASE_URL}/users/first-run-admin", json=payload, timeout=10)
+    except requests.exceptions.RequestException:
+        raise ApiError("Couldn't reach the backend. Make sure it's still running.")
+
+    if response.status_code != 200:
+        detail = ""
+        try:
+            body = response.json()
+            detail = body.get("error", {}).get("message", "")
+        except ValueError:
+            pass
+        raise ApiError(detail or f"Request failed (server returned {response.status_code}).")
+
+    return response.json()
+
+
 def list_devices() -> list[dict]:
     """Returns all devices. Requires an active session."""
     return _authed_get("/devices/")

@@ -64,6 +64,28 @@ class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
 
+class FirstRunStatus(BaseModel):
+    """Response for GET /users/first-run-status -- whether any account exists yet."""
+    any_exist: bool
+
+class FirstRunAdminCreate(BaseModel):
+    """
+    Schema for POST /users/first-run-admin -- creating the very first
+    account on a fresh install.
+
+    Unlike UserCreate, this genuinely accepts a direct, user-typed
+    password (validated server-side by the same hash_password()
+    strength check as everywhere else) rather than generating and
+    emailing a temp one -- whoever is filling this out is physically
+    at the machine setting the app up for the first time, choosing
+    their own real password directly, not receiving an account
+    someone else created for them.
+    """
+    email: str
+    first_name: str
+    last_name: str
+    password: str
+
 class User(UserBase):
     """Schema returned to the client for a User record. Excludes hashed_password."""
     id: int

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/tests/test_part_status_notify.py
-# Tests for auto-notifying the customer on TicketPart status change.
 """
 Two layers covered here:
   1. build_part_status_note_content: pure function, no DB/RQ needed -- given a

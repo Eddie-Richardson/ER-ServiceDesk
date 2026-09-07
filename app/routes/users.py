@@ -9,7 +9,7 @@ from app.db.session import get_db
 from app.api.dependencies import require_superuser, get_current_user
 from app.models.user import User as UserModel
 from app.services.user_service import user_service
-from app.schemas.user import User, UserCreate, UserUpdate, AssignableUser
+from app.schemas.user import User, UserCreate, UserUpdate, AssignableUser, FirstRunStatus, FirstRunAdminCreate
 
 router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(require_superuser)])
 
@@ -20,6 +20,29 @@ router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(requir
 # own docstring for why this is a distinct, narrower schema rather than
 # just loosening the main router's gate.
 assignable_router = APIRouter(prefix="/users", tags=["users"])
+
+# A third, separate router -- genuinely unauthenticated, no
+# dependencies at all. The whole point of the first-run flow is
+# reaching it before any account (and therefore any valid login)
+# exists yet, so it can't sit behind get_current_user or
+# require_superuser the way every other endpoint in this file does.
+# create_first_run_admin() itself is what keeps this safe: it
+# genuinely re-checks that no account exists at the moment of
+# creation, not just trusting whatever the desktop app already
+# checked via GET /users/first-run-status.
+first_run_router = APIRouter(prefix="/users", tags=["users"])
+
+
+@first_run_router.get("/first-run-status", response_model=FirstRunStatus)
+def get_first_run_status(db: Session = Depends(get_db)):
+    """Whether any account exists yet -- the desktop app checks this before showing the Login window."""
+    return {"any_exist": user_service.any_exist(db)}
+
+
+@first_run_router.post("/first-run-admin", response_model=User)
+def create_first_run_admin(obj_in: FirstRunAdminCreate, db: Session = Depends(get_db)):
+    """Creates the very first account on a fresh install. See UserService.create_first_run_admin() for the real safety check."""
+    return user_service.create_first_run_admin(db, obj_in)
 
 
 @assignable_router.get("/assignable", response_model=list[AssignableUser])

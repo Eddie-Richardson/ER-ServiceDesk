@@ -1,5 +1,4 @@
 # ER-ServiceDesk/tests/conftest.py
-# Shared pytest fixtures for the whole test suite.
 """
 Provides a real Postgres-backed test database (separate from the dev
 database), a FastAPI TestClient wired to use it instead of the real DB,

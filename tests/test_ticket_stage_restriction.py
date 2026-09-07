@@ -1,5 +1,4 @@
 # ER-ServiceDesk/tests/test_ticket_stage_restriction.py
-# Tests for the opt-in TicketTypeStage allow-list enforcement.
 """
 Covers TicketService's stage-restriction rule: a TicketType with zero
 configured allow-list entries stays unrestricted (any stage is valid);

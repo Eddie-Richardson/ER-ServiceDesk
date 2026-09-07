@@ -1,5 +1,4 @@
 # ER-ServiceDesk/tests/test_inventory.py
-# Tests for Asset/Part duplicate-key business rules.
 """
 Covers the duplicate-serial-number (Asset) and duplicate-SKU (Part) checks.
 """

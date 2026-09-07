@@ -1,5 +1,4 @@
 # ER-ServiceDesk/tests/test_auth.py
-# Tests for login and route-level auth enforcement.
 """
 Covers: successful/failed login, unauthenticated access being rejected,
 and the admin-only vs any-staff route split enforced via

@@ -1,5 +1,4 @@
 # ER-ServiceDesk/tests/test_crud_coverage.py
-# Full CRUD coverage for every route module without dedicated business-logic tests.
 """
 The other test files (test_auth.py, test_note_email.py, test_inventory.py,
 test_part_status_notify.py, test_ticket_part_shipping_info.py,

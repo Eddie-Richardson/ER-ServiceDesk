@@ -26,8 +26,9 @@ The `-it` at the start matters -- without it, the next step won't work.
 
 It will ask you three things, one at a time:
 
-1. **Email of the superuser account to reset** -- type your admin
-   email (e.g. `admin@example.com`) and press Enter.
+1. **Email of the superuser account to reset** -- type the admin
+   email you chose when you first set up the app (e.g.
+   `you@yourshop.com`) and press Enter.
 2. **New password** -- type a new password. It will NOT show on
    screen as you type -- that's normal, just type it and press Enter.
 3. **Confirm new password** -- type the same password again.

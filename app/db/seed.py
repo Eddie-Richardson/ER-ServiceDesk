@@ -1,8 +1,14 @@
 # ER-ServiceDesk/app/db/seed.py
 """
-Populates a fresh database with baseline roles, permissions,
-role-permission mappings, and default users so the system is immediately
-usable after migrations run. Idempotent -- safe to run multiple times.
+Populates a fresh database with baseline roles, permissions, and
+role-permission mappings. Idempotent -- safe to run multiple times.
+
+Deliberately does NOT create any default user accounts -- the first
+real account comes from the desktop app's own first-run "Create your
+admin account" screen (see app.routes.users.first_run_router), shown
+automatically on a fresh install with zero existing users. This
+script running is not, by itself, enough to make the app usable; a
+real account still needs to be created through that screen.
 """
 
 from sqlalchemy.orm import Session
@@ -10,8 +16,6 @@ from sqlalchemy.orm import Session
 from app.models.role import Role
 from app.models.permission import Permission
 from app.models.role_permission import RolePermission
-from app.models.user import User
-from app.models.user_role import UserRole
 from app.models.ticket_status import TicketStatus
 from app.models.ticket_category import TicketCategory
 from app.models.ticket_type import TicketType
@@ -21,12 +25,10 @@ from app.models.ticket_stage import TicketStage
 from app.models.ticket_type_stage import TicketTypeStage
 from app.models.system_setting import SystemSetting
 
-from app.core.security import hash_password
-
 
 def seed_data(db: Session):
     """
-    Insert initial roles, permissions, mappings, and default users.
+    Insert initial roles, permissions, and role-permission mappings.
 
     Existing entries are detected and reused rather than duplicated, so
     this is safe to call on every startup/deploy.
@@ -128,79 +130,6 @@ def seed_data(db: Session):
 
     for role_name, perm_names in role_permission_grants.items():
         assign_perms(role_name, perm_names)
-
-    db.commit()
-
-    # -------------------------------------------------------------------
-    # Default admin user
-    # -------------------------------------------------------------------
-    admin_email = "admin@example.com"
-    admin_user = db.query(User).filter_by(email=admin_email).first()
-
-    if not admin_user:
-        admin_user = User(
-            email=admin_email,
-            hashed_password=hash_password("Admin123!"),
-            first_name="Admin",
-            last_name="User",
-            is_active=True,
-            is_superuser=True,
-        )
-        db.add(admin_user)
-        db.commit()
-        db.refresh(admin_user)
-
-        db.add(UserRole(user_id=admin_user.id, role_id=role_objs["admin"].id))
-
-    db.commit()
-
-    # -------------------------------------------------------------------
-    # Default agent user
-    # -------------------------------------------------------------------
-    agent_email = "agent@example.com"
-    agent_user = db.query(User).filter_by(email=agent_email).first()
-
-    if not agent_user:
-        agent_user = User(
-            email=agent_email,
-            hashed_password=hash_password("Agent123!"),
-            first_name="Agent",
-            last_name="User",
-            is_active=True,
-            is_superuser=False,
-        )
-        db.add(agent_user)
-        db.commit()
-        db.refresh(agent_user)
-
-        db.add(UserRole(user_id=agent_user.id, role_id=role_objs["agent"].id))
-
-    db.commit()
-
-    # -------------------------------------------------------------------
-    # Default front desk user
-    # -------------------------------------------------------------------
-    # Exists purely for testing that Agent and Front Desk actually see
-    # identical access -- both roles currently grant the same
-    # permissions, distinct only as job-scope labels (see the Roles
-    # section above).
-    front_desk_email = "frontdesk@example.com"
-    front_desk_user = db.query(User).filter_by(email=front_desk_email).first()
-
-    if not front_desk_user:
-        front_desk_user = User(
-            email=front_desk_email,
-            hashed_password=hash_password("FrontDesk123!"),
-            first_name="Front",
-            last_name="Desk",
-            is_active=True,
-            is_superuser=False,
-        )
-        db.add(front_desk_user)
-        db.commit()
-        db.refresh(front_desk_user)
-
-        db.add(UserRole(user_id=front_desk_user.id, role_id=role_objs["front_desk"].id))
 
     db.commit()
 

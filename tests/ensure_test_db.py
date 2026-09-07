@@ -1,11 +1,13 @@
 # ER-ServiceDesk/tests/ensure_test_db.py
-# Ensures the test database exists before the test suite runs.
-#
-# Run this before pytest (see run_tests.ps1). It connects to Postgres's
-# default 'postgres' maintenance database using the same credentials as
-# TEST_DATABASE_URL, checks whether the target test database exists, and
-# creates it if not. This makes "the test db doesn't exist yet" a problem
-# that fixes itself instead of a confusing connection-time failure.
+"""
+Ensures the test database exists before the test suite runs.
+
+Run this before pytest (see run_tests.ps1). It connects to Postgres's
+default 'postgres' maintenance database using the same credentials as
+TEST_DATABASE_URL, checks whether the target test database exists, and
+creates it if not. This makes "the test db doesn't exist yet" a problem
+that fixes itself instead of a confusing connection-time failure.
+"""
 
 import os
 import sys

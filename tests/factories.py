@@ -1,5 +1,4 @@
 # ER-ServiceDesk/tests/factories.py
-# Test data factories
 """
 Small helper functions for creating supporting records directly via the
 ORM (bypassing the API) so individual tests can focus on the behavior

@@ -52,6 +52,18 @@ def show_login():
     anything, so entering correct credentials after an idle-timeout
     logout did nothing visible at all -- the login itself likely
     succeeded on the backend, but nothing was listening for it.
+
+    On a fresh install with zero accounts yet, shows
+    FirstRunAdminWindow instead of the normal Login window -- checked
+    fresh every single time this function runs, not just once at app
+    startup, so this genuinely covers force_logout() too (though in
+    practice, once a real account exists, this branch can never fire
+    again for the life of the install). If the check itself fails
+    (e.g. a transient network hiccup), falls back to the normal Login
+    window rather than blocking someone out entirely over one failed
+    request -- a real account either already exists (Login is
+    correct) or doesn't (Login will fail with a clear, ordinary
+    "incorrect email or password", not a confusing dead end).
     """
     # Imported here (not at module level) to avoid a circular import:
     # login_window.py imports change_password_dialog.py, which
@@ -61,9 +73,8 @@ def show_login():
     # same underlying reason.
     from desktop.login_window import LoginWindow
     from desktop.dashboard_window import DashboardWindow
-
-    login_window = LoginWindow()
-    debug_log("show_login: Login window shown")
+    from desktop.first_run_admin_window import FirstRunAdminWindow
+    from desktop import api_client
 
     def _on_login_succeeded():
         debug_log("show_login: login succeeded, opening Dashboard")
@@ -73,11 +84,23 @@ def show_login():
         # Keep a reference on the QApplication itself so this window
         # isn't garbage-collected once this closure returns.
         QApplication.instance()._current_top_level_window = dashboard
-        login_window.close()
+        entry_window.close()
 
-    login_window.login_succeeded.connect(_on_login_succeeded)
-    login_window.show()
-    QApplication.instance()._current_top_level_window = login_window
+    try:
+        any_users_exist = api_client.get_first_run_status()
+    except ApiError:
+        any_users_exist = True
+
+    if any_users_exist:
+        entry_window = LoginWindow()
+        debug_log("show_login: Login window shown")
+    else:
+        entry_window = FirstRunAdminWindow()
+        debug_log("show_login: no accounts exist yet, First Run Admin window shown")
+
+    entry_window.login_succeeded.connect(_on_login_succeeded)
+    entry_window.show()
+    QApplication.instance()._current_top_level_window = entry_window
 
 
 def force_logout():

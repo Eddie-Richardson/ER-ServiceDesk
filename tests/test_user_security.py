@@ -1,5 +1,4 @@
 # ER-ServiceDesk/tests/test_user_security.py
-# Regression tests guarding the password-hash-leak bug found in the initial audit.
 """
 The original codebase leaked `hashed_password` in every user API response,
 and required clients to submit an already-hashed password on create. Both

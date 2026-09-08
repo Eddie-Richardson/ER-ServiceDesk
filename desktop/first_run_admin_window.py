@@ -33,12 +33,13 @@ class FirstRunAdminWindow(QWidget):
     """Shown once, on a fresh install with zero existing accounts."""
 
     login_succeeded = Signal()
+    needs_login = Signal(str)
 
     def __init__(self):
         """Builds the account-creation form inside a centered card panel."""
         super().__init__()
         self.setWindowTitle("ER-ServiceDesk - Create Admin Account")
-        self.setFixedSize(layout.DIALOG_WIDTH, 460)
+        self.setFixedSize(layout.DIALOG_WIDTH, 500)
 
         card = QWidget()
         card.setObjectName("card")
@@ -86,6 +87,11 @@ class FirstRunAdminWindow(QWidget):
         self.create_button.setFixedHeight(layout.BUTTON_HEIGHT)
         self.create_button.clicked.connect(self._attempt_create)
 
+        self.login_instead_button = QPushButton("Already have an account? Log in instead")
+        self.login_instead_button.setObjectName("secondary")
+        self.login_instead_button.setFixedHeight(layout.BUTTON_HEIGHT)
+        self.login_instead_button.clicked.connect(self._go_to_login)
+
         card_layout = QVBoxLayout()
         card_layout.setContentsMargins(
             layout.CARD_PADDING, layout.CARD_PADDING,
@@ -103,6 +109,7 @@ class FirstRunAdminWindow(QWidget):
         card_layout.addWidget(self.error_label)
         card_layout.addSpacing(layout.SPACE_SM)
         card_layout.addWidget(self.create_button)
+        card_layout.addWidget(self.login_instead_button)
         card.setLayout(card_layout)
 
         outer_layout = QVBoxLayout()
@@ -160,19 +167,28 @@ class FirstRunAdminWindow(QWidget):
         # retype what they typed seconds ago on a normal Login screen.
         try:
             token = api_client.login(email, password)
-        except api_client.LoginError as e:
-            # Extremely unlikely (the account was just created with
-            # these exact credentials), but if it somehow happens,
-            # fail visibly rather than silently -- the account is
-            # real either way, so this isn't data loss, just a
-            # slightly worse first impression.
-            self._set_form_enabled(True)
-            self.create_button.setText("Create Account")
-            self._show_error(f"Account created, but automatic login failed: {e} Please try logging in.")
+        except api_client.LoginError:
+            # However unlikely (the account was just created with
+            # these exact credentials), the account is real either
+            # way -- clicking "Create Account" again here would only
+            # ever fail now with "an account already exists", leaving
+            # the person genuinely stuck. Hand off to a real,
+            # pre-filled Login window instead of letting that happen.
+            self.needs_login.emit(email)
             return
 
         session.set_token(token)
         self.login_succeeded.emit()
+
+    def _go_to_login(self):
+        """
+        Manual escape hatch -- regardless of what specifically might
+        go wrong on this screen, or whether an account was already
+        created in a previous attempt, someone should always have a
+        direct, obvious way to reach the normal Login window instead
+        of being stuck here.
+        """
+        self.needs_login.emit(self.email_input.text().strip())
 
     def _password_strength_error(self, password: str) -> str:
         """
@@ -197,13 +213,14 @@ class FirstRunAdminWindow(QWidget):
         return ""
 
     def _set_form_enabled(self, enabled: bool):
-        """Enables or disables every field and the create button, used to prevent double-submission while a request is in flight."""
+        """Enables or disables every field and both buttons, used to prevent double-submission while a request is in flight."""
         self.first_name_input.setEnabled(enabled)
         self.last_name_input.setEnabled(enabled)
         self.email_input.setEnabled(enabled)
         self.password_input.setEnabled(enabled)
         self.confirm_password_input.setEnabled(enabled)
         self.create_button.setEnabled(enabled)
+        self.login_instead_button.setEnabled(enabled)
 
     def _show_error(self, message: str):
         """Displays an inline error message below the form fields."""

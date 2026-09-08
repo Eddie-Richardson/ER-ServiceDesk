@@ -27,6 +27,7 @@ from rq_scheduler import Scheduler
 from datetime import datetime, timezone
 
 from app.core.config import settings
+from app.core.logging_config import setup_logging
 from app.db.session import SessionLocal
 from app.services.system_setting_service import system_setting_service
 from app.workers.tasks import poll_inbound_email, archive_inactive_customers
@@ -35,6 +36,7 @@ DEFAULT_INBOUND_EMAIL_POLL_INTERVAL_SECONDS = 60
 ARCHIVE_INACTIVE_CUSTOMERS_INTERVAL_SECONDS = 86400  # once daily -- not time-sensitive; the threshold itself (how many months of inactivity) is the part that's configurable via SystemSetting, read fresh by the task on every run
 
 if __name__ == "__main__":
+    setup_logging()
     redis_conn = Redis.from_url(settings.REDIS_URL)
     scheduler = Scheduler(queue_name="default", connection=redis_conn)
 

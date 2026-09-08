@@ -8,11 +8,13 @@ routines) delegated by the API. Run directly: `python -m app.workers.worker`.
 from redis import Redis
 from rq import Queue, Worker
 from app.core.config import settings
+from app.core.logging_config import setup_logging
 
 listen = ["default"]
 redis_conn = Redis.from_url(settings.REDIS_URL)
 
 if __name__ == "__main__":
+    setup_logging()
     q = Queue("default", connection=redis_conn)
     worker = Worker([q], connection=redis_conn)
     worker.work()

@@ -8,6 +8,8 @@ and more). Every function shares BASE_URL and the same
 error-handling shape established below.
 """
 
+import time
+
 import requests
 
 from desktop import session
@@ -265,22 +267,37 @@ def get_first_run_status() -> bool:
     before deciding whether to show the normal Login window or the
     "Create your admin account" screen.
 
+    Retries a few times on a genuine connection failure before giving
+    up -- this specific check matters more than most: getting it
+    wrong (or failing it outright) right after the backend was just
+    confirmed healthy moments ago by StartupWindow is far more likely
+    to be a single transient blip than a real, ongoing problem, and
+    the cost of a false failure here is real -- show_login() falls
+    back to the normal Login window if this raises, which would be
+    genuinely wrong (not just unhelpful) on a database that's
+    actually still empty.
+
     Returns:
         True if any account already exists.
 
     Raises:
-        ApiError: If the backend can't be reached or the response
-            isn't a success.
+        ApiError: If the backend still can't be reached after retrying,
+            or the response isn't a success.
     """
-    try:
-        response = requests.get(f"{BASE_URL}/users/first-run-status", timeout=10)
-    except requests.exceptions.RequestException:
-        raise ApiError("Couldn't reach the backend. Make sure it's still running.")
+    for attempt in range(3):
+        try:
+            response = requests.get(f"{BASE_URL}/users/first-run-status", timeout=10)
+        except requests.exceptions.RequestException:
+            if attempt < 2:
+                time.sleep(1)
+            continue
 
-    if response.status_code != 200:
-        raise ApiError(f"Request failed (server returned {response.status_code}).")
+        if response.status_code != 200:
+            raise ApiError(f"Request failed (server returned {response.status_code}).")
 
-    return response.json()["any_exist"]
+        return response.json()["any_exist"]
+
+    raise ApiError("Couldn't reach the backend. Make sure it's still running.")
 
 
 def create_first_run_admin(payload: dict) -> dict:

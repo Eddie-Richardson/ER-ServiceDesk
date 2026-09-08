@@ -31,8 +31,17 @@ class LoginWindow(QWidget):
 
     login_succeeded = Signal()
 
-    def __init__(self):
-        """Builds the login form inside a centered card panel."""
+    def __init__(self, initial_email: str | None = None):
+        """
+        Builds the login form inside a centered card panel.
+
+        Args:
+            initial_email: Pre-fills the email field if given -- used
+                when arriving here right after some other flow already
+                established a real email address (e.g.
+                FirstRunAdminWindow, if account creation succeeded but
+                the automatic login right after it didn't).
+        """
         super().__init__()
         business_name = get_business_name()
         self.setWindowTitle(f"ER-ServiceDesk - {business_name} - Login" if business_name else "ER-ServiceDesk - Login")
@@ -57,6 +66,8 @@ class LoginWindow(QWidget):
         self.email_input.setPlaceholderText("Email")
         self.email_input.setFixedHeight(layout.INPUT_HEIGHT)
         self.email_input.returnPressed.connect(self._attempt_login)
+        if initial_email:
+            self.email_input.setText(initial_email)
 
         self.password_input = QLineEdit()
         self.password_input.setPlaceholderText("Password")

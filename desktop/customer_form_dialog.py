@@ -3,12 +3,20 @@
 """
 Dialog for creating a new customer or editing an existing one.
 
-In edit mode, shows the customer's devices below the form fields --
-devices link directly to customer_id, so this listing is reliable
-regardless of ticket history, not something derived from tickets. A new
-customer has no devices yet, so that section only appears when editing
-an existing one. Double-clicking a device opens DeviceEditDialog;
-there's no "add a device here" button -- devices are only ever created
+In edit mode, shows the customer's devices, invoices, and ticket
+history below the form fields. Devices link directly to customer_id,
+so that listing is reliable regardless of ticket history, not
+something derived from tickets. Invoices and tickets are
+cross-referenced via ticket_id (Invoice/Ticket have no customer_id/
+invoice-side link of their own the same way). A new customer has none
+of these yet, so all three sections only appear when editing an
+existing one.
+
+Double-clicking a device opens DeviceEditDialog (full edit); an
+invoice opens InvoiceDetailDialog (view/manage); a ticket opens
+TicketSummaryDialog (read-only -- see that file's own docstring for
+why this one deliberately isn't editable here). There's no "add a
+device/ticket here" button for either -- both are only ever created
 during ticket intake.
 """
 
@@ -35,10 +43,12 @@ from desktop.customer_save_worker import CustomerSaveWorker
 from desktop.device_edit_dialog import DeviceEditDialog
 from desktop.invoice_detail_dialog import InvoiceDetailDialog
 from desktop.lock_gate import LockGate
+from desktop.ticket_summary_dialog import TicketSummaryDialog
 from desktop.us_states import US_STATES
 
 DEVICE_COLUMN_HEADERS = ["Type", "Brand", "Model", "Serial Number"]
 INVOICE_COLUMN_HEADERS = ["Invoice #", "Ticket #", "Total", "Paid"]
+TICKET_COLUMN_HEADERS = ["Ticket #", "Title", "Status", "Opened"]
 
 
 class CustomerFormDialog(AppDialog):
@@ -51,7 +61,7 @@ class CustomerFormDialog(AppDialog):
     `self.saved_customer`.
     """
 
-    def __init__(self, customer: dict | None, all_devices: list[dict], locations: list[dict], all_invoices: list[dict], all_tickets: list[dict], all_customers: list[dict], parent=None):
+    def __init__(self, customer: dict | None, all_devices: list[dict], locations: list[dict], all_invoices: list[dict], all_tickets: list[dict], all_statuses: list[dict], all_customers: list[dict], parent=None):
         """
         Args:
             all_devices: Every device in the system; filtered down to
@@ -64,8 +74,16 @@ class CustomerFormDialog(AppDialog):
                 customer_id of its own). May be empty if the logged-in
                 user lacks billing.manage -- the section still renders,
                 just with nothing in it, rather than failing.
-            all_tickets: Every ticket in the system; used only to
-                resolve which invoices belong to this customer.
+            all_tickets: Every ticket in the system; filtered down to
+                this customer's own tickets for the ticket-history
+                sub-table, and also used to resolve which invoices
+                belong to this customer.
+            all_statuses: Every ticket status in the system, used to
+                resolve each ticket's status_id to a readable name on
+                the ticket-history sub-table. May be empty if the
+                logged-in user isn't a superuser -- the section still
+                renders, just showing raw status ids as a fallback
+                rather than failing.
             all_customers: Every customer in the system, passed
                 through to DeviceEditDialog for its reassignment
                 picker -- moving a device to the correct customer
@@ -78,6 +96,7 @@ class CustomerFormDialog(AppDialog):
         self.locations = locations
         self.all_invoices = all_invoices
         self.all_tickets = all_tickets
+        self.all_statuses = all_statuses
         self.all_customers = all_customers
         self.saved_customer: dict | None = None
         self.deleted = False
@@ -186,6 +205,7 @@ class CustomerFormDialog(AppDialog):
         if self.customer:
             outer_layout.addWidget(self._build_devices_section())
             outer_layout.addWidget(self._build_invoices_section())
+            outer_layout.addWidget(self._build_tickets_section())
 
         outer_layout.addWidget(self.error_label)
         outer_layout.addSpacing(layout.SPACE_SM)
@@ -364,6 +384,88 @@ class CustomerFormDialog(AppDialog):
                 self.all_invoices[i] = refreshed
                 break
         self._populate_invoices_table()
+
+    # -----------------------------------------------------------------
+    # Tickets (read-only history)
+    # -----------------------------------------------------------------
+    def _build_tickets_section(self) -> QWidget:
+        """
+        Builds the read-only-at-a-glance ticket-history table for this
+        customer, populated from self.all_tickets filtered by
+        customer_id. Double-clicking a row opens TicketSummaryDialog,
+        a simple read-only view -- not the full TicketFormDialog,
+        which would need a much larger set of reference data this
+        window doesn't load, and this history view has no real need
+        for in-place editing anyway.
+
+        Returns:
+            The assembled tickets container widget.
+        """
+        tickets_label = QLabel("Tickets")
+        tickets_label.setObjectName("subtitle")
+
+        self.tickets_table = QTableWidget()
+        self.tickets_table.setColumnCount(len(TICKET_COLUMN_HEADERS))
+        self.tickets_table.setHorizontalHeaderLabels(TICKET_COLUMN_HEADERS)
+        self.tickets_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.tickets_table.verticalHeader().setVisible(False)
+        self.tickets_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.tickets_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.tickets_table.setFixedHeight(140)
+        self.tickets_table.doubleClicked.connect(self._on_ticket_row_double_clicked)
+
+        self._populate_tickets_table()
+
+        container_layout = QVBoxLayout()
+        container_layout.setContentsMargins(0, 0, 0, 0)
+        container_layout.addWidget(tickets_label)
+        container_layout.addWidget(self.tickets_table)
+        container = QWidget()
+        container.setLayout(container_layout)
+        return container
+
+    def _status_name_for(self, status_id: int) -> str:
+        """
+        Returns:
+            The readable name for a given ticket status_id, or the raw
+            id itself as a string if all_statuses came back empty
+            (e.g. the logged-in user isn't a superuser) -- still
+            better than showing nothing at all.
+        """
+        status = next((s for s in self.all_statuses if s["id"] == status_id), None)
+        return status["name"] if status else str(status_id)
+
+    def _populate_tickets_table(self):
+        """Fills the tickets table with this customer's tickets, newest first."""
+        customer_id = self.customer["id"]
+        my_tickets = [t for t in self.all_tickets if t.get("customer_id") == customer_id]
+        my_tickets.sort(key=lambda t: t.get("created_at") or "", reverse=True)
+
+        self.tickets_table.setRowCount(len(my_tickets))
+        for row, ticket in enumerate(my_tickets):
+            values = [
+                f"#{ticket['id']}",
+                ticket.get("title", ""),
+                self._status_name_for(ticket["status_id"]),
+                (ticket.get("created_at") or "")[:10] or "-",
+            ]
+            for col, value in enumerate(values):
+                item = QTableWidgetItem(value)
+                item.setData(Qt.ItemDataRole.UserRole, ticket)
+                self.tickets_table.setItem(row, col, item)
+
+    def _on_ticket_row_double_clicked(self):
+        """Opens TicketSummaryDialog (read-only) for the double-clicked ticket."""
+        selected_items = self.tickets_table.selectedItems()
+        if not selected_items:
+            return
+
+        ticket = selected_items[0].data(Qt.ItemDataRole.UserRole)
+        device = next((d for d in self.all_devices if d["id"] == ticket.get("device_id")), None)
+        status_name = self._status_name_for(ticket["status_id"])
+
+        dialog = TicketSummaryDialog(ticket, status_name, device, parent=self)
+        dialog.exec()
 
     # -----------------------------------------------------------------
     # Prefill (edit mode)

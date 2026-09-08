@@ -86,6 +86,25 @@ def show_login():
         QApplication.instance()._current_top_level_window = dashboard
         entry_window.close()
 
+    def _on_needs_login(email: str):
+        """
+        FirstRunAdminWindow's own recovery path -- either the account
+        was genuinely created but the automatic login right after it
+        failed, or the person manually chose "Log in instead". Either
+        way, a real account may already exist, so hand off to a real,
+        pre-filled Login window rather than leaving them stuck on a
+        screen that would now only ever fail if they tried "Create
+        Account" again.
+        """
+        debug_log("show_login: First Run Admin handed off to a normal Login window")
+        nonlocal entry_window
+        old_window = entry_window
+        entry_window = LoginWindow(initial_email=email or None)
+        entry_window.login_succeeded.connect(_on_login_succeeded)
+        entry_window.show()
+        QApplication.instance()._current_top_level_window = entry_window
+        old_window.close()
+
     try:
         any_users_exist = api_client.get_first_run_status()
     except ApiError:
@@ -96,6 +115,7 @@ def show_login():
         debug_log("show_login: Login window shown")
     else:
         entry_window = FirstRunAdminWindow()
+        entry_window.needs_login.connect(_on_needs_login)
         debug_log("show_login: no accounts exist yet, First Run Admin window shown")
 
     entry_window.login_succeeded.connect(_on_login_succeeded)

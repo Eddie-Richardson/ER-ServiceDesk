@@ -268,3 +268,24 @@ def test_notify_job_creates_outbound_note(db, monkeypatch):
     assert notes[0].customer_id == deps["customer"].id
     assert "USPS" in notes[0].content
     assert sent["to_address"] == deps["customer"].email
+
+
+def test_ticket_part_create_and_update_appear_in_audit_log(db):
+    """Regression test: ticket_part_service previously had zero AuditLog coverage at all -- no TicketPart creation or edit ever showed up in the Audit Log."""
+    from app.crud.audit_log import crud_audit_log
+
+    deps = make_ticket_dependencies(db)
+    ticket = _make_ticket(db, deps)
+    part = _make_part(db)
+    user = make_plain_user(db)
+
+    tp = ticket_part_service.create(db, TicketPartCreate(
+        ticket_id=ticket.id, part_id=part.id, status="needed",
+    ), user.id)
+
+    ticket_part_service.update(db, tp.id, TicketPartUpdate(carrier="USPS"), user.id)
+
+    entries = crud_audit_log.get_multi(db, limit=500)
+    actions = [e.action for e in entries if e.entity_type == "ticket" and e.entity_id == ticket.id]
+    assert "ticket_part_created" in actions
+    assert "ticket_part_updated" in actions

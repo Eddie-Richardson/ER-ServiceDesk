@@ -1142,6 +1142,26 @@ def test_assets_crud(client, agent_headers):
     assert delete_resp.status_code in (200, 204)
 
 
+def test_asset_create_and_update_appear_in_audit_log(client, superuser_headers):
+    """Regression test: asset_service previously had zero AuditLog coverage at all -- no asset creation or edit ever showed up in the Audit Log."""
+    create_resp = client.post(
+        "/inventory/assets/",
+        json={"name": "Soldering Station", "serial_number": "SS-AUDIT-001"},
+        headers=superuser_headers,
+    )
+    assert create_resp.status_code == 200, create_resp.text
+    asset_id = create_resp.json()["asset"]["id"]
+
+    update_resp = client.put(f"/inventory/assets/{asset_id}", json={"condition": "good"}, headers=superuser_headers)
+    assert update_resp.status_code == 200, update_resp.text
+
+    audit_resp = client.get("/audit_logs/", headers=superuser_headers)
+    assert audit_resp.status_code == 200
+    actions = [entry["action"] for entry in audit_resp.json() if entry["entity_type"] == "asset" and entry["entity_id"] == asset_id]
+    assert "asset_created" in actions
+    assert "asset_updated" in actions
+
+
 def test_parts_crud(client, agent_headers, db):
     from tests.factories import make_location
     location = make_location(db)
@@ -1151,3 +1171,26 @@ def test_parts_crud(client, agent_headers, db):
         {"reorder_threshold": 3},
         update_check_field="reorder_threshold",
     )
+
+
+def test_part_create_and_update_appear_in_audit_log(client, superuser_headers, db):
+    """Regression test: part_service previously had zero AuditLog coverage at all -- no part creation or edit ever showed up in the Audit Log."""
+    from tests.factories import make_location
+    location = make_location(db)
+
+    create_resp = client.post(
+        "/inventory/parts",
+        json={"name": "SATA Cable", "sku": "SATA-AUDIT-001", "locations": [{"location_id": location.id, "quantity": 10}]},
+        headers=superuser_headers,
+    )
+    assert create_resp.status_code == 200, create_resp.text
+    part_id = create_resp.json()["id"]
+
+    update_resp = client.put(f"/inventory/parts/{part_id}", json={"reorder_threshold": 5}, headers=superuser_headers)
+    assert update_resp.status_code == 200, update_resp.text
+
+    audit_resp = client.get("/audit_logs/", headers=superuser_headers)
+    assert audit_resp.status_code == 200
+    actions = [entry["action"] for entry in audit_resp.json() if entry["entity_type"] == "part" and entry["entity_id"] == part_id]
+    assert "part_created" in actions
+    assert "part_updated" in actions

@@ -14,7 +14,15 @@ import sys
 from urllib.parse import urlparse
 
 import psycopg2
+from dotenv import load_dotenv
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+
+# Loads .env directly (see conftest.py's own identical comment for why
+# this is needed at all -- os.environ.get() below never reads .env
+# files on its own). Doesn't override a real value the shell already
+# has set, only fills in what's missing.
+load_dotenv()
+
 
 
 def ensure_test_db():

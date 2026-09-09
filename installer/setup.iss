@@ -2322,13 +2322,24 @@ end;
   things declared in the Files, Dirs, or Registry sections; anything
   written imperatively via Pascal code (SaveStringToFile/
   ForceDirectories/RegWriteStringValue), or anything created by an
-  external script this installer ran (the Hyper-V VM, the WSL2 distro),
-  has to be torn down explicitly here instead.
+  external script this installer ran (the Hyper-V VM, the WSL2 distro,
+  or containers/volumes left in Docker Desktop when that was the real
+  Local-mode backend), has to be torn down explicitly here instead.
+
+  Split across two uninstall steps rather than one, since one of these
+  cases (Docker Desktop) genuinely needs docker-compose.yml to still
+  exist at the install directory, while the others need Inno's own
+  file removal to have already happened first for their DelTree calls
+  to make sense -- see each block's own comment for exactly why.
 
   Confirmed as a real, genuine gap before this was added -- caused an
   actual migration failure on a real dev machine, where an old
   install's leftover Docker/WSL2/Hyper-V resources collided with a
-  fresh one.
+  fresh one. The Docker Desktop case specifically was found the same
+  way, later -- confirmed on a real machine that had used Docker
+  Desktop as Local mode's backend, where a reinstall's fresh
+  POSTGRES_PASSWORD didn't match what was already baked into an old,
+  never-cleaned-up Postgres volume from a previous install.
 
   The registry cleanup is deliberately scoped to just the 'deployment'
   subkey specifically -- not the whole ER-ServiceDesk registry tree,
@@ -2342,6 +2353,44 @@ procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   ResultCode: Integer;
 begin
+  if CurUninstallStep = usUninstall then
+  begin
+    { Docker Desktop case -- one of RunDockerSetup's own three real
+      backend cases for Local mode (see that procedure's comment):
+      a machine that already has Docker Desktop working via its own
+      named pipe, no DOCKER_HOST override needed at all. The VM/WSL2
+      teardown below already wipes out every container and volume for
+      the other two cases (its own dedicated WSL2 engine, or the
+      Server VM), since those live inside a virtual disk that gets
+      deleted wholesale -- but nothing tears down this app's own
+      containers/volumes when Docker Desktop was the real backend
+      instead, since they live in Docker Desktop's own, separate
+      storage, untouched by any of that.
+
+      Explicitly scoped to only this app's own compose project via -p
+      (matching docker-compose.yml's own `name: er-servicedesk-app`),
+      never a blanket cleanup -- this must never touch any other,
+      unrelated container/volume Docker Desktop happens to be running
+      for something else entirely. Must run here, at usUninstall
+      (before Inno's own file removal), not usPostUninstall like the
+      VM/WSL2 steps below -- docker-compose.yml itself needs to still
+      exist at the install directory for `-f` to find it; by
+      usPostUninstall, Inno's own [Files]-section cleanup has already
+      deleted it.
+
+      Runs unconditionally, with a plain docker-compose (no
+      DOCKER_HOST override) -- Docker Desktop's own default named-pipe
+      connection is what Windows already points at without any
+      override. On a Local install that used its own dedicated WSL2
+      engine instead, or a Server install, this simply fails to
+      connect to a nonexistent project via the default pipe and
+      harmlessly no-ops -- exit code deliberately ignored, matching
+      the same philosophy as the WSL2 unregister call below. }
+    Exec('docker-compose.exe',
+      '-p er-servicedesk-app -f "' + ExpandConstant('{app}\docker-compose.yml') + '" down -v --remove-orphans',
+      ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  end;
+
   if CurUninstallStep = usPostUninstall then
   begin
     { Server mode's Hyper-V VM, its dedicated internal switch, and the

@@ -12,7 +12,17 @@ dropped and recreated for every test run.
 
 import os
 import pytest
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
+
+# Loads .env directly (not already covered by app.core.config.Settings,
+# which only does this for the app's own settings) so TEST_DATABASE_URL
+# below is read from .env the same way every other value already is,
+# rather than requiring a separately, manually-set shell environment
+# variable every session. Doesn't override a real value the shell
+# already has set (e.g. in CI), only fills in what's missing.
+load_dotenv()
+
 from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
 

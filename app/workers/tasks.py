@@ -164,7 +164,17 @@ def poll_inbound_email() -> dict:
     db = SessionLocal()
     job = background_job_service.start(db, "poll_inbound_email")
     try:
-        for inbound in fetch_unread_emails(db):
+        def handle(inbound):
+            """
+            Called once per fetched email, still within
+            fetch_unread_emails' own IMAP connection. Returns True only
+            for a genuinely, successfully matched email -- that's what
+            tells fetch_unread_emails to actually mark this specific
+            message as read; everything else stays unread in the real
+            inbox for a tech to find and triage manually.
+            """
+            nonlocal processed, unmatched
+
             if inbound.ticket_id is None:
                 logger.warning(
                     "Unmatched inbound email from %s (subject=%r): no "
@@ -173,7 +183,7 @@ def poll_inbound_email() -> dict:
                     inbound.from_address, inbound.subject,
                 )
                 unmatched += 1
-                continue
+                return False
 
             ticket = crud_ticket.get(db, inbound.ticket_id)
             if not ticket:
@@ -183,7 +193,7 @@ def poll_inbound_email() -> dict:
                     inbound.from_address, inbound.ticket_id,
                 )
                 unmatched += 1
-                continue
+                return False
 
             customer = crud_customer.get_by_email(db, inbound.from_address)
             if not customer:
@@ -194,7 +204,7 @@ def poll_inbound_email() -> dict:
                     inbound.ticket_id, inbound.from_address,
                 )
                 unmatched += 1
-                continue
+                return False
 
             crud_note.create(db, NoteCreate(
                 ticket_id=ticket.id,
@@ -207,6 +217,9 @@ def poll_inbound_email() -> dict:
                 details=f"Reply from {customer.first_name} {customer.last_name} ({inbound.from_address}) auto-matched to this ticket",
             )
             processed += 1
+            return True
+
+        fetch_unread_emails(db, on_processed=handle)
     except Exception as e:
         background_job_service.fail(db, job.id, str(e))
         raise

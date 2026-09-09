@@ -165,10 +165,26 @@ def _extract_plain_body(msg: email_lib.message.Message) -> str:
         return payload.decode(charset, errors="replace") if payload else ""
 
 
-def fetch_unread_emails(db: Session) -> list[InboundEmail]:
+def fetch_unread_emails(db: Session, on_processed=None) -> list[InboundEmail]:
     """
-    Connect to the inbox via IMAP, fetch all unread messages, and
-    mark them as read.
+    Connect to the inbox via IMAP and fetch every unread message.
+
+    Uses BODY.PEEK[] rather than RFC822 to fetch each message --
+    unlike RFC822, PEEK genuinely doesn't set the \\Seen flag as a
+    side effect of merely reading the content, so a message stays
+    unread until this function is explicitly told to mark it seen.
+
+    Args:
+        on_processed: Optional callback, called once per message
+            immediately after it's parsed, as on_processed(inbound) ->
+            bool. Return True to mark that specific message as read
+            (it was genuinely matched and handled); return False (or
+            omit the callback entirely) to leave it unread for manual
+            triage. Called within this same IMAP connection/session,
+            since message sequence numbers from SEARCH are only
+            guaranteed valid for the connection that issued it -- a
+            second, separate connection later isn't safe to reuse them
+            against.
 
     Intended to be called from an RQ job on a schedule (polling), not
     directly from a request handler.
@@ -204,7 +220,7 @@ def fetch_unread_emails(db: Session) -> list[InboundEmail]:
 
         message_ids = data[0].split()
         for msg_id in message_ids:
-            status, msg_data = imap.fetch(msg_id, "(RFC822)")
+            status, msg_data = imap.fetch(msg_id, "(BODY.PEEK[])")
             if status != "OK" or not msg_data or msg_data[0] is None:
                 continue
 
@@ -216,6 +232,10 @@ def fetch_unread_emails(db: Session) -> list[InboundEmail]:
             body = _extract_plain_body(parsed)
             ticket_id = extract_ticket_id(subject)
 
-            results.append(InboundEmail(ticket_id, from_address, subject, body))
+            inbound = InboundEmail(ticket_id, from_address, subject, body)
+            results.append(inbound)
+
+            if on_processed is not None and on_processed(inbound):
+                imap.store(msg_id, "+FLAGS", "\\Seen")
 
     return results

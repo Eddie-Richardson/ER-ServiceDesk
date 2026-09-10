@@ -51,10 +51,7 @@ class QuoteService:
 
     def create(self, db: Session, obj_in: QuoteCreate, current_user_id: int):
         """Starts with zero line items and zero totals -- add_line_item() builds it up from there."""
-        new_quote = Quote(**obj_in.model_dump(), quote_number=self._next_quote_number(db))
-        db.add(new_quote)
-        db.commit()
-        db.refresh(new_quote)
+        new_quote = crud_quote.create(db, obj_in, quote_number=self._next_quote_number(db))
         self._snapshot_discount_and_tax_names(db, new_quote)
 
         audit_log_service.log(

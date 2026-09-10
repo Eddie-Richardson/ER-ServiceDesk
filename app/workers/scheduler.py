@@ -25,12 +25,15 @@ To run the full stack locally, you need three things running:
 from redis import Redis
 from rq_scheduler import Scheduler
 from datetime import datetime, timezone
+import logging
 
 from app.core.config import settings
 from app.core.logging_config import setup_logging
 from app.db.session import SessionLocal
 from app.services.system_setting_service import system_setting_service
 from app.workers.tasks import poll_inbound_email, archive_inactive_customers
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_INBOUND_EMAIL_POLL_INTERVAL_SECONDS = 60
 ARCHIVE_INACTIVE_CUSTOMERS_INTERVAL_SECONDS = 86400  # once daily -- not time-sensitive; the threshold itself (how many months of inactivity) is the part that's configurable via SystemSetting, read fresh by the task on every run
@@ -72,10 +75,11 @@ if __name__ == "__main__":
         repeat=None,  # None = repeat forever
     )
 
-    print(
-        f"Scheduled poll_inbound_email to run every "
-        f"{poll_interval_seconds}s. Make sure `rqscheduler` "
-        f"and the worker (app.workers.worker) are also running."
+    logger.info(
+        "Scheduled poll_inbound_email to run every "
+        "%ss. Make sure `rqscheduler` and the worker "
+        "(app.workers.worker) are also running.",
+        poll_interval_seconds,
     )
 
     for job in scheduler.get_jobs():
@@ -89,7 +93,7 @@ if __name__ == "__main__":
         repeat=None,
     )
 
-    print(
-        f"Scheduled archive_inactive_customers to run every "
-        f"{ARCHIVE_INACTIVE_CUSTOMERS_INTERVAL_SECONDS}s."
+    logger.info(
+        "Scheduled archive_inactive_customers to run every %ss.",
+        ARCHIVE_INACTIVE_CUSTOMERS_INTERVAL_SECONDS,
     )

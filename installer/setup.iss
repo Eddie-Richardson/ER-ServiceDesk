@@ -948,7 +948,8 @@ var
   LogPath: String;
   Timestamp: String;
 begin
-  LogPath := ExpandConstant('{autopf}\ER-ServiceDesk-Install-Log.txt');
+  ForceDirectories(ExpandConstant('{autopf}\ER-ServiceDesk\logs\installer'));
+  LogPath := ExpandConstant('{autopf}\ER-ServiceDesk\logs\installer\ER-ServiceDesk-Install-Log.txt');
   Timestamp := GetDateTimeString('yyyy-mm-dd hh:nn:ss', '-', ':');
   SaveStringToFile(LogPath, Timestamp + ' - ' + Message + #13#10, True);
 end;
@@ -956,18 +957,24 @@ end;
 { One log, covering the entire install from true start to true finish --
   Hyper-V/WSL setup, VM creation, Docker startup, all of it, in a
   single file with one continuous clock, instead of scattered across
-  separate per-script logs. ForceDirectories guarantees the app folder
+  separate per-script logs. ForceDirectories guarantees the folder
   exists even though this gets called before Inno's own file-copy step
   has run. Deliberately defined here, right after LogStep, rather than
   its own original spot right before PrepareToInstall -- moved earlier
   so it's defined before CreateServerVM, which now calls it too,
   avoiding any risk around whether Inno's specific Pascal Script
   dialect tolerates forward references the way standard Pascal
-  requires an explicit forward declaration for. }
+  requires an explicit forward declaration for.
+
+  Lives under Program Files, not ProgramData like the app's own
+  runtime logs (see app_paths.py / logging_config.py) -- unlike those,
+  this only ever gets written once, while the installer itself is
+  already genuinely elevated, so the non-admin-user concern that
+  drove the app's own logs to ProgramData never applies here. }
 procedure LogTiming(const StepLabel: String);
 begin
-  ForceDirectories(ExpandConstant('{app}'));
-  SaveStringToFile(ExpandConstant('{app}\install_timing_log.txt'),
+  ForceDirectories(ExpandConstant('{autopf}\ER-ServiceDesk\logs\installer'));
+  SaveStringToFile(ExpandConstant('{autopf}\ER-ServiceDesk\logs\installer\install_timing_log.txt'),
     GetDateTimeString('yyyy-mm-dd hh:nn:ss', #0, #0) + ' - ' + StepLabel + #13#10, True);
 end;
 
@@ -1075,6 +1082,26 @@ begin
   begin
     ForceDirectories(BackupDir + '\Database-Backups');
     RunCommandQuiet('icacls "' + BackupDir + '\Database-Backups" /grant "' + GetEnv('USERNAME') + '":(OI)(CI)M', ExpandConstant('{tmp}'));
+  end;
+
+  { The shared log folder every part of this app writes to -- backend
+    (via Docker bind mount, Local/Server modes) and the desktop app
+    itself (Local/Client modes). Granted to the built-in Users group,
+    not GetEnv('USERNAME') like the backup folder above -- unlike a
+    database backup (a Local-only, single-admin-owner action), Client
+    mode's own real scenario (see app_paths.py) is specifically a
+    DIFFERENT, non-admin employee logging into this same PC later, so
+    granting only the installing user's own account would leave that
+    later employee's session unable to write a log file at all.
+    Server mode gets no desktop app installed at all, so it never
+    creates or needs this locally -- its own backend logs are written
+    by Docker directly, whose own privileged service account isn't
+    subject to the current, logged-in user's own NTFS permissions the
+    way this employee-facing folder grant is. }
+  if IsLocalMode() or IsClientMode() then
+  begin
+    ForceDirectories(ExpandConstant('{commonappdata}\ER-ServiceDesk\logs'));
+    RunCommandQuiet('icacls "' + ExpandConstant('{commonappdata}\ER-ServiceDesk\logs') + '" /grant "Users":(OI)(CI)M', ExpandConstant('{tmp}'));
   end;
 end;
 
@@ -1856,9 +1883,9 @@ begin
     true, total install time whenever a reboot genuinely happens.
     RestartedFromReboot is already set correctly in InitializeSetup,
     the same official pattern this file already cites. }
-  ForceDirectories(ExpandConstant('{app}'));
+  ForceDirectories(ExpandConstant('{autopf}\ER-ServiceDesk\logs\installer'));
   if not RestartedFromReboot then
-    SaveStringToFile(ExpandConstant('{app}\install_timing_log.txt'), '', False)
+    SaveStringToFile(ExpandConstant('{autopf}\ER-ServiceDesk\logs\installer\install_timing_log.txt'), '', False)
   else
     LogTiming('=== resumed after reboot ===');
   LogTiming('PrepareToInstall started');

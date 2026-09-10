@@ -65,3 +65,46 @@ def test_created_user_password_is_actually_hashed_in_db(client, superuser_header
     assert stored is not None
     assert stored.hashed_password != "plaintext-password-123"
     assert stored.hashed_password.startswith("$2b$")  # bcrypt hash prefix
+
+
+def test_hash_password_rejects_a_password_over_the_byte_limit():
+    """72 bytes is bcrypt's own real limit -- a genuinely too-long password is rejected with a specific, clear message, not silently truncated."""
+    import pytest
+    from app.core.security import hash_password
+    too_long = "Aa1!" + "x" * 70  # over 72 bytes, satisfies every other rule
+    with pytest.raises(ValueError, match="72 bytes"):
+        hash_password(too_long)
+
+
+def test_hash_password_rejects_a_password_missing_an_uppercase_letter():
+    import pytest
+    from app.core.security import hash_password
+    with pytest.raises(ValueError, match="uppercase"):
+        hash_password("alllowercase1!")
+
+
+def test_hash_password_rejects_a_password_missing_a_lowercase_letter():
+    import pytest
+    from app.core.security import hash_password
+    with pytest.raises(ValueError, match="lowercase"):
+        hash_password("ALLUPPERCASE1!")
+
+
+def test_hash_password_rejects_a_password_missing_a_digit():
+    import pytest
+    from app.core.security import hash_password
+    with pytest.raises(ValueError, match="number"):
+        hash_password("NoDigitsHere!")
+
+
+def test_hash_password_rejects_a_password_missing_a_special_character():
+    import pytest
+    from app.core.security import hash_password
+    with pytest.raises(ValueError, match="special character"):
+        hash_password("NoSpecial1Here")
+
+
+def test_hash_password_accepts_a_password_meeting_every_real_rule():
+    from app.core.security import hash_password, verify_password
+    result = hash_password("ValidPassword1!")
+    assert verify_password("ValidPassword1!", result)

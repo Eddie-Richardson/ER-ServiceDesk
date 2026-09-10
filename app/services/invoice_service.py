@@ -44,10 +44,7 @@ class InvoiceService:
 
     def create(self, db: Session, obj_in: InvoiceCreate, current_user_id: int):
         """Creates directly (not via quote conversion -- see quote_service.convert_to_invoice() for that path). Starts with zero line items and zero totals."""
-        new_invoice = Invoice(**obj_in.model_dump(), invoice_number=self._next_invoice_number(db))
-        db.add(new_invoice)
-        db.commit()
-        db.refresh(new_invoice)
+        new_invoice = crud_invoice.create(db, obj_in, invoice_number=self._next_invoice_number(db))
         self._snapshot_discount_and_tax_names(db, new_invoice)
 
         audit_log_service.log(

@@ -23,8 +23,14 @@ class QuoteCRUD:
     def get_by_ticket(self, db: Session, ticket_id: int):
         return db.query(Quote).filter(Quote.ticket_id == ticket_id).all()
 
-    def create(self, db: Session, obj_in: QuoteCreate) -> Quote:
-        obj = Quote(**obj_in.model_dump())
+    def create(self, db: Session, obj_in: QuoteCreate, quote_number: int) -> Quote:
+        """
+        quote_number is a required, separate argument rather than a
+        field on QuoteCreate -- it's server-computed
+        (quote_service._next_quote_number()), never something a client
+        submits directly.
+        """
+        obj = Quote(**obj_in.model_dump(), quote_number=quote_number)
         db.add(obj)
         db.commit()
         db.refresh(obj)

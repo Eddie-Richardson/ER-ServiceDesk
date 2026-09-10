@@ -17,12 +17,15 @@ irreversible -- this worker only ever reports what it found.
 import os
 import subprocess
 import time
+import logging
 from datetime import datetime
 
 import requests
 from PySide6.QtCore import QObject, Signal
 
 from desktop.app_paths import get_compose_dir, read_env_value
+
+logger = logging.getLogger(__name__)
 
 
 class MigrateToServerWorker(QObject):
@@ -105,31 +108,21 @@ class MigrateToServerWorker(QObject):
             The path to the saved dump file, or None on failure (in
             which case `finished` has already been emitted).
         """
-        # Kept permanently, not a temporary debugging aid -- if a
-        # migration has issues later, these logs can be pulled
-        # directly from the machine rather than needing to ship a
-        # special build with logging added first.
-        debug_log_path = os.path.join(os.environ.get("TEMP", "."), "er-servicedesk-migration-debug-log.txt")
-
-        def debug_log(message: str):
-            with open(debug_log_path, "a", encoding="utf-8") as log_file:
-                log_file.write(f"{datetime.now().isoformat()} - {message}\n")
-
-        debug_log(f"_create_dump starting, compose_dir={self.compose_dir}")
+        logger.info("_create_dump starting, compose_dir=%s", self.compose_dir)
 
         dump_path = os.path.join(os.environ.get("TEMP", "."), "er-servicedesk-migration.dump")
         stderr_path = os.path.join(os.environ.get("TEMP", "."), "er-servicedesk-migration-stderr.txt")
         container_name = "er-servicedesk-app-postgres"
         container_dump_path = "/tmp/er-servicedesk-migration.dump"
-        debug_log(f"dump_path={dump_path}, container_dump_path={container_dump_path}")
+        logger.info("dump_path=%s, container_dump_path=%s", dump_path, container_dump_path)
 
         dump_cmd = [
             "docker-compose", "exec", "-T", "db",
             "pg_dump", "-U", "postgres", "-Fc", "-f", container_dump_path, "erservicedesk",
         ]
         cp_cmd = ["docker", "cp", f"{container_name}:{container_dump_path}", dump_path]
-        debug_log(f"dump_cmd: {dump_cmd!r}")
-        debug_log(f"cp_cmd: {cp_cmd!r}")
+        logger.info("dump_cmd: %r", dump_cmd)
+        logger.info("cp_cmd: %r", cp_cmd)
 
         try:
             start_time = time.monotonic()
@@ -143,19 +136,19 @@ class MigrateToServerWorker(QObject):
                     timeout=300,
                 )
         except FileNotFoundError:
-            debug_log("FileNotFoundError raised -- docker-compose not found on PATH")
+            logger.error("FileNotFoundError raised -- docker-compose not found on PATH")
             self.finished.emit(False, "Could not create a database backup -- Docker was not found on this machine.")
             return None
         except subprocess.TimeoutExpired:
-            debug_log("TimeoutExpired raised on pg_dump step")
+            logger.error("TimeoutExpired raised on pg_dump step")
             self.finished.emit(False, "Creating the database backup took too long (over 5 minutes). Please try again.")
             return None
 
         with open(stderr_path, "rb") as f:
             stderr_content = f.read()
-        debug_log(f"pg_dump step completed: returncode={dump_result.returncode}")
+        logger.info("pg_dump step completed: returncode=%s", dump_result.returncode)
         if stderr_content:
-            debug_log(f"pg_dump stderr content: {stderr_content.decode(errors='replace')[:2000]}")
+            logger.warning("pg_dump stderr content: %s", stderr_content.decode(errors='replace')[:2000])
 
         if dump_result.returncode != 0:
             self.finished.emit(False, f"Database backup failed:\n\n{stderr_content.decode(errors='replace')}")
@@ -179,29 +172,29 @@ class MigrateToServerWorker(QObject):
                     timeout=60,
                 )
             except subprocess.TimeoutExpired:
-                debug_log("TimeoutExpired raised on docker cp step")
+                logger.error("TimeoutExpired raised on docker cp step")
                 self.finished.emit(False, "Retrieving the database backup took too long. Please try again.")
                 return None
 
             if cp_result.returncode == 0:
                 break
-            debug_log(f"docker cp attempt {attempt + 1} failed (returncode={cp_result.returncode}), retrying after a short pause...")
+            logger.warning("docker cp attempt %s failed (returncode=%s), retrying after a short pause...", attempt + 1, cp_result.returncode)
             time.sleep(2)
 
         elapsed = time.monotonic() - start_time
         dump_size = os.path.getsize(dump_path) if os.path.exists(dump_path) else -1
-        debug_log(
-            f"docker cp step completed: returncode={cp_result.returncode}, "
-            f"dump_size_on_disk={dump_size}, total elapsed={elapsed:.3f} seconds"
+        logger.info(
+            "docker cp step completed: returncode=%s, dump_size_on_disk=%s, total elapsed=%.3f seconds",
+            cp_result.returncode, dump_size, elapsed,
         )
         if cp_result.stderr:
-            debug_log(f"docker cp stderr content: {cp_result.stderr.decode(errors='replace')[:2000]}")
+            logger.warning("docker cp stderr content: %s", cp_result.stderr.decode(errors='replace')[:2000])
 
         if cp_result.returncode != 0:
             self.finished.emit(False, f"Database backup failed:\n\n{cp_result.stderr.decode(errors='replace')}")
             return None
 
-        debug_log(f"Dump retrieved successfully via docker cp, {dump_size} bytes")
+        logger.info("Dump retrieved successfully via docker cp, %s bytes", dump_size)
         return dump_path
 
 

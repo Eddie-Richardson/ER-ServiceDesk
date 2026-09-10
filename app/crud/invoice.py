@@ -23,8 +23,14 @@ class InvoiceCRUD:
     def get_by_ticket(self, db: Session, ticket_id: int):
         return db.query(Invoice).filter(Invoice.ticket_id == ticket_id).all()
 
-    def create(self, db: Session, obj_in: InvoiceCreate) -> Invoice:
-        obj = Invoice(**obj_in.model_dump())
+    def create(self, db: Session, obj_in: InvoiceCreate, invoice_number: int) -> Invoice:
+        """
+        invoice_number is a required, separate argument rather than a
+        field on InvoiceCreate -- it's server-computed
+        (invoice_service._next_invoice_number()), never something a
+        client submits directly.
+        """
+        obj = Invoice(**obj_in.model_dump(), invoice_number=invoice_number)
         db.add(obj)
         db.commit()
         db.refresh(obj)

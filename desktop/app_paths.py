@@ -156,19 +156,18 @@ def get_icon_path() -> str:
 
 def debug_log(message: str):
     """
-    Appends a timestamped line to a small diagnostic log file in
-    %TEMP%, for tracing down issues that are hard to reproduce without
-    real customer data or hardware. Kept permanently, not a temporary
-    debugging aid -- same reasoning as main.py's own crash log: there's
-    no way to ask a remote customer to reproduce an issue with logging
-    added after the fact, so it's better to already be there.
+    Logs a diagnostic message via the app's shared logging system (see
+    logging_config.py) -- for tracing down issues that are hard to
+    reproduce without real customer data or hardware. Kept permanently,
+    not a temporary debugging aid -- there's no way to ask a remote
+    customer to reproduce an issue with logging added after the fact,
+    so it's better to already be there.
 
-    Never raises -- a failure to write a debug log line should never
-    be the thing that crashes the app.
+    Never raises -- a failure to write a log line should never be the
+    thing that crashes the app.
     """
     try:
-        log_path = os.path.join(os.environ.get("TEMP", "."), "er-servicedesk-debug-log.txt")
-        with open(log_path, "a", encoding="utf-8") as f:
-            f.write(f"[{datetime.now().isoformat(timespec='seconds')}] {message}\n")
+        import logging
+        logging.getLogger("desktop.debug").info(message)
     except Exception:
         pass

@@ -187,3 +187,64 @@ def make_ticket_dependencies(db):
         "type": ttype,
         "status": status,
     }
+
+
+def assert_crud_lifecycle(client, headers, url, create_payload, update_payload, update_check_field=None, read_headers=None):
+    """
+    Drive a full CRUD lifecycle against a resource's routes and assert
+    each step behaves correctly.
+
+    Args:
+        client: The TestClient fixture.
+        headers: Auth header dict for a user allowed to create/update/delete.
+        url: The resource's base URL, e.g. "/roles" (no trailing slash).
+        create_payload: JSON body for the POST request.
+        update_payload: JSON body for the PUT request.
+        update_check_field: If given, asserts response[field] == update_payload[field]
+            after the update -- confirms the update actually took effect,
+            not just that the request returned 200.
+        read_headers: Auth header dict for the list/get steps, if
+            different from headers -- e.g. a resource where GET only
+            requires billing.manage but writes require superuser. Uses
+            headers for reads too if not given.
+
+    Returns:
+        The created record's response JSON, in case a test needs to
+        inspect anything beyond what this helper already checks.
+    """
+    read_headers = read_headers if read_headers is not None else headers
+
+    # Create
+    create_resp = client.post(f"{url}/", json=create_payload, headers=headers)
+    assert create_resp.status_code == 200, create_resp.text
+    created = create_resp.json()
+    assert "id" in created
+    record_id = created["id"]
+
+    # List includes it
+    list_resp = client.get(f"{url}/", headers=read_headers)
+    assert list_resp.status_code == 200
+    assert any(item["id"] == record_id for item in list_resp.json())
+
+    # Get by id
+    get_resp = client.get(f"{url}/{record_id}", headers=read_headers)
+    assert get_resp.status_code == 200
+    assert get_resp.json()["id"] == record_id
+
+    # Update
+    update_resp = client.put(f"{url}/{record_id}", json=update_payload, headers=headers)
+    assert update_resp.status_code == 200, update_resp.text
+    if update_check_field:
+        assert update_resp.json()[update_check_field] == update_payload[update_check_field]
+
+    # Delete
+    delete_resp = client.delete(f"{url}/{record_id}", headers=headers)
+    assert delete_resp.status_code in (200, 204)
+
+    return created
+
+
+def assert_requires_auth(client, url):
+    """A route with no Authorization header should be rejected, not silently allowed."""
+    resp = client.get(f"{url}/")
+    assert resp.status_code == 401

@@ -60,6 +60,21 @@ services:
     ports:
       - "8000:8000"        # Expose API on localhost:8000
     env_file: .env         # Load environment variables
+    volumes:
+      - C:\ProgramData\ER-ServiceDesk\logs:/app/logs   # Mount logs out to the
+                            # host -- without this, logs/backend/app-{date}.log
+                            # only ever existed inside the container's own
+                            # filesystem: unreadable from the host without
+                            # exec-ing in, and wiped entirely if the container
+                            # is ever recreated (not just restarted), defeating
+                            # the point of the 30-day rotating history.
+                            # ProgramData specifically (not Program Files) --
+                            # keeps every log source (this backend, and the
+                            # desktop app -- see app_paths.py) under one
+                            # consistent, shared root, even though the
+                            # backend itself always runs in an admin context
+                            # (Local/Server) and could have used Program
+                            # Files safely on its own.
     depends_on:
       db:
         condition: service_healthy  # Waits for Postgres to actually
@@ -121,6 +136,11 @@ services:
     restart: unless-stopped
     command: ["python", "-m", "app.workers.worker"]  # Worker entrypoint -- module form, matching worker.py's own documented usage. A real crash traced to a genuine bug: running it as a direct script instead put app/workers/ at the front of the import path, letting this project's own app/workers/queue.py shadow Python's stdlib queue module, breaking redis's own internal import of it.
     env_file: .env
+    volumes:
+      - C:\ProgramData\ER-ServiceDesk\logs:/app/logs   # Same log directory
+                            # as the api service -- worker.py also calls
+                            # setup_logging() and writes to the same
+                            # logs/backend/app-{date}.log.
     depends_on:
       - redis
       - api
@@ -144,6 +164,11 @@ services:
     restart: unless-stopped
     command: ["sh", "-c", "python -m app.workers.scheduler && rqscheduler --url redis://redis:6379/0"]
     env_file: .env
+    volumes:
+      - C:\ProgramData\ER-ServiceDesk\logs:/app/logs   # Same log directory
+                            # as the api/worker services -- scheduler.py
+                            # also calls setup_logging() and writes to the
+                            # same logs/backend/app-{date}.log.
     depends_on:
       - redis
       - api

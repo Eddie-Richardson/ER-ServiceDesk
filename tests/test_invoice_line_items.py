@@ -180,3 +180,27 @@ def test_line_item_actions_each_produce_their_own_distinct_audit_log_entry(clien
     assert "invoice_line_item_added" in actions
     assert "invoice_line_item_updated" in actions
     assert "invoice_line_item_removed" in actions
+
+
+def test_adding_a_line_item_rejects_a_nonexistent_service_id(client, agent_headers, db):
+    ticket = make_full_ticket(db)
+    invoice_resp = client.post("/invoices/", json={"ticket_id": ticket.id}, headers=agent_headers)
+    invoice_id = invoice_resp.json()["id"]
+
+    resp = client.post(f"/invoices/{invoice_id}/line-items", params={"service_id": 999999, "quantity": 1}, headers=agent_headers)
+    assert resp.status_code == 404
+
+
+def test_adding_a_line_item_rejects_a_nonexistent_part_id(client, agent_headers, db):
+    ticket = make_full_ticket(db)
+    invoice_resp = client.post("/invoices/", json={"ticket_id": ticket.id}, headers=agent_headers)
+    invoice_id = invoice_resp.json()["id"]
+
+    resp = client.post(f"/invoices/{invoice_id}/line-items", params={"part_id": 999999, "quantity": 1}, headers=agent_headers)
+    assert resp.status_code == 404
+
+
+def test_removing_a_line_item_on_a_nonexistent_id_is_a_safe_no_op(db):
+    from app.services.invoice_service import invoice_service
+    from tests.factories import make_plain_user
+    invoice_service.remove_line_item(db, line_item_id=999999, current_user_id=make_plain_user(db).id)  # must not raise

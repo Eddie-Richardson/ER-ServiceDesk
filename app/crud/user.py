@@ -2,17 +2,24 @@
 """
 Database access layer for User accounts.
 
-create/update are intentionally NOT implemented here. UserCreate/UserUpdate
-carry a plaintext `password` field, not the model's `hashed_password`
-column, so a generic dict-unpack create/update would either crash or store
-a plaintext password. That logic lives in UserService instead.
+create() takes hashed_password and must_change_password as explicit
+parameters rather than fields on UserCreate, since both are genuinely
+server-computed at creation time (a random temp password, hashed, and
+forced on first login) -- never something a client submits directly.
+See UserService.create() for where these are actually computed.
+
+update() is intentionally NOT implemented here -- a password change
+goes through UserService.reset_password() instead, which has its own
+real business logic (re-sending the account email, etc.) beyond a
+plain field update.
 """
 
 from sqlalchemy.orm import Session
 from app.models.user import User
+from app.schemas.user import UserCreate
 
 class UserCRUD:
-    """Direct database access for User records (read/delete only -- see module docstring)."""
+    """Direct database access for User records."""
 
     def get(self, db: Session, id: int) -> User | None:
         return db.query(User).filter(User.id == id).first()
@@ -37,6 +44,13 @@ class UserCRUD:
         Login window (see users.py's first_run_router).
         """
         return db.query(User.id).first() is not None
+
+    def create(self, db: Session, obj_in: UserCreate, hashed_password: str, must_change_password: bool) -> User:
+        obj = User(**obj_in.model_dump(), hashed_password=hashed_password, must_change_password=must_change_password)
+        db.add(obj)
+        db.commit()
+        db.refresh(obj)
+        return obj
 
     def delete(self, db: Session, id: int) -> None:
         obj = db.query(User).filter(User.id == id).first()

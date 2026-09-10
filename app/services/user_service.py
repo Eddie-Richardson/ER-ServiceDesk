@@ -76,14 +76,7 @@ class UserService:
                 detail=f"Couldn't send the account email, so the account was not created: {e}",
             )
 
-        user_data = obj_in.model_dump()
-        user_data["hashed_password"] = hash_password(temp_password)
-        user_data["must_change_password"] = True
-
-        db_obj = User(**user_data)
-        db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
+        db_obj = crud_user.create(db, obj_in, hashed_password=hash_password(temp_password), must_change_password=True)
 
         audit_log_service.log(
             db, "user_created", "user", db_obj.id, user_id=current_user_id,

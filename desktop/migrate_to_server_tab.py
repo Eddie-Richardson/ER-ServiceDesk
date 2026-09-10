@@ -22,6 +22,7 @@ import os
 import shutil
 import subprocess
 import sys
+import logging
 from datetime import datetime
 
 from PySide6.QtCore import QThread
@@ -37,6 +38,8 @@ from PySide6.QtWidgets import (
 
 from desktop.app_paths import get_compose_dir, get_env_backup_dir
 from desktop.migrate_to_server_worker import MigrateToServerWorker
+
+logger = logging.getLogger(__name__)
 
 
 class MigrateToServerTab(QWidget):
@@ -196,22 +199,16 @@ class MigrateToServerTab(QWidget):
         waiting for it to finish and confirming it actually succeeded
         before telling the admin the switch is done.
         """
-        debug_log_path = os.path.join(os.environ.get("TEMP", "."), "er-servicedesk-teardown-debug-log.txt")
-
-        def debug_log(message: str):
-            with open(debug_log_path, "a", encoding="utf-8") as log_file:
-                log_file.write(f"{datetime.now().isoformat()} - {message}\n")
-
-        debug_log("=== _teardown_and_switch_to_client starting ===")
+        logger.info("=== _teardown_and_switch_to_client starting ===")
         compose_dir = get_compose_dir()
 
         try:
             result = subprocess.run(
                 ["docker-compose", "down", "-v"], cwd=compose_dir, shell=True, timeout=60
             )
-            debug_log(f"docker-compose down -v: returncode={result.returncode}")
+            logger.info("docker-compose down -v: returncode=%s", result.returncode)
         except Exception as exc:
-            debug_log(f"docker-compose down -v FAILED: {type(exc).__name__}: {exc}")
+            logger.error("docker-compose down -v FAILED: %s: %s", type(exc).__name__, exc)
 
         for item in ("docker-compose.yml", "Dockerfile", "requirements.txt", "alembic.ini", "app", "alembic", ".env", "RestoreDatabaseLocal.exe"):
             item_path = os.path.join(compose_dir, item)
@@ -220,15 +217,15 @@ class MigrateToServerTab(QWidget):
                     shutil.rmtree(item_path, ignore_errors=True)
                 else:
                     os.remove(item_path)
-                debug_log(f"Removed {item_path}")
+                logger.info("Removed %s", item_path)
             except Exception as exc:
-                debug_log(f"Failed to remove {item_path}: {type(exc).__name__}: {exc}")
+                logger.error("Failed to remove %s: %s: %s", item_path, type(exc).__name__, exc)
 
         try:
             shutil.rmtree(get_env_backup_dir(), ignore_errors=True)
-            debug_log(f"Removed env backup dir: {get_env_backup_dir()}")
+            logger.info("Removed env backup dir: %s", get_env_backup_dir())
         except Exception as exc:
-            debug_log(f"Failed to remove env backup dir: {type(exc).__name__}: {exc}")
+            logger.error("Failed to remove env backup dir: %s: %s", type(exc).__name__, exc)
 
         address = self.address_input.text().strip()
         backend_url = f"http://{address}:8000"
@@ -239,13 +236,13 @@ class MigrateToServerTab(QWidget):
             f'-Verb RunAs -Wait -PassThru; '
             f'exit $p.ExitCode'
         )
-        debug_log(f"Launching elevated for registry write: exe_path={exe_path!r}, backend_url={backend_url!r}")
+        logger.info("Launching elevated for registry write: exe_path=%r, backend_url=%r", exe_path, backend_url)
 
         try:
             elevated_result = subprocess.run(["powershell", "-Command", ps_command], timeout=120)
-            debug_log(f"Elevated registry write: returncode={elevated_result.returncode}")
+            logger.info("Elevated registry write: returncode=%s", elevated_result.returncode)
         except Exception as exc:
-            debug_log(f"Elevated registry write FAILED to launch: {type(exc).__name__}: {exc}")
+            logger.error("Elevated registry write FAILED to launch: %s: %s", type(exc).__name__, exc)
             elevated_result = None
 
         if elevated_result is None or elevated_result.returncode != 0:

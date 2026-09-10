@@ -43,9 +43,16 @@ import faulthandler
 # entirely, and the whole thing is wrapped in its own try/except so
 # nothing about this diagnostic feature can ever prevent the app from
 # starting, regardless of what goes wrong opening it.
+#
+# faulthandler needs a genuinely open file object, not a path, and
+# writes directly to it from a C-level signal handler -- entirely
+# bypassing Python's own logging module by design, since that's
+# exactly what lets it capture a crash that kills Python itself. See
+# logging_config.get_crash_log_path() for why this can't go through
+# the same DatedRotatingFileHandler everything else here uses.
 try:
-    _faulthandler_log_path = os.path.join(os.environ.get("TEMP", "."), "er-servicedesk-crash-log.txt")
-    _faulthandler_log_file = open(_faulthandler_log_path, "a", encoding="utf-8")
+    from desktop.logging_config import get_crash_log_path
+    _faulthandler_log_file = open(get_crash_log_path(), "a", encoding="utf-8")
     faulthandler.enable(file=_faulthandler_log_file)
 except Exception:
     pass
@@ -55,23 +62,14 @@ except Exception:
 # in this console=False build, Python's own default exception handling
 # tries to print to sys.stderr, which is None here (not just
 # invisible), so it fails just as silently as the app itself would.
-# This replaces the default handler with one that writes the real
-# traceback to its own log file, so an unhandled exception leaves an
-# actual trace to diagnose from instead of the app just disappearing.
+# install_exception_logging() replaces the default handler with one
+# that logs the real traceback through the app's shared logger, so an
+# unhandled exception leaves an actual trace to diagnose from instead
+# of the app just disappearing.
 try:
-    _python_crash_log_path = os.path.join(os.environ.get("TEMP", "."), "er-servicedesk-python-crash-log.txt")
-
-    def _log_unhandled_exception(exc_type, exc_value, exc_traceback):
-        import traceback
-        from datetime import datetime
-        try:
-            with open(_python_crash_log_path, "a", encoding="utf-8") as f:
-                f.write(f"\n[{datetime.now().isoformat(timespec='seconds')}]\n")
-                traceback.print_exception(exc_type, exc_value, exc_traceback, file=f)
-        except Exception:
-            pass
-
-    sys.excepthook = _log_unhandled_exception
+    from desktop.logging_config import setup_logging, install_exception_logging
+    setup_logging()
+    install_exception_logging()
 except Exception:
     pass
 

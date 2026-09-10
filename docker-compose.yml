@@ -61,7 +61,15 @@ services:
       - "8000:8000"        # Expose API on localhost:8000
     env_file: .env         # Load environment variables
     volumes:
-      - C:\ProgramData\ER-ServiceDesk\logs:/app/logs   # Mount logs out to the
+      # Long-form syntax specifically -- the short form (host:container:mode)
+      # splits on colons, and a Windows path already has one right after
+      # its own drive letter (C:\...), which Docker Compose's parser
+      # misreads as an extra field, failing with "invalid volume
+      # specification". Long form avoids this: the source path is its
+      # own separate key, never parsed out of a colon-delimited string.
+      - type: bind
+        source: C:\ProgramData\ER-ServiceDesk\logs
+        target: /app/logs   # Mount logs out to the
                             # host -- without this, logs/backend/app-{date}.log
                             # only ever existed inside the container's own
                             # filesystem: unreadable from the host without
@@ -137,7 +145,9 @@ services:
     command: ["python", "-m", "app.workers.worker"]  # Worker entrypoint -- module form, matching worker.py's own documented usage. A real crash traced to a genuine bug: running it as a direct script instead put app/workers/ at the front of the import path, letting this project's own app/workers/queue.py shadow Python's stdlib queue module, breaking redis's own internal import of it.
     env_file: .env
     volumes:
-      - C:\ProgramData\ER-ServiceDesk\logs:/app/logs   # Same log directory
+      - type: bind
+        source: C:\ProgramData\ER-ServiceDesk\logs
+        target: /app/logs   # Same log directory
                             # as the api service -- worker.py also calls
                             # setup_logging() and writes to the same
                             # logs/backend/app-{date}.log.
@@ -165,7 +175,9 @@ services:
     command: ["sh", "-c", "python -m app.workers.scheduler && rqscheduler --url redis://redis:6379/0"]
     env_file: .env
     volumes:
-      - C:\ProgramData\ER-ServiceDesk\logs:/app/logs   # Same log directory
+      - type: bind
+        source: C:\ProgramData\ER-ServiceDesk\logs
+        target: /app/logs   # Same log directory
                             # as the api/worker services -- scheduler.py
                             # also calls setup_logging() and writes to the
                             # same logs/backend/app-{date}.log.

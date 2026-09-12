@@ -68,7 +68,7 @@ services:
       # specification". Long form avoids this: the source path is its
       # own separate key, never parsed out of a colon-delimited string.
       - type: bind
-        source: C:\ProgramData\ER-ServiceDesk\logs
+        source: C:/ProgramData/ER-ServiceDesk/logs
         target: /app/logs   # Mount logs out to the
                             # host -- without this, logs/backend/app-{date}.log
                             # only ever existed inside the container's own
@@ -146,7 +146,7 @@ services:
     env_file: .env
     volumes:
       - type: bind
-        source: C:\ProgramData\ER-ServiceDesk\logs
+        source: C:/ProgramData/ER-ServiceDesk/logs
         target: /app/logs   # Same log directory
                             # as the api service -- worker.py also calls
                             # setup_logging() and writes to the same
@@ -176,7 +176,7 @@ services:
     env_file: .env
     volumes:
       - type: bind
-        source: C:\ProgramData\ER-ServiceDesk\logs
+        source: C:/ProgramData/ER-ServiceDesk/logs
         target: /app/logs   # Same log directory
                             # as the api/worker services -- scheduler.py
                             # also calls setup_logging() and writes to the

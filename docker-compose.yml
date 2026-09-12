@@ -67,8 +67,20 @@ services:
       # misreads as an extra field, failing with "invalid volume
       # specification". Long form avoids this: the source path is its
       # own separate key, never parsed out of a colon-delimited string.
+      #
+      # LOG_HOST_DIR itself (from .env -- see setup.iss's WriteEnvFiles)
+      # rather than a fixed path here, since this same compose file is
+      # used for both Local and Server: for Local, docker-compose runs
+      # directly against Docker Desktop on this same Windows machine,
+      # so the source is a real Windows path (C:/ProgramData/...); for
+      # Server, this same docker-compose command instead runs against
+      # the remote Docker daemon inside the Ubuntu VM over TCP (see
+      # RunDockerSetup's own Server branch), which resolves this path
+      # on the VM's own Linux filesystem, not the Windows host's at
+      # all -- create_server_vm.ps1's own cloud-init provisioning is
+      # what actually creates that directory ahead of time.
       - type: bind
-        source: C:/ProgramData/ER-ServiceDesk/logs
+        source: ${LOG_HOST_DIR}
         target: /app/logs   # Mount logs out to the
                             # host -- without this, logs/backend/app-{date}.log
                             # only ever existed inside the container's own
@@ -76,13 +88,6 @@ services:
                             # exec-ing in, and wiped entirely if the container
                             # is ever recreated (not just restarted), defeating
                             # the point of the 30-day rotating history.
-                            # ProgramData specifically (not Program Files) --
-                            # keeps every log source (this backend, and the
-                            # desktop app -- see app_paths.py) under one
-                            # consistent, shared root, even though the
-                            # backend itself always runs in an admin context
-                            # (Local/Server) and could have used Program
-                            # Files safely on its own.
     depends_on:
       db:
         condition: service_healthy  # Waits for Postgres to actually
@@ -146,7 +151,7 @@ services:
     env_file: .env
     volumes:
       - type: bind
-        source: C:/ProgramData/ER-ServiceDesk/logs
+        source: ${LOG_HOST_DIR}
         target: /app/logs   # Same log directory
                             # as the api service -- worker.py also calls
                             # setup_logging() and writes to the same
@@ -176,7 +181,7 @@ services:
     env_file: .env
     volumes:
       - type: bind
-        source: C:/ProgramData/ER-ServiceDesk/logs
+        source: ${LOG_HOST_DIR}
         target: /app/logs   # Same log directory
                             # as the api/worker services -- scheduler.py
                             # also calls setup_logging() and writes to the

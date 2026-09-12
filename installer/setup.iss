@@ -1039,6 +1039,22 @@ begin
     'SECRET_KEY=' + SecretKey + #13#10 +
     'DEVICE_ACCOUNT_ENCRYPTION_KEY=' + DeviceAccountEncryptionKey + #13#10;
 
+  { docker-compose.yml's own log volume mount reads this rather than a
+    fixed path, since the same compose file serves two genuinely
+    different real filesystems: for Local, docker-compose runs
+    directly against Docker Desktop on this same Windows machine, so
+    the real, correct source is a Windows path; for Server, this same
+    docker-compose command instead runs against the remote Docker
+    daemon inside the Ubuntu VM over TCP (see RunDockerSetup's own
+    Server branch), which resolves a bind mount's source on the VM's
+    own Linux filesystem, not the Windows host's at all --
+    create_server_vm.ps1's own cloud-init provisioning is what
+    actually creates that directory ahead of time. }
+  if UsedServerVM then
+    EnvContent := EnvContent + 'LOG_HOST_DIR=/var/lib/er-servicedesk/logs' + #13#10
+  else
+    EnvContent := EnvContent + 'LOG_HOST_DIR=C:/ProgramData/ER-ServiceDesk/logs' + #13#10;
+
   { Business name, email credentials, and SMTP/IMAP settings are NOT
     written to .env at all anymore, not even for Local/new Server --
     they're real SystemSetting rows in the database now (see the

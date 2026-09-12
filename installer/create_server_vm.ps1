@@ -518,6 +518,7 @@ runcmd:
   - [ sh, -c, "curl -fsSL --connect-timeout 15 --max-time 120 https://get.docker.com | sh" ]
   - [ mkdir, -p, /etc/systemd/system/docker.service.d ]
   - [ sh, -c, "printf '[Service]\nExecStart=\nExecStart=/usr/bin/dockerd -H unix:///var/run/docker.sock -H tcp://0.0.0.0:2375\n' > /etc/systemd/system/docker.service.d/override.conf" ]
+  - [ mkdir, -p, /var/lib/er-servicedesk/logs ]
   - [ systemctl, daemon-reload ]
   - [ systemctl, enable, docker ]
   - [ systemctl, restart, docker ]
